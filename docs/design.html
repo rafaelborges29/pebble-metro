@@ -116,12 +116,6 @@ function press(key){
 }
 render();
 document.getElementById('alert-example').innerHTML=alertScreen();document.getElementById('service-example').innerHTML=arrival('service');document.getElementById('offline-example').innerHTML=arrival('stale');
-// Preview checks can exercise every state and check layout without external dependencies.
-window.verifyDesign=function(){
- const results=[];const saved={state,index,row,armed};
- for(const key of Object.keys(titles)){go(key);const s=document.getElementById('watch-screen');const content=s.querySelector('.content');const footer=s.querySelector('.foot');results.push({state:key,width:s.scrollWidth,height:s.scrollHeight,footerOverlap:!!(content&&footer&&content.getBoundingClientRect().bottom>footer.getBoundingClientRect().top+1)});}
- ({state,index,row,armed}=saved);render();return results;
-};
 console.log('Design states:',Object.keys(titles).length,'; mock data only');
 </script>
 </body>

@@ -104,8 +104,12 @@ notification service in the initial version.
 
 ## Remaining acceptance checks
 
-The implementation, regression tests, production browser data probe and native
-emulator checks are complete. Before declaring hardware reliability, verify
-Android PKJS → Bluetooth → Time 2, watch readability, actual Quiet Time/haptics,
-reconnection and Android app backgrounding. No physical install is authorized
+Initial live arrivals and the loading-feedback update were confirmed on the
+physical Time 2. The old unit suite was subsequently removed at the owner's
+request. A separately approved [real-emulator E2E flow](e2e.md) covers first use,
+arrivals and saved-favourite persistence; syntax/build and manual checks remain.
+Before declaring
+hardware reliability for the hardened release, verify Android PKJS → Bluetooth →
+Time 2, watch readability, actual Quiet Time/haptics, reconnection and Android app
+backgrounding. No physical install is authorized
 merely by a successful build; wait until the user is ready.

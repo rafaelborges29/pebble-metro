@@ -1,7 +1,8 @@
 # Implementation and data boundaries
 
 Target: Android Pebble app + Pebble Time 2 (`emery`), SDK 4.33.1.
-Implementation/research: 2026-10-19. Physical-device validation remains pending.
+Implementation/research: 2026-10-19. Initial live arrivals and loader validated
+on the physical watch; subsequent hardening and remaining hardware checks are pending.
 
 ```text
 Time 2: Alloy + Poco UI, local expiry and alerts
@@ -26,7 +27,9 @@ and rendering run in Alloy JavaScript.
 - Station topic: `json/vehicleeta/pt-ml/<station-id>/all`.
 
 Exactly pinned `paho-mqtt@1.1.0` owns MQTT framing/keepalive in PKJS. Reconnects
-back off from one to 30 seconds. There is one client and at most two station
+back off from one to 30 seconds. MQTT payloads above 65,536 bytes are discarded
+before UTF-8 decoding; Paho/WebSocket frame buffering is not bounded by this
+application-level check. There is one client and at most two station
 subscriptions: the viewed station and an armed/visible alert target. Old topics
 are unsubscribed. No vehicle-position subscription, map tiles or speculative
 provider failover.
@@ -34,7 +37,9 @@ provider failover.
 REST has a 15-second timeout and one-MiB response bound. Invalid responses and
 old HTTP Date/Age headers fail closed. Validated metadata is cached on the phone
 and marked cached on fallback. A stale cache must not erase newer watch
-favourites. Service errors never imply normal service. Service notices use the
+favourites. Successful metadata recovery also resends the actual feed connection
+state to clear any obsolete metadata error. Phone and watch both accept station
+names up to 80 characters. Service errors never imply normal service. Service notices use the
 newest status and are paginated one incident at a time using measured font width.
 Each notice is capped at 1,200 UTF-8 bytes, and text is shortened further when
 needed to keep the entire snapshot below 4,800 bytes. An ellipsis marks shortening.
@@ -55,7 +60,7 @@ is no stable vehicle identifier, so it is a one-shot next-arrival estimate alert
 not tracking a particular train.
 
 A monotonic feed `generation` records empty/invalid updates, disconnects, lost
-first-train directions and expired continuity. Every snapshot carries it. This
+first-train directions, loss of exact-second eligibility and expired continuity. Every snapshot carries it. This
 survives queue coalescing, so the watch cannot mistake a recovery below two
 minutes for a continuously observed threshold crossing.
 
@@ -99,7 +104,9 @@ A hello echoes the watch's send time and includes the phone's send time. The
 watch uses `echo - phoneTime` as a conservative clock-offset lower bound. It
 translates receipt/expiry and absolute timestamp estimates; outbound latency
 shortens, rather than extends, validity. Clock jumps or an interrupted app loop
-invalidate the session and require new data.
+invalidate the session and require new data. Explicit Retry also renews the
+handshake and offset, clears alert/service continuity and retries a disconnected
+feed without duplicating a connected client.
 
 ## Rendering, storage and alert lifecycle
 
@@ -111,6 +118,8 @@ hertz on the existing timer, with handshake/metadata/arrival stage labels. It
 pauses while unfocused and stops on explicit failure or after 15 seconds per
 stage/target; it never replaces stale or unavailable estimates with an endless
 spinner. Long station/destination labels are ellipsized; service text is paged.
+Both operations preserve surrogate pairs. Arrival and service-signature maps use
+null prototypes so external IDs cannot collide with inherited object properties.
 
 Favourites, last selection and optional haptic settings persist locally on the
 watch. Storage failure is shown and changes remain in memory. Up to 16 valid
@@ -129,6 +138,14 @@ server-pushed background alerts are claimed. See [flow rules](design.md).
 ## Verification and limits
 
 See the README for the exact checks and remaining Android/hardware validation.
+The old unit suite and test command were removed at the owner's request;
+`npm run check` performs entry-point syntax checks and a production build only.
+A subsequently approved TypeScript/Effect [Playwright E2E suite](e2e.md) runs the
+actual PBW in private Emery QEMU and its extracted phone bundle in Chromium,
+with deterministic REST/MQTT and real AppMessage/button/screenshot paths. It covers
+first use, arrivals and favourite persistence, not all failure/recovery cases.
+Review fixes were also verified with temporary Node probes and have not yet been
+installed on the physical watch. Check GitHub's Checks tab for hosted CI results.
 The built phone bundle succeeded in actual Chromium against live REST and MQTT.
 The SDK 4.33.1 emulator rendered catalogue/favourites and injected fresh real
 arrival snapshots; synthetic threshold/invalid-data fixtures exercised its alert

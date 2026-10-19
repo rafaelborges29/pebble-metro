@@ -21,8 +21,11 @@ PebbleKit JS. It connects **directly to UnderLX**, not the homeserver Metro app.
 - Source attribution and licence information under **About / data**.
 
 **Alerts require Metro to remain running.** Closing the watch app cancels an
-arrival alert. Expired, uncertain or interrupted predictions never trigger a
-catch-up alert. These are estimates, not promises about a particular train.
+arrival alert. Expiry, interruptions and loss of exact-second estimates clear
+alert continuity, including when intermediate updates are coalesced on the phone.
+See the [publishing TODOs](docs/publishing-todo.md) for review fixes, remaining
+validation tasks and release gates. These are estimates, not promises about a
+particular train.
 
 No custom Android app, server, Docker stack, account, GPS permission or
 Tailscale connection is needed. The paired Android phone needs the Pebble app
@@ -43,8 +46,11 @@ npm ci
 npm run check
 ```
 
-`check` runs syntax checks, Node tests and the pinned-SDK production build.
-`npm run build` builds without rerunning the tests. The package is:
+`check` runs entry-point syntax checks and the pinned-SDK production build.
+The old unit suite and `npm test` command were removed at the owner's request.
+A separately approved [TypeScript/Effect emulator E2E suite](docs/e2e.md) runs with
+`npm run e2e`; `npm run typecheck` checks its types. `npm run build` runs only the
+build. The package is:
 
 ```text
 build/pebble-metro.pbw
@@ -63,8 +69,26 @@ Keep 4.33.1 active while building: Pebble Tool 5.0.39 runs the Alloy prebuild
 with the active SDK even when `--sdk` selects a different SDK for the C build.
 Restore a previous SDK with `pebble sdk activate VERSION` if needed. Do not add `"type": "module"`
 to the root package: the SDK generates a CommonJS webpack configuration there.
-Node's module-detection warning during tests is harmless. The small build-time
+Node's module-detection warning during standalone Node checks is harmless. The small build-time
 ESM adapter exists because the SDK's webpack 1 cannot lower these modules itself.
+
+## Functional tests and CI
+
+```sh
+pebble sdk activate 4.33.1
+npm ci
+npx playwright install chromium
+npm run e2e
+```
+
+This rebuilds the package and runs one real-emulator Playwright flow: save a
+favourite, receive fixture arrivals through the actual bundled phone JavaScript,
+and retain the favourite after relaunch. TypeScript/Effect manage the harness;
+the watch application remains Alloy JavaScript. No physical watch or login is
+needed. See [E2E setup, screenshots and limits](docs/e2e.md).
+
+The GitHub Actions workflow runs on pull requests and pushes to `main`; check
+GitHub's Checks tab for the hosted result. It never publishes the app.
 
 ## Controls
 
@@ -126,10 +150,19 @@ runtime heap or the loaded JavaScript archive.
   favourite creation and persistence, and arrival rendering with a freshly
   captured live UnderLX snapshot injected through the SDK.
 - Native emulator alert crossing and invalidation with explicitly synthetic
-  predictions; model/UI tests cover expiry, gaps, focus, reconnect, removal,
-  service freshness, clock changes and transport retries. A native stress check
-  delivered eight synthetic notices (4,712 UTF-8 bytes) and paged through all of
-  them without exhausting watch memory.
+  predictions. A native stress check delivered eight synthetic notices
+  (4,712 UTF-8 bytes) and paged through all of them without exhausting watch memory.
+- Subsequent review fixes were checked with temporary Node probes, syntax checks
+  and a production build: uncertain/coalesced alert continuity, metadata and
+  phone-clock recovery, pre-decode MQTT byte bounds, prototype-safe dictionaries,
+  station-name limits and Unicode wrapping/ellipsizing. These fixes have not yet
+  been installed or verified on the physical watch.
+
+- Newly approved real-emulator E2E: actual PBW and its extracted PKJS bundle,
+  deterministic REST/MQTT fixtures, button-driven favourite selection, arrival
+  screenshots and persistence across relaunch. The suite and workflow are
+  described in [E2E verification](docs/e2e.md). These are synthetic source data,
+  not another live UnderLX or physical Android check.
 
 - Physical Time 2 on firmware **4.41.2**: CloudPebble ping and installation
   succeeded on 2026-10-19. Android PKJS started, and a watch screenshot confirmed
@@ -182,7 +215,8 @@ and reconnection checks remain pending.
 - `src/pkjs/` — direct HTTPS/MQTT connection and bounded, acknowledged transport.
 - `src/c/` — Alloy entry and tiny native Quiet Time/exit hooks, not a C UI.
 - `docs/design.html` — original interactive design mockup, with fictional data.
-- [Architecture](docs/architecture.md) · [Flow and alert design](docs/design.md).
+- [Architecture](docs/architecture.md) · [Flow and alert design](docs/design.md) ·
+  [Functional tests and CI](docs/e2e.md).
 
 Data: [UnderLX](https://underlx.com/) under
 [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).

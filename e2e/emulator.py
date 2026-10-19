@@ -1,0 +1,177 @@
+"""Private, disposable SDK emulator. JSON-lines IPC; never connects to hardware."""
+import base64
+import bz2
+import io
+import json
+import logging
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import uuid
+from pathlib import Path
+from zipfile import ZipFile
+
+from PIL import Image, ImageDraw
+from libpebble2.communication import PebbleConnection
+from libpebble2.communication.transports.qemu import QemuTransport, MessageTargetQemu
+from libpebble2.communication.transports.qemu.protocol import QemuBluetoothConnection, QemuButton
+from libpebble2.protocol.apps import AppRunState, AppRunStateStart
+from libpebble2.protocol.logs import AppLogMessage, AppLogShippingControl
+from libpebble2.services.appmessage import AppMessageService, CString
+from libpebble2.services.install import AppInstaller
+from libpebble2.services.screenshot import Screenshot
+from pebble_tool.sdk import sdk_manager
+
+APP = uuid.UUID("5576168a-8b38-4be1-90e7-343af607c167")
+output_lock = threading.Lock()
+
+
+def emit(message):
+    with output_lock:
+        print(json.dumps(message), flush=True)
+
+
+def terminate(_signal, _frame):
+    raise SystemExit(0)
+
+
+signal.signal(signal.SIGTERM, terminate)
+signal.signal(signal.SIGINT, terminate)
+logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
+
+
+def run():
+    sdk = Path(sdk_manager.path_for_sdk("4.33.1"))
+    toolchain = Path(sdk_manager.root_path_for_sdk("4.33.1")) / "toolchain"
+    firmware = sdk / "pebble/emery/qemu"
+    process = None
+    connection = None
+    # Each process gets new flash, not the developer's managed emulator storage.
+    with tempfile.TemporaryDirectory(prefix="metro-e2e-") as directory:
+        directory = Path(directory)
+        shutil.copyfile(firmware / "qemu_micro_flash.bin", directory / "micro.bin")
+        with bz2.open(firmware / "qemu_spi_flash.bin.bz2", "rb") as source:
+            with (directory / "spi.bin").open("wb") as destination:
+                shutil.copyfileobj(source, destination)
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        command = [
+            str(toolchain / "bin/qemu-pebble"),
+            "-machine", "pebble-emery", "-cpu", "cortex-m33",
+            "-kernel", str(directory / "micro.bin"),
+            "-drive", f"if=mtd,format=raw,file={directory / 'spi.bin'}",
+            "-rtc", "base=utc", "-display", "none",
+            "-audio", "driver=none,id=audio0",
+            "-serial", "null", "-serial", f"tcp:127.0.0.1:{port},server=on,wait=off",
+            "-serial", "file:" + str(directory / "console.log"),
+        ]
+        try:
+            process = subprocess.Popen(command, stdout=sys.stderr, stderr=sys.stderr)
+            deadline = time.monotonic() + 30
+            while True:
+                if process.poll() is not None:
+                    raise RuntimeError(f"QEMU exited with status {process.returncode}")
+                try:
+                    transport = QemuTransport(port=port)
+                    transport.connect()
+                    break
+                except Exception:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("QEMU socket did not start")
+                    time.sleep(0.1)
+            connection = PebbleConnection(transport)
+            connection.run_async()
+            connection.transport.send_packet(QemuBluetoothConnection(connected=True), MessageTargetQemu())
+            service = AppMessageService(connection)
+            acknowledgements = {}
+            condition = threading.Condition()
+
+            def acknowledged(transaction, _app, ok):
+                with condition:
+                    acknowledgements[transaction] = ok
+                    condition.notify_all()
+
+            service.register_handler("ack", lambda tid, app: acknowledged(tid, app, True))
+            service.register_handler("nack", lambda tid, app: acknowledged(tid, app, False))
+            service.register_handler("appmessage", lambda _tid, app, data:
+                emit({"event": "appmessage", "data": data}) if app == APP else None)
+            connection.register_endpoint(AppLogMessage, lambda packet:
+                print(f"{packet.filename}:{packet.line_number}: {packet.message}", file=sys.stderr, flush=True))
+            connection.send_packet(AppLogShippingControl(enable=True))
+            emit({"event": "ready"})
+            for line in sys.stdin:
+                request = json.loads(line)
+                try:
+                    method, params = request["method"], request.get("params", {})
+                    result = None
+                    if method == "install":
+                        # SDK's own install command throttles QEMU transfers too.
+                        original_send = connection.send_packet
+
+                        def throttled(packet, *args, **kwargs):
+                            time.sleep(0.002)
+                            return original_send(packet, *args, **kwargs)
+
+                        connection.send_packet = throttled
+                        try:
+                            AppInstaller(connection, params["path"]).install()
+                        finally:
+                            connection.send_packet = original_send
+                        with ZipFile(params["path"]) as bundle:
+                            result = bundle.read("pebble-js-app.js").decode("utf-8")
+                    elif method == "send":
+                        transaction = service.send_message(APP, {10000: CString(params["data"])})
+                        with condition:
+                            if not condition.wait_for(lambda: transaction in acknowledgements, timeout=10):
+                                raise TimeoutError("Native AppMessage ACK timed out")
+                            if not acknowledgements.pop(transaction):
+                                raise RuntimeError("Native AppMessage NACK")
+                    elif method == "press":
+                        button = {"back": 1, "up": 2, "select": 4, "down": 8}[params["button"]]
+                        connection.transport.send_packet(QemuButton(state=button), MessageTargetQemu())
+                        time.sleep(0.1)
+                        connection.transport.send_packet(QemuButton(state=0), MessageTargetQemu())
+                        time.sleep(0.15)
+                    elif method == "launch":
+                        connection.send_packet(AppRunState(data=AppRunStateStart(uuid=APP)))
+                    elif method == "screenshot":
+                        rows = Screenshot(connection).grab_image()
+                        image = Image.frombytes("RGB", (len(rows[0]) // 3, len(rows)), b"".join(rows))
+                        drawing = ImageDraw.Draw(image)
+                        if params.get("mask_clock", False):
+                            drawing.rectangle((155, 0, 199, 23), fill="black")
+                        loader = params.get("mask_loader")
+                        if loader in ("empty", "arrivals"):
+                            y = 85 if loader == "empty" else 130
+                            drawing.rectangle((10, y, 57, y + 7), fill="white")
+                        output = io.BytesIO()
+                        image.save(output, format="PNG")
+                        result = base64.b64encode(output.getvalue()).decode()
+                    else:
+                        raise ValueError(f"Unknown emulator method: {method}")
+                    emit({"id": request["id"], "result": result})
+                except Exception as error:
+                    emit({"id": request["id"], "error": str(error)})
+        finally:
+            if connection:
+                connection.transport.socket.close()
+            if process:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+            console = directory / "console.log"
+            if console.exists():
+                print(console.read_text(errors="replace"), file=sys.stderr)
+
+
+if __name__ == "__main__":
+    run()
