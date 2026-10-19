@@ -1,0 +1,31 @@
+{
+  "name": "pebble-metro",
+  "author": "Rafael Borges",
+  "version": "0.1.0",
+  "description": "Independent Lisbon Metro watch app for Pebble Time 2, built with Alloy.",
+  "scripts": {
+    "build": "pebble build --sdk 4.33.1",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check src/embeddedjs/main.js && node --check src/pkjs/index.js && npm test && npm run build"
+  },
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {
+    "paho-mqtt": "1.1.0"
+  },
+  "pebble": {
+    "displayName": "Metro Lisboa",
+    "uuid": "5576168a-8b38-4be1-90e7-343af607c167",
+    "projectType": "moddable",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["emery"],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": ["DATA"],
+    "resources": {
+      "media": []
+    }
+  }
+}

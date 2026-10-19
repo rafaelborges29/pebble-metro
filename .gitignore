@@ -1,0 +1,8 @@
+build/
+src/c/mc.ffi.c
+node_modules/
+.waf-*
+.lock-waf*
+*.pyc
+__pycache__/
+.DS_Store

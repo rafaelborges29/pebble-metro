@@ -1,0 +1,16 @@
+{
+  "include": [
+    "$(MODDABLE)/examples/manifest_mod.json",
+    "$(MODDABLE)/examples/manifest_typings.json"
+  ],
+  "modules": {
+    "*": ["./main", "../common/display", "../common/watch-model"]
+  },
+  "ffi": {
+    "sources": ["../c/alerts.c"],
+    "functions": {
+      "metro_pulse": { "arguments": ["uint32_t"], "returns": "uint32_t" },
+      "metro_exit": { "arguments": [], "returns": "void" }
+    }
+  }
+}
