@@ -5,10 +5,13 @@
   "description": "Independent Lisbon Metro watch app for Pebble Time 2, built with Alloy.",
   "scripts": {
     "build": "pebble build --sdk 4.33.1",
-    "test": "node --test test/*.test.mjs",
-    "check": "node --check src/embeddedjs/main.js && node --check src/pkjs/index.js && npm test && npm run build"
+    "typecheck": "tsc --project e2e/tsconfig.json",
+    "e2e": "npm run typecheck && npm run check && playwright test",
+    "check": "node --check src/embeddedjs/main.js && node --check src/pkjs/index.js && npm run build"
   },
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {
     "paho-mqtt": "1.1.0"
@@ -19,13 +22,24 @@
     "projectType": "moddable",
     "sdkVersion": "3",
     "enableMultiJS": true,
-    "targetPlatforms": ["emery"],
+    "targetPlatforms": [
+      "emery"
+    ],
     "watchapp": {
       "watchface": false
     },
-    "messageKeys": ["DATA"],
+    "messageKeys": [
+      "DATA"
+    ],
     "resources": {
       "media": []
     }
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "effect": "4.0.5",
+    "mqtt-packet": "9.0.2",
+    "typescript": "7.0.2"
   }
 }
