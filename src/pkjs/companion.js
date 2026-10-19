@@ -1,4 +1,4 @@
-import { parseNetwork, parseFavorites, parseDisturbances } from "../common/metro.js";
+import { parseNetwork, parseFavorites, parseDisturbances, exactSeconds } from "../common/metro.js";
 import { createTransport } from "./transport.js";
 import { openFeed } from "./feed.js";
 
@@ -11,7 +11,7 @@ function cachedNetwork(value) {
     data.lines.map(function (l) { return { network: "pt-ml", id: l.id, name: l.name, color: typeof l.color === "string" && /^#[\da-f]{6}$/i.test(l.color) ? l.color.slice(1) : "", stations: l.stations }; }));
 }
 
-// Inject platform edges so tests execute the production parser/queue/feed path.
+// Platform edges are supplied by the Android bridge.
 export function createCompanion(options) {
   var pebble = options.Pebble, timers = options.timers, now = options.now;
   var transport = createTransport(pebble, timers), network = null, cached = false;
@@ -71,6 +71,7 @@ export function createCompanion(options) {
       if (failed && network) cached = true;
       if (failed && !network) send({ type: "connection", status: "disconnected", error: "Station metadata unavailable" });
       catalog();
+      if (!failed) send(connection);
       selection();
       refreshService();
     }
@@ -112,7 +113,8 @@ export function createCompanion(options) {
         var previous = snapshots.filter(function (snapshot) { return snapshot.station === event.station; })[0];
         var gap = !event.predictions.length || (previous && previous.predictions.some(function (prediction) {
           return prediction.expires <= event.at || (prediction.order === 1 && !event.predictions.some(function (next) {
-            return next.direction === prediction.direction && next.order === 1;
+            return next.direction === prediction.direction && next.order === 1
+              && (prediction.type !== "e" || prediction.units !== "s" || isFinite(exactSeconds(next, event.at)));
           }));
         }));
         if (gap) arrivalGeneration++;
@@ -157,6 +159,7 @@ export function createCompanion(options) {
       catalog();
       send({ type: "service", ok: false, updated: service.updated, disturbances: service.disturbances });
       startFeed();
+      feed.refresh();
       send(connection);
       loadMetadata();
       schedulePoll();

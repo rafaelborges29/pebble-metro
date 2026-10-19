@@ -11,18 +11,18 @@ export class WatchModel {
     this.index = 0;
     this.link = false;
     this.connection = 'connecting';
-    this.arrivals = {};
+    this.arrivals = Object.create(null);
     this.service = { ok: false, updated: 0, disturbances: [] };
     this.armed = null;
     this.alert = null;
     this.serviceBaseline = false;
-    this.serviceSignatures = {};
+    this.serviceSignatures = Object.create(null);
   }
   get favorite() { return this.favorites[this.index] || null; }
   setLink(connected) {
     this.link = connected;
     if (!connected) {
-      this.arrivals = {};
+      this.arrivals = Object.create(null);
       this.service.ok = false;
       this.serviceBaseline = false;
       if (this.armed) this.armed.previous = undefined;
@@ -64,7 +64,7 @@ export class WatchModel {
       const disturbances = data.disturbances.filter(d => d && typeof d.id === 'string' && typeof d.line === 'string'
         && typeof d.description === 'string' && Number.isFinite(d.updated));
       if (now - this.service.updated >= SERVICE_TTL) this.serviceBaseline = false;
-      const signatures = {};
+      const signatures = Object.create(null);
       let changed = false;
       for (const d of disturbances) {
         const signature = d.description;
@@ -165,7 +165,7 @@ export function createReceiver(session, deliver) {
   };
 }
 
-// Word wrapping is deterministic and tested; every source character remains available.
+// Bounded word wrapping keeps surrogate pairs together.
 export function paginate(text, columns = 23, lines = 5, measure) {
   const fits = value => value.length <= columns && (!measure || measure(value));
   const words = String(text).replace(/\s+/g, ' ').trim().split(' ');
@@ -176,6 +176,8 @@ export function paginate(text, columns = 23, lines = 5, measure) {
     while (!fits(word)) {
       let cut = Math.min(columns, word.length);
       while (cut > 1 && !fits(word.slice(0, cut))) cut--;
+      if (word.charCodeAt(cut - 1) >= 0xD800 && word.charCodeAt(cut - 1) <= 0xDBFF
+        && word.charCodeAt(cut) >= 0xDC00 && word.charCodeAt(cut) <= 0xDFFF) cut += cut === 1 ? 1 : -1;
       rows.push(word.slice(0, cut)); word = word.slice(cut);
     }
     if (word) row = row ? row + ' ' + word : word;

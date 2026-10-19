@@ -14,7 +14,7 @@ try {
   if (Array.isArray(saved.favorites)) model.favorites = saved.favorites.filter(validSavedFavorite).slice(0, MAX_FAVORITES).map(f => {
     const result = { station: f.station, line: f.line, direction: f.direction };
     for (const key of ['stationName', 'lineName', 'directionName', 'color']) {
-      if (typeof f[key] === 'string' && f[key].length <= 64) result[key] = f[key];
+      if (typeof f[key] === 'string' && f[key].length <= 80) result[key] = f[key];
     }
     return result;
   });
@@ -45,7 +45,12 @@ function label(text, x, y, width, height, size = 18, bold = false, color = 'blac
   const face = font(size, bold);
   let value = String(text);
   if (render.getTextWidth(value, face) > width) {
-    while (value.length && render.getTextWidth(value + '…', face) > width) value = value.slice(0, -1);
+    while (value.length && render.getTextWidth(value + '…', face) > width) {
+      let end = value.length - 1;
+      if (value.charCodeAt(end - 1) >= 0xD800 && value.charCodeAt(end - 1) <= 0xDBFF
+        && value.charCodeAt(end) >= 0xDC00 && value.charCodeAt(end) <= 0xDFFF) end--;
+      value = value.slice(0, end);
+    }
     value += '…';
   }
   render.drawText(value, face, colors[color], x, y + Math.max(0, Math.floor((height - face.height) / 2)));
@@ -145,7 +150,7 @@ function newSession() {
   console.log('Metro session: ' + session);
   receiver = createReceiver(session, receive);
   offset = undefined; ready = false; pending = []; loadingStage = '';
-  model.arrivals = {}; model.connection = 'connecting'; model.error = '';
+  model.arrivals = Object.create(null); model.connection = 'connecting'; model.error = '';
   if (model.armed) model.armed.previous = undefined;
   queue({ type: 'hello' });
   draw();
@@ -153,7 +158,7 @@ function newSession() {
 function validCatalog(network) {
   return network && Array.isArray(network.stations) && network.stations.length > 0 && network.stations.length <= 100
     && Array.isArray(network.lines) && network.lines.length > 0 && network.lines.length <= 10
-    && network.stations.every(s => s && typeof s.id === 'string' && typeof s.name === 'string' && s.name.length <= 64 && Array.isArray(s.lines))
+    && network.stations.every(s => s && typeof s.id === 'string' && typeof s.name === 'string' && s.name.length <= 80 && Array.isArray(s.lines))
     && network.lines.every(l => l && typeof l.id === 'string' && typeof l.name === 'string' && typeof l.color === 'string' && Array.isArray(l.stations));
 }
 function receive(data) {
@@ -196,9 +201,8 @@ function tickAlert(now) {
   }
 }
 function refresh() {
-  loadingStage = ''; model.error = '';
-  if (ready) { queue({ type: 'refresh' }); sync(); }
-  else queue({ type: 'hello' });
+  model.setLink(false);
+  newSession();
 }
 function menu() {
   if (view === 'favorites') return [

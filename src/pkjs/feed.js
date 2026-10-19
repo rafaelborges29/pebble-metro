@@ -48,8 +48,8 @@ export function openFeed(options) {
         if (!station) return;
         var received = options.now(), predictions = [];
         try {
+          if (message.payloadBytes.byteLength > 65536) throw new Error("Arrival message too large");
           var payload = message.payloadString;
-          if (payload.length > 65536) throw new Error("Arrival message too large");
           predictions = parsePredictions(JSON.parse(payload), received);
         } catch (_) {
           // Unavailable, malformed and empty updates invalidate previous ETAs.
