@@ -1,4 +1,9 @@
 build/
+dist/
+*.pbw
+*.log
+.env
+.env.*
 src/c/mc.ffi.c
 node_modules/
 .waf-*

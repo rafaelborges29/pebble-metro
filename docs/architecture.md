@@ -1,173 +1,169 @@
-# Implementation and data boundaries
+# Native implementation and data boundaries
 
-Target: Android Pebble app + Pebble Time 2 (`emery`), SDK 4.33.1.
-Implementation/research: 2026-10-19. Initial live arrivals and loader validated
-on the physical watch; subsequent hardening and remaining hardware checks are pending.
+Target: Pebble Time 2 (`emery`), Android Pebble app, SDK 4.33.1.
+The watch is native C. Only the phone companion is JavaScript.
 
 ```text
-Time 2: Alloy + Poco UI, local expiry and alerts
-    ↕ bounded DATA chunks + application receipts
+Time 2: one native window + drawing layer, fixed-size model and persistence
+    ↕ DATA JSON chunks + application receipts
 Android: bundled PebbleKit JS inside the Pebble mobile app
-    ↕ HTTPS / MQTT over secure WebSocket
-UnderLX hosted data sources
+    ↕ HTTPS station/line catalogue + MQTT over secure WebSocket
+UnderLX hosted sources
 ```
 
-There are no requests to the homeserver Metro app, no shared runtime, custom
-backend, GPS dependency, private Metro credentials or hosted settings page.
-Only the SDK bridge and tiny exit/Quiet Time hooks are native C; product logic
-and rendering run in Alloy JavaScript.
+There are no alerts, vibration, disturbances, settings page, custom backend,
+background worker or watch-side JS runtime. No GPS or private Metro credentials.
 
-## Direct sources
+## Native memory design
 
-- REST base: `https://api.underlx.com/v1`.
-- `/stations` and `/lines`: current selectable metadata.
-- `/disturbances?filter=ongoing`: current service updates, polled every 30 seconds.
-- MQTT broker: `wss://perturbacoes.pt/websocket/`.
-- Public WebSocket username `ws`, no password.
-- Station topic: `json/vehicleeta/pt-ml/<station-id>/all`.
+All catalogue, favourite, ETA, token and transport storage is statically bounded:
 
-Exactly pinned `paho-mqtt@1.1.0` owns MQTT framing/keepalive in PKJS. Reconnects
-back off from one to 30 seconds. MQTT payloads above 65,536 bytes are discarded
-before UTF-8 decoding; Paho/WebSocket frame buffering is not bounded by this
-application-level check. There is one client and at most two station
-subscriptions: the viewed station and an armed/visible alert target. Old topics
-are unsubscribed. No vehicle-position subscription, map tiles or speculative
-provider failover.
+- 80 stations and eight lines, represented with IDs and station indices/line masks.
+- Station IDs up to 48 ASCII bytes; input station/line names validated at their
+  full 240/120 UTF-8 byte bounds, then display labels safely truncated to 80/40
+  UTF-8 bytes. Native text drawing ellipsizes at the actual screen width.
+- 16 favourites, each with at most three fixed-size predictions.
+- Two small persisted recent-route snapshots, not a second full catalogue/model.
+- One 5,000-byte reassembly prefix, a 2,000-byte decoded chunk scratch buffer,
+  1,024 caller-owned JSON tokens, 4,096-byte AppMessage inbox and 1,024-byte outbox.
+- One window/layer. Menus draw at most four rows and have no per-row callbacks,
+  dynamic object trees or per-navigation allocations.
 
-REST has a 15-second timeout and one-MiB response bound. Invalid responses and
-old HTTP Date/Age headers fail closed. Validated metadata is cached on the phone
-and marked cached on fallback. A stale cache must not erase newer watch
-favourites. Successful metadata recovery also resends the actual feed connection
-state to clear any obsolete metadata error. Phone and watch both accept station
-names up to 80 characters. Service errors never imply normal service. Service notices use the
-newest status and are paginated one incident at a time using measured font width.
-Each notice is capped at 1,200 UTF-8 bytes, and text is shortened further when
-needed to keep the entire snapshot below 4,800 bytes. An ellipsis marks shortening.
-Service freshness expires after 90 seconds.
+The native SDK RAM report now includes application code and static data. Runtime
+`heap_bytes_used()` / `heap_bytes_free()` samples are logged at startup, catalogue
+replacement and periodically during favourite switching. Emulator stress checks
+exercise the full favourite limit and repeated switches with source updates.
+There is no interpreter or separately loaded JS archive. The per-app budget is
+128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
+rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-## Prediction semantics
+The measured 0.2.0 baseline reports **61,196 bytes native code/static RAM**
+and **69,876 bytes available heap before UI setup**. Repeated native E2E measured
+**64,344–64,424 bytes free** after UI/messages, with no switch-sample growth.
+The actual Emery watch binary plus resources total approximately **29 KiB**.
+Most of the PBW's remaining size is phone JavaScript and its source map. Rebuilds
+can change package size/hash; these measurements are emulator evidence, not
+physical-watch heap or battery acceptance.
 
-`validFor` and relative countdowns have already been aged by UnderLX. Decrement
-only from receipt, not from `made` a second time. Separately reject upstream
-`made` timestamps at least 120 seconds old or more than 30 seconds in the future.
-Remaining validity is bounded to 120 seconds. Unknown/unavailable, malformed and
-unsupported estimates replace old predictions rather than refreshing them.
+## Sources and validation
 
-Ranges/bounds retain their uncertainty; minute-based estimates are not exact
-second countdowns. Zero is due/at platform. The alert accepts only a fresh,
-exact seconds estimate and an observed crossing from above 120 seconds. There
-is no stable vehicle identifier, so it is a one-shot next-arrival estimate alert,
-not tracking a particular train.
+- REST: `https://api.underlx.com/v1/stations` and `/lines`.
+- MQTT: `wss://perturbacoes.pt/websocket/`, public username `ws`, no password.
+- Selected station topic: `json/vehicleeta/pt-ml/<station-id>/all`.
 
-A monotonic feed `generation` records empty/invalid updates, disconnects, lost
-first-train directions, loss of exact-second eligibility and expired continuity. Every snapshot carries it. This
-survives queue coalescing, so the watch cannot mistake a recovery below two
-minutes for a continuously observed threshold crossing.
+The existing pinned Paho client handles MQTT framing/keepalive. Reconnect backoff
+is one to 30 seconds. Only the selected station is subscribed; there is no armed
+secondary route and no service-status polling.
+
+REST requests have a 15-second timeout, a one-MiB bound, and old Date/Age headers
+fail closed. Validated metadata is cached on the phone and refreshed quietly.
+Missing/cached metadata retries after 30 seconds. Recovery resends the actual
+feed state so an obsolete metadata failure does not stick. MQTT payloads over
+65,536 bytes are rejected before string decoding; WebSocket/Paho frame buffering
+is outside that application-level limit.
+
+The phone retains the original prediction semantics: age relative estimates only
+from receipt, not from `made` again; independently reject `made` at least 120
+seconds old or more than 30 seconds in the future. `validFor` is capped at 120
+seconds and bounded by source age. Empty/malformed snapshots invalidate previous
+data. Ranges/bounds and minute-only uncertainty are not converted into exact
+seconds. There is no stable vehicle identifier or train-tracking claim.
+
+The native receiver independently validates finite values, types, units, orders,
+receipt/expiry bounds, timestamps, source ordering and selected route IDs. Watch
+receipt times are conservatively rounded down to seconds; expiry is shortened,
+never extended. Closed time is counted. Absolute timestamps are translated with
+the handshake offset. Zero is `Due` / `Estimated now`, not observed presence.
 
 ## Watch/phone protocol
 
-`DATA` is the only application key. Watch commands are bounded JSON objects with
-`v:1`, a per-run session and `type`. Commands: `hello`, `watch`, `refresh`,
-`catalog` and `ack`.
+Watch commands remain bounded JSON `{v:1,session,type,...}` with `hello`, `watch`,
+`catalog` and `ack`. IDs/sessions are validated ASCII before serialization.
+One native outbox send is active; pending flags are consumed on successful queueing,
+not at the later callback, so rapid favourite changes cannot be lost. A fresh phone
+runtime sends the startup wake `{}`. Native starts a new session (invalidating old
+ETAs if already running), even if the physical app connection never dropped.
 
-PKJS first sends an empty DATA probe. Alloy `Message.onWritable` does not fire
-until it receives a PKJS message; waiting for a watch hello without this probe
-would deadlock startup. The normal session handshake follows immediately.
+The phone answers hello first: `{type:"hello",echo:<watch-send-ms>,at:<phone-ms>}`.
+The watch's `echo - at` is a conservative clock-offset lower bound. Retry creates
+a new session/offset. Clock discontinuities invalidate estimates. The header clock
+uses the watch's local time; this does not affect Unix-time ETA arithmetic.
 
-Phone messages are limited to 5,000 UTF-8 bytes and split into at most 32 chunks
-of 500 characters, without splitting surrogate pairs. Metadata validation and
-service text budgets leave space for the message envelope. Unrepresentable
-arrival snapshots explicitly invalidate the old estimates instead of being
-silently dropped:
+Compact catalogue:
 
 ```text
-{v:1, session, id, part, total, text}
+{type:"catalog", cached:boolean,
+ stations:[[id,name,lineMask],...],
+ lines:[[id,name,"#rrggbb",[stationIndex,...]],...]}
 ```
 
-There is one physical AppMessage in flight. **Physical ACK is insufficient:**
-Alloy's native inbox can ACK a packet before JavaScript reads it, and a following
-packet can overwrite that unread map. The phone therefore also waits for the
-watch's application receipt (`type:ack`, `id`, `part`) before advancing. Missing
-receipts retry identical bytes/IDs. Data batches stop after three failures;
-hello retries until the session is replaced or the app exits. Queues are bounded
-and replace obsolete queued arrivals per station.
+The complete catalogue is validated before replacing the old arrays: capacities,
+duplicate IDs, path indices, line masks, colours and reciprocal membership.
+A cached phone catalogue never deletes watch favourites. A fresh catalogue may
+invalidate estimates for directions no longer served, but saved IDs remain until
+the user removes them.
 
-The watch rejects foreign sessions, out-of-order/inconsistent chunks and oversized
-records, including an independent 5,000-byte UTF-8 accumulation bound. A single
-prefix buffer avoids retaining both every chunk and a joined copy in watch RAM.
-Reassembly times out after 20 seconds **without progress**, rather than
-20 seconds for the whole download. Invalid chunks are not ACKed; consumed
-immutable retries are. A missing catalogue is requested again periodically.
-Incomplete data never renews an arrival's lifetime.
+Arrival messages retain the validated object format with station, `at` and up to
+64 bounded source predictions. Native storage keeps only matching favourite
+triples and at most three ordered estimates per route. No alert state or service
+notices are sent. Connection and arrival messages carry a phone-owned uint32
+`generation`: initially zero, incremented on connection failure. A changed or first
+nonzero generation invalidates every route's RAM/durable ETAs before applying data.
+Thus coalescing a disconnect into a later connected message cannot silently retain
+another station's stale cache. This is a feed-gap barrier, not vehicle tracking.
 
-A hello echoes the watch's send time and includes the phone's send time. The
-watch uses `echo - phoneTime` as a conservative clock-offset lower bound. It
-translates receipt/expiry and absolute timestamp estimates; outbound latency
-shortens, rather than extends, validity. Clock jumps or an interrupted app loop
-invalidate the session and require new data. Explicit Retry also renews the
-handshake and offset, clears alert/service continuity and retries a disconnected
-feed without duplicating a connected client.
+Phone payloads are UTF-8-bounded to 5,000 bytes and split into up to 32 chunks of
+500 JS characters, without splitting surrogate pairs:
 
-## Rendering, storage and alert lifecycle
+```text
+{v:1,session,id,part,total,text}
+```
 
-Poco uses system fonts and a fixed 200 × 228 button-first layout. Only numeric
-ETAs use Bitham; words, missing estimates and uncertainty use Gothic, avoiding
-missing glyphs. Drawing is skipped when content, the displayed minute and any
-active loader phase are unchanged. Loading uses three small rectangles at one
-hertz on the existing timer, with handshake/metadata/arrival stage labels. It
-pauses while unfocused and stops on explicit failure or after 15 seconds per
-stage/target; it never replaces stale or unavailable estimates with an endless
-spinner. Long station/destination labels are ellipsized; service text is paged.
-Both operations preserve surrogate pairs. Arrival and service-signature maps use
-null prototypes so external IDs cannot collide with inherited object properties.
+The phone waits for the watch's application receipt for each chunk, not just the
+physical ACK. Retries preserve bytes/IDs and are bounded. The watch rejects foreign
+sessions, inconsistent/out-of-order chunks, mismatched retries and oversized
+prefixes. Reassembly expires after 20 seconds without progress. Partial messages
+never renew an ETA.
 
-Favourites, last selection and optional haptic settings persist locally on the
-watch. Storage failure is shown and changes remain in memory. Up to 16 valid
-ID triples are allowed. Removal needs confirmation. The cache never stores
-indefinitely live ETAs.
+`json.c` uses no heap allocation or recursive parsing. It limits nesting to 16,
+checks strict UTF-8, escaped surrogate pairs, JSON number grammar and token/input
+capacities, and rejects embedded NUL. Object lookup rejects duplicate matching keys.
 
-The watch owns countdown expiry, service freshness and alert crossing history.
-It hides captured alert estimates across a gap and reads current validated data,
-not an old modal snapshot. Open service pages are also recomputed after failure
-or expiry. Focus loss suppresses haptics and clears threshold continuity. Native
-`quiet_time_is_active()` is checked immediately before any vibration.
+## Persistence and reopen
 
-PKJS follows the watch-app lifecycle; no always-running Android service or
-server-pushed background alerts are claimed. See [flow rules](design.md).
+Native favourite records use independent integer-keyed Pebble persistence entries;
+removing one does not rewrite or reindex every other favourite. Write failures are
+reported and an unsaved add/remove is not presented as successful. Selected slot
+is persisted separately. Each value is at most 256 bytes.
 
-## Verification and limits
+Two recent-route entries store full route IDs, original prediction receipt/expiry,
+a saved-at timestamp and a serial. Short labels are in a second serial-matched
+entry. Before updating a snapshot, its commit entry is deleted, labels are written,
+then the commit is written last. A torn write cannot pair new labels with old ETAs.
+A future saved-at value or expired/invalid prediction is not restored as an ETA.
 
-See the README for the exact checks and remaining Android/hardware validation.
-The old unit suite and test command were removed at the owner's request;
-`npm run check` performs entry-point syntax checks and a production build only.
-A subsequently approved TypeScript/Effect [Playwright E2E suite](e2e.md) runs the
-actual PBW in private Emery QEMU and its extracted phone bundle in Chromium,
-with deterministic REST/MQTT and real AppMessage/button/screenshot paths. It covers
-first use, arrivals and favourite persistence, not all failure/recovery cases.
-Review fixes were also verified with temporary Node probes and have not yet been
-installed on the physical watch. Check GitHub's Checks tab for hosted CI results.
-The built phone bundle succeeded in actual Chromium against live REST and MQTT.
-The SDK 4.33.1 emulator rendered catalogue/favourites and injected fresh real
-arrival snapshots; synthetic threshold/invalid-data fixtures exercised its alert
-UI. Its Python phone simulator's MQTT connection remains unverified/stalled.
-The user subsequently authorized installation through CloudPebble: a physical
-Time 2 on firmware 4.41.2 responded to ping, accepted the package, started Android
-PKJS and displayed the first-use screen with station metadata. The user confirmed
-that live arrivals appeared and updated correctly, and subsequently confirmed
-the installed loading-feedback update. Reconnection, backgrounding and
-haptics/Quiet Time still need validation. No server deployment has been changed.
+Writes coalesce to 15 seconds and flush before switching/normal exit/focus loss.
+Selecting a valid RAM-only route makes it eligible for the next flush, without
+renewing its original timestamps. Invalidations immediately attempt to remove ETAs,
+even for an unselected route; short labels can remain in zero-prediction records.
+Failed deletions retain durable tracking and retry once per second or on forced
+flush. Persistent firmware storage failure can prevent an invalidation being made
+durable and is shown as an error. A saved value never becomes live just because it
+was restored.
+The cache stores no service state or alert continuity. Favourites plus both cache
+slots use approximately 3.2 KiB of value payloads at the 16-favourite limit. The
+actual firmware persistence limit is queried/documented by `persist_get_max_size()`;
+all writes are checked, rather than assuming global watch storage is available.
 
-## References
+**Alloy migration:** its WebStorage uses the private `local-<UUID>` SettingsFile
+with string keys; public native persistence uses `ps<UUID>` and integer keys.
+They are separate. The UUID is retained and the old store is not erased, but this
+implementation does not import it. Users upgrading from 0.1 must re-add their
+favourites. No unsupported firmware file access is used.
 
-- [Alloy](https://developer.repebble.com/guides/alloy/getting-started.md)
-- [Poco](https://developer.repebble.com/guides/alloy/poco-guide.md)
-- [App messages](https://developer.repebble.com/guides/alloy/app-messages.md)
-- [Runtime memory](https://developer.repebble.com/guides/alloy/reference.md)
-- [PKJS lifecycle](https://developer.repebble.com/guides/communication/using-pebblekit-js.md)
-- [Vibration](https://developer.repebble.com/guides/alloy/vibration.md)
-- [UnderLX developer portal](https://developer.underlx.com/)
-- [Arrival expiry implementation](https://github.com/underlx/disturbancesmlx/blob/master/mqttgateway/vehicleeta.go)
+## Verification boundaries
 
-Transit design references were Pebble Transit (no declared licence, no code
-copied) and Toronto Transit Time (MIT). The earlier browser design remains a
-mockup, not an emulator or hardware screenshot.
+See [E2E](e2e.md) for actual native PBW/phone-bundle flows, long-run navigation,
+real native heap samples and remaining cases. Emulator success is not hardware
+acceptance. Validate repeated switching, recovery and battery behaviour on the
+supported physical watch before claiming release readiness.

@@ -8,17 +8,19 @@ import { createInterface } from 'node:readline';
 export const root = resolve(__dirname, '..');
 export type Button = 'back' | 'up' | 'select' | 'down';
 export type Loader = 'empty' | 'arrivals';
+export interface MemorySample { reason: string; used: number; free: number }
 interface Requests {
   install: { params: { path: string }; result: string };
   send: { params: { data: string }; result: null };
   press: { params: { button: Button }; result: null };
   launch: { params: Record<string, never>; result: null };
-  screenshot: { params: { mask_clock?: boolean; mask_loader?: Loader }; result: string };
+  time: { params: { seconds: number }; result: null };
+  screenshot: { params: { mask_clock?: boolean; mask_loader?: Loader; crop_loader?: Loader }; result: string };
 }
 class EmulatorError extends Data.TaggedError('EmulatorError')<{ message: string; cause?: unknown }> {}
 type Resume = (result: Effect.Effect<unknown, EmulatorError>) => void;
 type WireMessage = { event: 'ready' } | { event: 'appmessage'; data: Record<string, unknown> }
-  | { id: number; result: unknown; error?: string };
+  | { event: 'log'; message: string } | { id: number; result: unknown; error?: string };
 
 function pebblePython() {
   if (process.env.PEBBLE_PYTHON) return process.env.PEBBLE_PYTHON;
@@ -34,8 +36,10 @@ function emulator(testInfo: TestInfo) {
     cwd: root, detached: true, stdio: ['pipe', 'pipe', 'pipe'],
   });
   const pending = new Map<number, Resume>();
+  const memory: MemorySample[] = [];
   let sequence = 0, output = '', available = false, stopping = false;
   let onMessage = (_data: Record<string, unknown>) => {};
+  let onLog = (_message: string) => {};
   let readyResolve!: () => void, readyReject!: (error: EmulatorError) => void;
   const ready = new Promise<void>((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
   const exited = new Promise<void>(resolve => child.once('close', () => resolve()));
@@ -56,6 +60,11 @@ function emulator(testInfo: TestInfo) {
       const message: WireMessage = JSON.parse(line);
       if ('event' in message) {
         if (message.event === 'ready') { available = true; readyResolve(); }
+        else if (message.event === 'log') {
+          const sample = /^Metro memory (\S+): used=(\d+) free=(\d+)$/.exec(message.message);
+          if (sample) memory.push({ reason: sample[1], used: Number(sample[2]), free: Number(sample[3]) });
+          onLog(message.message);
+        }
         else onMessage(message.data);
       } else {
         const resume = pending.get(message.id);
@@ -99,7 +108,8 @@ function emulator(testInfo: TestInfo) {
   return {
     ready: Effect.tryPromise({ try: () => ready, catch: error => error }).pipe(Effect.timeout('45 seconds')),
     set onMessage(callback: (data: Record<string, unknown>) => void) { onMessage = callback; },
-    request, close,
+    set onLog(callback: (message: string) => void) { onLog = callback; },
+    request, close, memory,
   };
 }
 

@@ -1,5 +1,5 @@
-// One AppMessage in flight. Also wait until Alloy has READ each chunk:
-// its native inbox ACK can otherwise precede JS delivery and overwrite unread data.
+// One AppMessage in flight; wait for the watch's application receipt before
+// advancing. Partial or unconsumed batches must never renew an arrival estimate.
 export function createTransport(pebble, timers) {
   var session = null, sequence = 0, queue = [], active = null, busy = false, retry, closed = false;
   function clearRetry() { if (retry) timers.clearTimeout(retry); retry = null; }

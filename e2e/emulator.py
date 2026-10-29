@@ -22,6 +22,7 @@ from libpebble2.communication.transports.qemu import QemuTransport, MessageTarge
 from libpebble2.communication.transports.qemu.protocol import QemuBluetoothConnection, QemuButton
 from libpebble2.protocol.apps import AppRunState, AppRunStateStart
 from libpebble2.protocol.logs import AppLogMessage, AppLogShippingControl
+from libpebble2.protocol.system import TimeMessage, SetUTC
 from libpebble2.services.appmessage import AppMessageService, CString
 from libpebble2.services.install import AppInstaller
 from libpebble2.services.screenshot import Screenshot
@@ -101,8 +102,11 @@ def run():
             service.register_handler("nack", lambda tid, app: acknowledged(tid, app, False))
             service.register_handler("appmessage", lambda _tid, app, data:
                 emit({"event": "appmessage", "data": data}) if app == APP else None)
-            connection.register_endpoint(AppLogMessage, lambda packet:
-                print(f"{packet.filename}:{packet.line_number}: {packet.message}", file=sys.stderr, flush=True))
+            def app_log(packet):
+                print(f"{packet.filename}:{packet.line_number}: {packet.message}", file=sys.stderr, flush=True)
+                emit({"event": "log", "message": packet.message})
+
+            connection.register_endpoint(AppLogMessage, app_log)
             connection.send_packet(AppLogShippingControl(enable=True))
             emit({"event": "ready"})
             for line in sys.stdin:
@@ -138,6 +142,8 @@ def run():
                         time.sleep(0.1)
                         connection.transport.send_packet(QemuButton(state=0), MessageTargetQemu())
                         time.sleep(0.15)
+                    elif method == "time":
+                        connection.send_packet(TimeMessage(message=SetUTC(unix_time=params["seconds"], utc_offset=0, tz_name="UTC")))
                     elif method == "launch":
                         connection.send_packet(AppRunState(data=AppRunStateStart(uuid=APP)))
                     elif method == "screenshot":
@@ -145,11 +151,18 @@ def run():
                         image = Image.frombytes("RGB", (len(rows[0]) // 3, len(rows)), b"".join(rows))
                         drawing = ImageDraw.Draw(image)
                         if params.get("mask_clock", False):
+                            # Snapshot updates must not capture the system launch animation.
+                            if image.getpixel((0, 0)) not in ((0, 0, 0), (255, 255, 0)) or image.getpixel((199, 201)) != (255, 255, 255):
+                                raise RuntimeError("Waiting for a rendered Metro frame")
                             drawing.rectangle((155, 0, 199, 23), fill="black")
                         loader = params.get("mask_loader")
                         if loader in ("empty", "arrivals"):
-                            y = 85 if loader == "empty" else 130
-                            drawing.rectangle((10, y, 57, y + 7), fill="white")
+                            y = 85 if loader == "empty" else 182
+                            drawing.rectangle((10, y, 39, y + 17), fill="white")
+                        crop = params.get("crop_loader")
+                        if crop in ("empty", "arrivals"):
+                            y = 85 if crop == "empty" else 182
+                            image = image.crop((10, y, 40, y + 18))
                         output = io.BytesIO()
                         image.save(output, format="PNG")
                         result = base64.b64encode(output.getvalue()).decode()
