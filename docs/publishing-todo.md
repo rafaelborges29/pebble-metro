@@ -25,10 +25,11 @@ store-install test → Listed workflow.
 
 ## Verification baseline
 
-The E2E matrix covers eight native flows on each target, including 16 favourites
-and 160 switches per platform's stress run. Heap assertions require at least
-50 KiB free and stable switch samples. See [E2E](e2e.md) for scope, artifacts and
-commands. Recheck the full matrix after production changes.
+The E2E matrix covers 16 native flows on each target, including delayed/in-flight
+additions and removals, duplicate/opposite-direction favourites, delete/reopen
+persistence, and 16 favourites with 160 switches per platform's stress run.
+Heap assertions require at least 50 KiB free and stable switch samples.
+See [E2E](e2e.md) for scope, artifacts and commands. Recheck the full matrix after production changes.
 
 A native build has been installed on Time 2 and loaded the full station catalogue.
 This is initial hardware evidence, not completed acceptance. Round 2 currently

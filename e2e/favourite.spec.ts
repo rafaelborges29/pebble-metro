@@ -11,12 +11,40 @@ async function captureStoreScreen(metro: Metro, name: string) {
   writeFileSync(resolve(directory, `${metro.platform}_${name}.png`), await metro.screenshot());
 }
 
-async function expectSelection(metro: Metro, favourite: Favourite, after: number) {
+async function expectSelection(metro: Metro, favourite: Favourite | null, after: number) {
   await expect.poll(() => metro.commands.slice(after).filter(command => command.type === 'watch').at(-1)?.favorite,
-    { message: `Native watch selection: ${favourite.station} -> ${favourite.direction}` }).toEqual(favourite);
+    { message: favourite ? `Native watch selection: ${favourite.station} -> ${favourite.direction}` : 'No native favourite selected' }).toEqual(favourite);
 }
 
-async function saveFavourite(metro: Metro, large = false) {
+async function expectSubscription(metro: Metro, station: string | null) {
+  await expect.poll(() => metro.activeSubscriptions, { message: 'Only the selected station is subscribed' })
+    .toEqual(station ? [`json/vehicleeta/pt-ml/${station}/all`] : []);
+}
+
+async function removeFavourite(metro: Metro) {
+  await metro.press('select'); // Arrivals -> actions.
+  await metro.press('down');
+  await metro.press('select');
+  await metro.expectScreen('remove-confirmation');
+  await metro.press('down'); // Explicitly confirm, rather than keep the favourite.
+  await metro.press('select');
+}
+
+async function withDeferredArrival(metro: Metro, values: number[], action: () => Promise<void>) {
+  const gate = metro.deferNextArrival();
+  // Attach rejection handling immediately while the real send is deliberately stalled.
+  const pending = Promise.allSettled([metro.publish(values)]);
+  try {
+    await gate.wait();
+    await action();
+  } finally {
+    gate.release();
+    const [result] = await pending;
+    if (result.status === 'rejected') throw result.reason;
+  }
+}
+
+async function saveFavourite(metro: Metro, { large = false, waitForData = true } = {}) {
   await metro.expectScreen('first-use');
   await metro.press('select'); // First use goes directly to stations.
   await metro.expectScreen(large ? 'stations-large' : 'stations');
@@ -27,12 +55,14 @@ async function saveFavourite(metro: Metro, large = false) {
   const before = metro.commands.length;
   await metro.press('select');
   await expectSelection(metro, metro.favourite, before);
-  await metro.delivered('arrivals');
-  expect(metro.subscriptions).toContain('json/vehicleeta/pt-ml/pt-ml-sa/all');
-  await metro.expectScreen('arrivals');
+  await expectSubscription(metro, metro.favourite.station);
+  if (waitForData) {
+    await metro.delivered('arrivals');
+    await metro.expectScreen('arrivals');
+  }
 }
 
-async function addStation(metro: Metro, row: number): Promise<Favourite> {
+async function addStation(metro: Metro, row: number, { waitForData = true, direction = '' } = {}): Promise<Favourite> {
   await metro.press('back'); // Arrivals -> favourites; row zero is selected.
   // The last three rows are Add favourite, Retry data, About (no settings).
   for (let i = 0; i < 3; i++) await metro.press('up');
@@ -41,12 +71,13 @@ async function addStation(metro: Metro, row: number): Promise<Favourite> {
   await metro.press('select');
   const station = metro.stations[row].id;
   // Termini exclude the origin; all other stations offer both red termini.
-  if (station !== 'pt-ml-ap' && station !== 'pt-ml-ss') await metro.press('down');
-  const favourite = { station, line: 'pt-ml-red', direction: station === 'pt-ml-ap' ? 'pt-ml-ss' : 'pt-ml-ap' };
+  direction ||= station === 'pt-ml-ap' ? 'pt-ml-ss' : 'pt-ml-ap';
+  if (station !== 'pt-ml-ap' && station !== 'pt-ml-ss' && direction === 'pt-ml-ap') await metro.press('down');
+  const favourite = { station, line: 'pt-ml-red', direction };
   const before = metro.commands.length;
   await metro.press('select');
   await expectSelection(metro, favourite, before);
-  await metro.publish([3, 4, 5]);
+  if (waitForData) await metro.publish([3, 4, 5]);
   return favourite;
 }
 
@@ -103,6 +134,167 @@ test('About attribution and removal confirmation remain navigable', async ({ met
   await metro.expectScreen('arrivals');
 });
 
+test.describe('favourite lifecycle', () => {
+  test('add a route after data has loaded, wait for its own arrivals and retain both caches', async ({ metro }) => {
+    await saveFavourite(metro);
+    metro.setAutoArrivals(false);
+    const b = await addStation(metro, 0, { waitForData: false });
+    await expectSubscription(metro, b.station);
+    await metro.expectScreen('airport-loading', 'arrivals');
+    await metro.expectAnimation('arrivals');
+    await metro.publish([7, 8, 9]);
+    await metro.expectScreen('airport-arrivals');
+    await metro.relaunch();
+    await metro.expectScreen('airport-saved', 'arrivals');
+    await metro.press('up');
+    await metro.expectScreen('saved-first-of-two', 'arrivals');
+  });
+
+  test('add a route while the first is loading; late first-route data cannot populate the second', async ({ metro }) => {
+    metro.setAutoArrivals(false);
+    await saveFavourite(metro, { waitForData: false });
+    await metro.expectScreen('loading-arrivals', 'arrivals');
+    await withDeferredArrival(metro, [11, 12, 13], async () => {
+      const b = await addStation(metro, 0, { waitForData: false });
+      await expectSubscription(metro, b.station);
+      await metro.expectScreen('airport-loading', 'arrivals');
+    });
+    await metro.expectScreen('airport-loading', 'arrivals'); // A really reached native C, but B is still empty.
+    await metro.publish([7, 8, 9]);
+    await metro.expectScreen('airport-arrivals');
+    await switchFavourite(metro, 'up', metro.favourite);
+    await metro.expectScreen('saved-late-first', 'arrivals'); // The late data belongs to A, not B.
+  });
+
+  test('remove a loading route with data in flight without overwriting the surviving route', async ({ metro }) => {
+    await saveFavourite(metro);
+    metro.setAutoArrivals(false);
+    await addStation(metro, 0, { waitForData: false });
+    await metro.expectScreen('airport-loading', 'arrivals');
+    await withDeferredArrival(metro, [7, 8, 9], async () => {
+      const before = metro.commands.length;
+      await removeFavourite(metro);
+      await expectSelection(metro, metro.favourite, before);
+      await expectSubscription(metro, metro.favourite.station);
+      await metro.expectScreen('favourites');
+    });
+    await metro.expectScreen('favourites'); // Late data must not recreate the removed row.
+    await metro.press('select');
+    await metro.expectScreen('saved-arrivals', 'arrivals'); // No fresh A update was supplied on fallback.
+    await metro.publish([3, 4, 5]);
+    await metro.expectScreen('arrivals');
+    await metro.relaunch();
+    await metro.expectScreen('saved-arrivals', 'arrivals');
+  });
+
+  test('remove the first loaded route and persist the remaining nonzero slot across reopen', async ({ metro }) => {
+    await saveFavourite(metro);
+    metro.setAutoArrivals(false);
+    const b = await addStation(metro, 0, { waitForData: false });
+    await metro.publish([7, 8, 9]);
+    await switchFavourite(metro, 'up', metro.favourite);
+    await metro.publish([3, 4, 5]);
+    await metro.expectScreen('first-of-two');
+    const before = metro.commands.length;
+    await removeFavourite(metro);
+    await expectSelection(metro, b, before);
+    await expectSubscription(metro, b.station);
+    await metro.expectScreen('airport-only-favourite');
+    await metro.press('select');
+    await metro.expectScreen('airport-saved-only', 'arrivals');
+    await metro.relaunch();
+    await metro.expectScreen('airport-saved-only', 'arrivals');
+    await metro.startPhone();
+    await metro.publish([7, 8, 9]);
+    await metro.expectScreen('airport-arrivals-only');
+    await switchFavourite(metro, 'up', b);
+    await switchFavourite(metro, 'down', b);
+    await metro.expectScreen('airport-arrivals-only');
+  });
+
+  test('remove the last loaded favourite, ignore its late data and re-add it without resurrecting cache', async ({ metro }) => {
+    await saveFavourite(metro);
+    metro.setAutoArrivals(false);
+    await withDeferredArrival(metro, [11, 12, 13], async () => {
+      const before = metro.commands.length;
+      await removeFavourite(metro);
+      await expectSelection(metro, null, before);
+      await expectSubscription(metro, null);
+      await metro.expectScreen('empty-favourites');
+    });
+    await metro.expectScreen('empty-favourites');
+    await metro.relaunch(0, 'root');
+    await metro.expectScreen('connecting', 'empty');
+    await metro.startPhone();
+    await metro.expectScreen('first-use');
+    await expectSubscription(metro, null);
+    await saveFavourite(metro, { waitForData: false });
+    await metro.expectScreen('loading-arrivals', 'arrivals');
+    await metro.publish([3, 4, 5]);
+    await metro.expectScreen('arrivals');
+  });
+
+  test('adding the same station, line and direction selects the existing favourite without duplicating it', async ({ metro }) => {
+    await saveFavourite(metro);
+    const subscriptions = metro.subscriptions.length;
+    expect(await addStation(metro, 1)).toEqual(metro.favourite);
+    await metro.expectScreen('arrivals'); // Still 1/1, not a duplicate 2/2.
+    await expectSubscription(metro, metro.favourite.station);
+    expect(metro.subscriptions).toHaveLength(subscriptions);
+    await metro.press('back');
+    await metro.expectScreen('favourites');
+    await metro.relaunch(0, 'root');
+    await metro.expectScreen('saved-arrivals', 'arrivals');
+  });
+
+  test('opposite directions share one station subscription but retain their own arrivals', async ({ metro }) => {
+    await saveFavourite(metro);
+    metro.setAutoArrivals(false);
+    const subscriptions = metro.subscriptions.length;
+    const b = await addStation(metro, 1, { waitForData: false, direction: 'pt-ml-ss' });
+    await metro.expectScreen('opposite-loading', 'arrivals');
+    // MQTT publishes a whole station snapshot; separate direction updates would correctly clear the other direction.
+    await metro.publishStation([
+      { direction: metro.favourite.direction, values: [3, 4, 5] },
+      { direction: b.direction, values: [7, 8, 9] },
+    ]);
+    await metro.expectScreen('opposite-arrivals');
+    await switchFavourite(metro, 'up', metro.favourite);
+    await metro.expectScreen('first-of-two'); // Same continuously subscribed station remains LIVE.
+    await switchFavourite(metro, 'down', b);
+    await metro.expectScreen('opposite-arrivals');
+    await removeFavourite(metro);
+    await metro.expectScreen('favourites');
+    await metro.press('select');
+    await metro.expectScreen('arrivals'); // Removing the other direction must not discard this live snapshot.
+    await expectSubscription(metro, metro.favourite.station);
+    expect(metro.subscriptions).toHaveLength(subscriptions);
+  });
+
+  test('cancel adding a route while waiting without changing the favourite or station subscription', async ({ metro }) => {
+    metro.setAutoArrivals(false);
+    await saveFavourite(metro, { waitForData: false });
+    const subscriptions = metro.subscriptions.length;
+    await metro.press('back');
+    for (let i = 0; i < 3; i++) await metro.press('up');
+    await metro.press('select'); // Station picker.
+    await metro.press('select'); // Aeroporto -> direction picker, but do not save.
+    await metro.press('back');
+    await metro.press('back'); // Favourites, with Add still highlighted.
+    await metro.press('up');
+    const before = metro.commands.length;
+    await metro.press('select');
+    await expectSelection(metro, metro.favourite, before);
+    await metro.expectScreen('loading-arrivals', 'arrivals');
+    await expectSubscription(metro, metro.favourite.station);
+    expect(metro.subscriptions).toHaveLength(subscriptions);
+    await metro.publish([3, 4, 5]);
+    await metro.expectScreen('arrivals');
+    await metro.press('back');
+    await metro.expectScreen('favourites');
+  });
+});
+
 test('revisiting a RAM-only route persists it without waiting for another source update', async ({ metro }) => {
   await saveFavourite(metro);
   const b = await addStation(metro, 0);
@@ -152,7 +344,7 @@ test('ranges and bounds remain estimates; Due and empty updates cannot invent ar
 test.describe('full native data budget', () => {
   test.use({ largeNetwork: true });
   test('metadata replacement safely resets an open interchange picker', async ({ metro }) => {
-    await saveFavourite(metro, true);
+    await saveFavourite(metro, { large: true });
     await metro.press('back');
     for (let i = 0; i < 3; i++) await metro.press('up');
     await metro.press('select');
@@ -171,7 +363,7 @@ test.describe('full native data budget', () => {
   test('16 real-button favourites survive 160 switches, source updates and relaunch without heap growth', async ({ metro }) => {
     test.setTimeout(180_000);
     expect(metro.stations).toHaveLength(50);
-    await saveFavourite(metro, true);
+    await saveFavourite(metro, { large: true });
     const favourites = [metro.favourite];
     // Add the other fifteen distinct stations via the actual native menus.
     for (let row = 0; row < 16; row++) if (row !== 1) favourites.push(await addStation(metro, row));

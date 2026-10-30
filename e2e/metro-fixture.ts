@@ -8,16 +8,20 @@ export type Favourite = { station: string; line: string; direction: string };
 type PhoneData = { DATA: string };
 type WatchCommand = { type: string; session: string; id?: number; part?: number; favorite?: Favourite | null };
 type Envelope = { v: number; session: string; id: number; part: number; total: number; text: string };
-type Message = { type: string; station?: string; predictions?: { value: number; units: string }[]; lines?: unknown[] };
+type SourcePrediction = { direction: string; order: number; value: number; units: Units; type: PredictionType };
+type Message = { type: string; station?: string; predictions?: SourcePrediction[]; lines?: unknown[] };
 type Batch = { parts: string[]; total: number; message?: Message };
 type Listener = (event: unknown) => void;
 type Units = 's' | 'm';
 type PredictionType = 'e' | 'i' | 'l' | 'm';
-type Publisher = (values: number[], units: Units, direction: string, type?: PredictionType) => void;
+type RoutePredictions = { direction: string; values: number[]; units?: Units; type?: PredictionType };
+type Publisher = (predictions: SourcePrediction[]) => void;
+type DeferredArrival = { started: boolean; resumed: Promise<void>; release(): void };
 export interface Metro {
   platform: Platform;
   commands: WatchCommand[];
   subscriptions: string[];
+  readonly activeSubscriptions: readonly string[];
   memory: MemorySample[];
   stations: readonly { id: string; name: string }[];
   favourite: Favourite;
@@ -26,9 +30,11 @@ export interface Metro {
   expectAnimation(loader: Loader): Promise<void>;
   screenshot(): Promise<Buffer>;
   delivered(type: string): Promise<void>;
-  relaunch(elapsedSeconds?: number): Promise<void>;
+  relaunch(elapsedSeconds?: number, from?: 'arrivals' | 'root'): Promise<void>;
   startPhone(): Promise<void>;
   publish(values: number[], units?: Units, type?: PredictionType): Promise<void>;
+  publishStation(routes: RoutePredictions[]): Promise<void>;
+  deferNextArrival(): { wait(): Promise<void>; release(): void };
   removeLine(id: string): Promise<void>;
   setAutoArrivals(enabled: boolean): void;
 }
@@ -89,6 +95,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             line.stations.map(id => catalogue.findIndex(station => station.id === id))]) };
         const validTopics = new Set(catalogue.map(station => topicFor(station.id)));
         const publishers = new Map<string, Publisher>();
+        let deferredArrival: DeferredArrival | undefined;
         const sent = new Map<string, Batch>(), receipts = new Set<string>();
         const phoneLog: string[] = [], inbox: PhoneData[] = [];
         let phoneReady = false, closing = false, autoArrivals = true, uiStarts = 0, expectedStarts = 1, delivering = Promise.resolve();
@@ -105,11 +112,27 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
           record.parts[packet.part] = packet.text;
           if (record.parts.filter(part => part !== undefined).length === record.total)
             record.message = JSON.parse(record.parts.join(''));
+          return record.message;
         }
         async function delivered(type: string, previous = new Set<string>(), matches = (_message: Message) => true) {
           await expect.poll(() => [...sent].some(([id, record]) => !previous.has(id) && record.message?.type === type
             && matches(record.message) && receipts.has(`${id}/${record.total - 1}`)),
           { message: `${type} consumed by the real watch` }).toBe(true);
+        }
+        async function publishStation(routes: RoutePredictions[]) {
+          const selected = commands.filter(command => command.type === 'watch').at(-1)?.favorite;
+          if (!selected) throw new Error('No selected favourite');
+          const topic = topicFor(selected.station);
+          await expect.poll(() => publishers.has(topic), { message: `Active arrival subscription for ${selected.station}` }).toBe(true);
+          const predictions = routes.flatMap(({ direction, values, units = 'm', type = 'e' }) =>
+            values.map((value, index) => ({ direction, order: index + 1, value, units, type })));
+          const previous = new Set(sent.keys());
+          publishers.get(topic)!(predictions);
+          await delivered('arrivals', previous, message => message.station === selected.station
+            && message.predictions?.length === predictions.length
+            && predictions.every(expected => message.predictions!.some(actual => actual.direction === expected.direction
+              && actual.order === expected.order && actual.value === expected.value
+              && actual.units === expected.units && actual.type === expected.type)));
         }
         async function expectScreen(name: string, loader?: Loader) {
           await expect(async () => {
@@ -156,12 +179,10 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
                   const topic = subscription.topic;
                   subscriptions.push(topic);
                   if (!validTopics.has(topic)) { errors.push(`Unexpected topic: ${topic}`); continue; }
-                  const publish: Publisher = (values, units, direction, type = 'e') => {
-                    const predictions = values.map((value, index) => ({
-                      direction, order: index + 1, type, units, value, lower: value, upper: value + 1,
-                      made: Date.now() / 1000, validFor: 120,
-                    }));
-                    send({ cmd: 'publish', topic, qos: 0, retain: true, dup: false, payload: Buffer.from(JSON.stringify(predictions)) });
+                  const publish: Publisher = predictions => {
+                    const payload = predictions.map(prediction => ({ ...prediction, lower: prediction.value,
+                      upper: prediction.value + 1, made: Date.now() / 1000, validFor: 120 }));
+                    send({ cmd: 'publish', topic, qos: 0, retain: true, dup: false, payload: Buffer.from(JSON.stringify(payload)) });
                   };
                   publishers.set(topic, publish);
                   const selected = commands.filter(command => command.type === 'watch').at(-1)?.favorite;
@@ -169,7 +190,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
                   const direction = selected?.station === station.id ? selected.direction
                     : station.id === 'pt-ml-ap' ? 'pt-ml-ss' : 'pt-ml-ap';
                   // Minute-unit defaults keep ordinary screenshots stable.
-                  if (autoArrivals) publish([3, 4, 5], 'm', direction);
+                  if (autoArrivals) publish([3, 4, 5].map((value, index) => ({ direction, order: index + 1, type: 'e', units: 'm', value })));
                 }
               } else if (packet.cmd === 'unsubscribe') {
                 for (const topic of packet.unsubscriptions) {
@@ -183,7 +204,14 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             socket.onMessage(message => parser.parse(typeof message === 'string' ? Buffer.from(message) : message));
           });
           await page.exposeFunction('sendToWatch', async (data: PhoneData) => {
-            track(data.DATA);
+            const message = track(data.DATA);
+            const gate = deferredArrival;
+            if (gate && !gate.started && message?.type === 'arrivals') {
+              // Hold the final real chunk: native reassembly cannot apply it yet.
+              gate.started = true;
+              await gate.resumed;
+              if (deferredArrival === gate) deferredArrival = undefined;
+            }
             await Effect.runPromise(device.request('send', { data: data.DATA }));
           });
           await page.addInitScript(() => {
@@ -231,6 +259,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
           const metro: Metro = {
             platform: device.platform,
             commands, subscriptions, memory: device.memory, stations: catalogue, favourite,
+            get activeSubscriptions() { return [...publishers.keys()]; },
             async press(button) { await Effect.runPromise(device.request('press', { button })); },
             expectScreen, delivered, startPhone,
             async screenshot() { return Buffer.from(await Effect.runPromise(device.request('screenshot', {})), 'base64'); },
@@ -243,13 +272,18 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             async publish(values, units = 'm', type = 'e') {
               const selected = commands.filter(command => command.type === 'watch').at(-1)?.favorite;
               if (!selected) throw new Error('No selected favourite');
-              const topic = topicFor(selected.station);
-              await expect.poll(() => publishers.has(topic), { message: `Active arrival subscription for ${selected.station}` }).toBe(true);
-              const previous = new Set(sent.keys());
-              publishers.get(topic)!(values, units, selected.direction, type);
-              await delivered('arrivals', previous, message => message.station === selected.station
-                && message.predictions?.length === values.length
-                && message.predictions.every((prediction, index) => prediction.value === values[index] && prediction.units === units));
+              await publishStation([{ direction: selected.direction, values, units, type }]);
+            },
+            publishStation,
+            deferNextArrival() {
+              if (deferredArrival) throw new Error('An arrival is already deferred');
+              let release!: () => void;
+              const resumed = new Promise<void>(resolve => { release = resolve; });
+              const gate = deferredArrival = { started: false, resumed, release };
+              return {
+                async wait() { await expect.poll(() => gate.started, { message: 'Real arrival chunk held before native delivery' }).toBe(true); },
+                release,
+              };
             },
             async removeLine(id) {
               const index = routes.findIndex(line => line.id === id);
@@ -263,8 +297,8 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
               dispatch({ DATA: JSON.stringify({ v: 1, session, type: 'catalog' }) });
               await delivered('catalog', previous, message => message.lines?.length === routes.length);
             },
-            async relaunch(elapsedSeconds = 0) {
-              await metro.press('back'); // Arrivals -> favourites root.
+            async relaunch(elapsedSeconds = 0, from = 'arrivals') {
+              if (from === 'arrivals') await metro.press('back'); // Arrivals -> favourites root.
               await metro.press('back'); // Close the real native app.
               phoneReady = false;
               await delivering;
@@ -282,6 +316,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
           expect(uiStarts, 'No unexpected native app restart').toBe(expectedStarts);
           expect(errors).toEqual([]);
         } finally {
+          deferredArrival?.release();
           try {
             const image = Buffer.from(await Effect.runPromise(device.request('screenshot', {})), 'base64');
             await testInfo.attach('watch at end', { body: image, contentType: 'image/png' });
@@ -289,7 +324,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
           closing = true;
           await page.close();
           writeFileSync(testInfo.outputPath('phone.log'), phoneLog.join('\n'));
-          writeFileSync(testInfo.outputPath('messages.json'), JSON.stringify({ commands, subscriptions, errors,
+          writeFileSync(testInfo.outputPath('messages.json'), JSON.stringify({ commands, subscriptions, activeSubscriptions: [...publishers.keys()], errors,
             memory: device.memory, messages: [...sent.values()].map(record => record.message) }, null, 2));
         }
       } });

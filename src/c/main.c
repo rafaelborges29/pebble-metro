@@ -614,8 +614,13 @@ static void select(void) {
     else {
       int result = persist_delete(KEY_FAVORITE + s_selected);
       if (result < 0 && result != E_DOES_NOT_EXIST) { s_storage_error = true; notice("Storage unavailable. Favourite was not removed."); return; }
+      char previous_station[sizeof(s_favorites[s_selected].station)];
+      memcpy(previous_station, s_favorites[s_selected].station, sizeof(previous_station));
       invalidate_disk(&s_favorites[s_selected], false); memset(&s_favorites[s_selected], 0, sizeof(Favorite)); memset(&s_arrivals[s_selected], 0, sizeof(Arrival));
-      s_selected = favorite_count() ? favorite_at(0) : 0; save_selection(); s_history_count = 0; go(FAVORITES, false); s_need_watch = true; send_next();
+      s_selected = favorite_count() ? favorite_at(0) : 0;
+      // A different station needs a fresh update before its retained data is LIVE.
+      if (strcmp(previous_station, s_favorites[s_selected].station)) s_arrivals[s_selected].live = false;
+      save_selection(); s_history_count = 0; go(FAVORITES, false); s_need_watch = true; send_next();
     }
   }
 }

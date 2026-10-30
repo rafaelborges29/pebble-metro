@@ -51,9 +51,38 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
    16-favourite limit. A snapshot at menu position 17/19 checks that two-digit
    counts remain visible inside the round footer. This test has a 180-second bound.
 
+9. **Add after LIVE:** keep A's loaded data, add B with source publishing paused,
+   verify B's empty loading screen and animated train, then deliver distinct B
+   estimates. Reopen and verify both recent routes remain SAVED.
+10. **Add while loading:** hold A's actual final AppMessage chunk, add B, then
+    release A. B must stay empty until its own update; revisiting A shows only
+    A's delayed estimates, not B's values.
+11. **Remove while loading:** remove B while its real arrival packet is in flight.
+    Late B data must not recreate its row or overwrite surviving A. A is SAVED
+    until a fresh update, then survives reopening without B.
+12. **Remove a loaded first slot:** delete A after both routes have data. B remains
+    in its original nonzero persistence slot, appears SAVED until fresh data,
+    survives reopening and wraps in both directions without resurrecting A.
+13. **Remove the last favourite:** delete a loaded route with another update in
+    flight, verify the empty root and no active station subscription, and release
+    the late data. Reopen and re-add the same route: no old favourite or ETA may
+    reappear before a new source update.
+14. **Duplicate favourite:** adding the same station/line/direction selects the
+    existing row, keeps one subscription and persists only one favourite.
+15. **Opposite directions:** publish one whole-station snapshot with distinct
+    estimates for both directions. Switching directions retains the correct LIVE
+    data without resubscribing; removing one direction leaves the other intact.
+16. **Cancel an unfinished add:** back out of the direction/station pickers while
+    A is loading. Its selection/subscription remains unchanged, no draft is saved,
+    and fresh A data still renders correctly.
+
 Only two recent routes are durable; other still-valid snapshots are RAM-only.
 The stress deliberately asserts the uncached third route rather than pretending
 all 16 arrival histories persist.
+
+The removal cases caught a native fallback bug: changing stations after deletion
+could label the survivor's retained data LIVE without a new update. The fallback
+now marks it SAVED; a continuously subscribed same-station direction remains LIVE.
 
 ## Memory assertions
 
@@ -65,19 +94,21 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **eight flows per platform (16 tests)**. Each platform
+The normal matrix has **16 flows per platform (32 tests)**. Each platform
 independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (32 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (64 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The normal two-platform reference run passed **16/16 tests** in about six minutes,
-including 160-switch stress on each watch. Across 120 samples:
+The normal two-platform reference run passed **32/32 tests** in about 8½ minutes,
+including 160-switch stress on each watch. A separate repeated late-data subset
+passed **12/12** (three cases × two repeats × two watches), with snapshot updates
+disabled. Across 208 samples in the full matrix:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
-| Time 2 / Emery | 64,264–64,344 bytes | 5,448 / 64,344 bytes |
-| Round 2 / Gabbro | 64,144–64,224 bytes | 5,448 / 64,224 bytes |
+| Time 2 / Emery | 64,168–64,248 bytes | 5,448 / 64,248 bytes |
+| Round 2 / Gabbro | 64,048–64,128 bytes | 5,448 / 64,128 bytes |
 
 No unexpected native restart occurred. Recheck against the candidate revision
 rather than treating these measurements as permanent guarantees.
@@ -105,6 +136,7 @@ npm run typecheck
 npm run e2e -- --project=gabbro
 npm run e2e -- --project=emery
 npm run e2e -- --repeat-each=2
+npm run e2e -- --grep 'favourite lifecycle'
 npx playwright show-report
 ```
 
@@ -132,6 +164,13 @@ seconds for minute-only observations. Fixture data is not a live measurement.
 Readiness waits for `Metro native UI ready`, emitted after the first real draw,
 then real frames and application receipts. System launch-animation frames are
 rejected. Normal assertions poll boundedly.
+
+Delayed-data tests disable automatic fixture publishing instead of sleeping.
+For in-flight races, the harness holds the final unmodified chunk emitted by the
+real phone bundle, changes the route through native buttons, then releases that
+same chunk and waits for the native application receipt. It does not inject a
+replacement watch model or renderer. Whole-station fixtures can include both
+directions; active MQTT subscriptions are recorded separately from their history.
 
 ```sh
 npm run e2e -- --project=gabbro --update-snapshots
