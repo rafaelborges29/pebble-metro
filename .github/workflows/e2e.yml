@@ -39,7 +39,7 @@ jobs:
           pebble sdk activate 4.33.1
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Build and run the real-emulator flow
+      - name: Build and test Time 2 and Round 2 in real emulators
         run: npm run e2e
       - name: Upload reports and failure diagnostics
         if: always()

@@ -16,11 +16,17 @@ It is not Metro de Lisboa's logo. No third-party artwork or fonts are embedded.
 | `appstore/emery_arrivals.png` | 200×228 | Approximate minute-only estimates |
 | `appstore/emery_saved.png` | 200×228 | Saved estimates and native train loader |
 | `appstore/emery_favourites.png` | 200×228 | Two favourites and management controls |
+| `appstore/gabbro_seconds.png` | 260×260 | Round 2 second-precision arrivals |
+| `appstore/gabbro_arrivals.png` | 260×260 | Round 2 approximate minute estimates |
+| `appstore/gabbro_saved.png` | 260×260 | Round 2 saved estimates and tiny train |
+| `appstore/gabbro_favourites.png` | 260×260 | Round 2 favourites inside the circular safe area |
 
-All four screenshots come from the real native PBW and bundled phone JS in Emery
-QEMU, using the existing deterministic REST/MQTT fixtures. They are **emulator
-captures with example arrival data**, not real-time observations or physical-watch
-photos. They are unframed, unscaled PNGs with the clock and train left intact.
+All eight screenshots come from the real native PBW and bundled phone JS in
+Emery/Gabbro QEMU, using the existing deterministic REST/MQTT fixtures. They are
+**emulator captures with example arrival data**, not real-time observations or
+physical-watch photos. They are unframed, unscaled PNGs with the clock and train
+left intact. Gabbro's black corners are the actual round display mask, not a
+watch-frame overlay.
 Do not substitute the clock/loader-masked E2E baselines for these store images.
 
 ## Rebuild icons
@@ -34,8 +40,8 @@ rsvg-convert -w 144 -h 144 assets/icon.svg -o assets/appstore/icon-large.png
 rsvg-convert -w 25 -h 25 assets/menu-icon.svg -o resources/images/menu-icon.png
 ```
 
-The launcher icon must stay at most 25×25. Emery watchapp launcher icons are
-non-inverting greyscale; the store icons are independent full-colour images.
+The launcher icon must stay at most 25×25. Emery/Gabbro watchapp launcher icons
+are non-inverting greyscale; the store icons are independent full-colour images.
 
 ## Recapture screenshots
 
@@ -45,11 +51,13 @@ With the normal [E2E prerequisites](../docs/e2e.md) installed:
 npm run assets:screenshots
 ```
 
-This explicitly builds the current PBW and runs the existing cached-reopen flow
-with capture enabled. It briefly publishes second-unit fixture estimates, restores
-minute-unit fixtures, captures the saved state before restarting PKJS, and adds a
-second favourite for the list screen. It does not touch a physical watch or upload
-anything. The CLI-compatible filenames start with `emery_`.
+This explicitly builds the current two-platform PBW and runs the existing
+cached-reopen flow for each platform with capture enabled. It briefly publishes
+second-unit fixture estimates, restores minute-unit fixtures, captures the saved
+state before restarting PKJS, and adds a second favourite for the list screen.
+Use `npm run assets:screenshots -- --project=gabbro` (or `--project=emery`) to
+recapture one watch. It does not touch physical hardware or upload anything.
+CLI-compatible filenames start with `emery_` or `gabbro_`.
 
 Normal E2E/CI runs do not overwrite these assets. Captures intentionally retain the
 emulator clock, so recapturing can change pixels even without a UI change. Inspect

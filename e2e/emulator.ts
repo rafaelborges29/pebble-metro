@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
 export const root = resolve(__dirname, '..');
+export type Platform = 'emery' | 'gabbro';
 export type Button = 'back' | 'up' | 'select' | 'down';
 export type Loader = 'empty' | 'arrivals';
 export interface MemorySample { reason: string; used: number; free: number }
@@ -32,7 +33,10 @@ function pebblePython() {
 }
 
 function emulator(testInfo: TestInfo) {
-  const child = spawn(pebblePython(), ['-B', '-u', 'e2e/emulator.py'], {
+  const project = testInfo.project.name;
+  if (project !== 'emery' && project !== 'gabbro') throw new Error(`Unsupported test platform: ${project}`);
+  const platform: Platform = project;
+  const child = spawn(pebblePython(), ['-B', '-u', 'e2e/emulator.py', platform], {
     cwd: root, detached: true, stdio: ['pipe', 'pipe', 'pipe'],
   });
   const pending = new Map<number, Resume>();
@@ -106,6 +110,7 @@ function emulator(testInfo: TestInfo) {
     yield* Effect.promise(() => testInfo.attach('emulator log', { body: output, contentType: 'text/plain' }));
   }).pipe(Effect.orDie);
   return {
+    platform,
     ready: Effect.tryPromise({ try: () => ready, catch: error => error }).pipe(Effect.timeout('45 seconds')),
     set onMessage(callback: (data: Record<string, unknown>) => void) { onMessage = callback; },
     set onLog(callback: (message: string) => void) { onLog = callback; },

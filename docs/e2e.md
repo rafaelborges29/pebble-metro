@@ -6,7 +6,8 @@ No application model or watch renderer is replaced by a mock.
 
 ## What actually runs
 
-- The current checkout's real release PBW on SDK 4.33.1 Emery QEMU.
+- The current checkout's real release PBW on SDK 4.33.1 Emery and Gabbro QEMU,
+  selected by Playwright's `emery` / `gabbro` projects.
 - That same PBW's extracted phone JavaScript in Chromium, including the source
   parser, real Paho client, metadata cache and chunk/receipt transport.
 - Native buttons, AppMessage dictionaries/ACKs, native drawing and persistence.
@@ -40,12 +41,15 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 6. **Metadata replacement:** highlight the second line in an interchange picker,
    remove that line in the REST fixture and refresh through the real companion.
    The native picker/history resets safely instead of indexing a removed line.
-7. **Reported-crash regression:** use 50 stations and four lines (4,204 bytes in
+7. **About/removal navigation:** inspect attribution and removal confirmation,
+   keep the favourite, and return to arrivals on both screen shapes.
+8. **Reported-crash regression:** use 50 stations and four lines (4,204 bytes in
    the validated original metadata shape), create all 16 favourites with actual
    buttons, and perform 160 UP/DOWN switches in both directions with new source
    updates, including seconds. Then inspect the two durable recent-route caches,
    relaunch, verify every persisted favourite ID, exercise wraparound and the
-   16-favourite limit. This test has a 180-second bound.
+   16-favourite limit. A snapshot at menu position 17/19 checks that two-digit
+   counts remain visible inside the round footer. This test has a 180-second bound.
 
 Only two recent routes are durable; other still-valid snapshots are RAM-only.
 The stress deliberately asserts the uncached third route rather than pretending
@@ -61,13 +65,22 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The 0.2.0 reference run passed all **seven flows twice** without snapshot updates
-(`npm run e2e -- --repeat-each=2`, 14/14, 5.7 minutes). Across 112 recorded samples,
-free heap was **64,344–64,424 bytes** and used heap **5,448–5,528 bytes**. Both
-16-favourite/160-switch runs had identical switch samples: **5,448 used / 64,424
-free**. No unexpected app startup occurred. Recheck after every production change;
-these are emulator samples, not continuous allocation traces or a physical-watch
-guarantee.
+The normal matrix has **eight flows per platform (16 tests)**. Each platform
+independently checks heap headroom, switch variation and expected startup count.
+For repeated runs use `npm run e2e -- --repeat-each=2` (32 tests). Recheck after
+every production change; samples are not continuous allocation traces or a
+physical-watch/battery guarantee.
+
+The normal two-platform reference run passed **16/16 tests** in about six minutes,
+including 160-switch stress on each watch. Across 120 samples:
+
+| Target | Free native heap | Switch samples (used / free) |
+| --- | --- | --- |
+| Time 2 / Emery | 64,264–64,344 bytes | 5,448 / 64,344 bytes |
+| Round 2 / Gabbro | 64,144–64,224 bytes | 5,448 / 64,224 bytes |
+
+No unexpected native restart occurred. Recheck against the candidate revision
+rather than treating these measurements as permanent guarantees.
 
 ## Run
 
@@ -89,6 +102,8 @@ installation, set `PEBBLE_PYTHON` to the interpreter inside the Pebble tool's ve
 
 ```sh
 npm run typecheck
+npm run e2e -- --project=gabbro
+npm run e2e -- --project=emery
 npm run e2e -- --repeat-each=2
 npx playwright show-report
 ```
@@ -99,11 +114,16 @@ failures, but do not replace the actual native PBW flows.
 
 ## Screenshots and synchronization
 
-Native baselines live in `e2e/screenshots/`. Pixel comparison masks only:
+Time 2 baselines remain in `e2e/screenshots/`; Round 2 baselines are isolated in
+`e2e/screenshots/gabbro/` and are 260×260. Pixel comparison masks only:
 
-- The header clock.
-- The 30 × 18 train area on loading/saved screens. An unmasked cropped assertion
-  separately checks that its frames change.
+- The header clock at that platform's native position.
+- The platform-specific 30 × 18 train area on loading/saved screens. An unmasked
+  cropped assertion separately checks that its frames change.
+
+Raw store screenshots are captured without either mask by the explicit
+`npm run assets:screenshots` command, for both platforms. Normal tests never
+rewrite the checked-in store assets. See [asset generation](../assets/README.md).
 
 The source's legitimate minute units keep ordinary ETA screenshots stable. Numeric
 seconds are exercised during churn and zero rendering; tests do not manufacture
@@ -114,7 +134,7 @@ then real frames and application receipts. System launch-animation frames are
 rejected. Normal assertions poll boundedly.
 
 ```sh
-npm run e2e -- --update-snapshots
+npm run e2e -- --project=gabbro --update-snapshots
 ```
 
 Review every changed image before accepting it, especially during startup/source
@@ -140,6 +160,7 @@ empty arrivals and the final connected message retain the invalidation generatio
 The C probe separately checks initial-zero, initial-nonzero and changed-generation
 handling against all route caches.
 
-Remaining hardware acceptance: real Android WebView/Bluetooth, source variations,
+Remaining hardware acceptance on both watches, particularly physical Round 2:
+real Android WebView/Bluetooth, source variations,
 repeated favourite switching, quick reopen, phone/internet loss/recovery and
 battery use. This version does not use vibration.

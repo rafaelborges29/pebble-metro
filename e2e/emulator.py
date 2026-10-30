@@ -47,9 +47,14 @@ logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 
 
 def run():
+    platform = sys.argv[1] if len(sys.argv) == 2 else "emery"
+    if platform not in ("emery", "gabbro"):
+        raise ValueError(f"Unsupported platform: {platform}")
+    round_display = platform == "gabbro"
+    size = (260, 260) if round_display else (200, 228)
     sdk = Path(sdk_manager.path_for_sdk("4.33.1"))
     toolchain = Path(sdk_manager.root_path_for_sdk("4.33.1")) / "toolchain"
-    firmware = sdk / "pebble/emery/qemu"
+    firmware = sdk / "pebble" / platform / "qemu"
     process = None
     connection = None
     # Each process gets new flash, not the developer's managed emulator storage.
@@ -64,7 +69,7 @@ def run():
             port = reservation.getsockname()[1]
         command = [
             str(toolchain / "bin/qemu-pebble"),
-            "-machine", "pebble-emery", "-cpu", "cortex-m33",
+            "-machine", "pebble-" + platform, "-cpu", "cortex-m33",
             "-kernel", str(directory / "micro.bin"),
             "-drive", f"if=mtd,format=raw,file={directory / 'spi.bin'}",
             "-rtc", "base=utc", "-display", "none",
@@ -149,20 +154,25 @@ def run():
                     elif method == "screenshot":
                         rows = Screenshot(connection).grab_image()
                         image = Image.frombytes("RGB", (len(rows[0]) // 3, len(rows)), b"".join(rows))
+                        if image.size != size:
+                            raise RuntimeError(f"Unexpected {platform} screenshot size: {image.size}")
                         drawing = ImageDraw.Draw(image)
                         if params.get("mask_clock", False):
                             # Snapshot updates must not capture the system launch animation.
-                            if image.getpixel((0, 0)) not in ((0, 0, 0), (255, 255, 0)) or image.getpixel((199, 201)) != (255, 255, 255):
+                            top = (130, 2) if round_display else (0, 0)
+                            bottom = (130, 225) if round_display else (199, 201)
+                            if image.getpixel(top) not in ((0, 0, 0), (255, 255, 0)) or image.getpixel(bottom) != (255, 255, 255):
                                 raise RuntimeError("Waiting for a rendered Metro frame")
-                            drawing.rectangle((155, 0, 199, 23), fill="black")
+                            drawing.rectangle((170, 24, 209, 47) if round_display else (155, 0, 199, 23), fill="black")
+                        loader_positions = {"empty": (44, 112), "arrivals": (83, 205)} if round_display else {"empty": (10, 85), "arrivals": (10, 182)}
                         loader = params.get("mask_loader")
-                        if loader in ("empty", "arrivals"):
-                            y = 85 if loader == "empty" else 182
-                            drawing.rectangle((10, y, 39, y + 17), fill="white")
+                        if loader in loader_positions:
+                            x, y = loader_positions[loader]
+                            drawing.rectangle((x, y, x + 29, y + 17), fill="white")
                         crop = params.get("crop_loader")
-                        if crop in ("empty", "arrivals"):
-                            y = 85 if crop == "empty" else 182
-                            image = image.crop((10, y, 40, y + 18))
+                        if crop in loader_positions:
+                            x, y = loader_positions[crop]
+                            image = image.crop((x, y, x + 30, y + 18))
                         output = io.BytesIO()
                         image.save(output, format="PNG")
                         result = base64.b64encode(output.getvalue()).decode()

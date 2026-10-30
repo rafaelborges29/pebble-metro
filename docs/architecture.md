@@ -1,10 +1,11 @@
 # Native implementation and data boundaries
 
-Target: Pebble Time 2 (`emery`), Android Pebble app, SDK 4.33.1.
+Targets: Pebble Time 2 (`emery`, 200×228) and Pebble Round 2 (`gabbro`, 260×260),
+Android Pebble app, SDK 4.33.1. The original Time Round (`chalk`) is not targeted.
 The watch is native C. Only the phone companion is JavaScript.
 
 ```text
-Time 2: one native window + drawing layer, fixed-size model and persistence
+Time 2 / Round 2: one native window + drawing layer, fixed-size model and persistence
     ↕ DATA JSON chunks + application receipts
 Android: bundled PebbleKit JS inside the Pebble mobile app
     ↕ HTTPS station/line catalogue + MQTT over secure WebSocket
@@ -37,13 +38,19 @@ There is no interpreter or separately loaded JS archive. The per-app budget is
 128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
 rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-The measured 0.2.0 baseline reports **61,196 bytes native code/static RAM**
-and **69,876 bytes available heap before UI setup**. Repeated native E2E measured
-**64,344–64,424 bytes free** after UI/messages, with no switch-sample growth.
-The actual Emery watch binary plus resources total approximately **29 KiB**.
-Most of the PBW's remaining size is phone JavaScript and its source map. Rebuilds
-can change package size/hash; these measurements are emulator evidence, not
-physical-watch heap or battery acceptance.
+Each native target uses approximately **60 KiB code/static RAM**, leaving about
+**63 KiB free native heap** after UI/messages in emulator runs. The stress tests
+check both platforms independently for headroom and switch-sample growth. Each
+watch binary plus resources is approximately **30 KiB**. The PBW contains both
+watch binaries but only one phone bundle/source map. Rebuilds can change size/hash;
+these are emulator measurements, not physical-watch heap or battery acceptance.
+
+The drawing layer uses the actual window bounds. Time 2 retains its rectangular
+layout. Round 2 centers text and measured ETA/unit groups, places the header and
+footer inside the circular safe area, and increases the last menu row's insets.
+Both keep four visible menu rows and the same buttons/model/storage/protocol.
+The loader remains on the existing one-second tick; no round-specific object tree,
+framebuffer or animation timer is allocated by the app.
 
 ## Sources and validation
 

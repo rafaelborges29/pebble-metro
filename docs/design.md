@@ -1,7 +1,8 @@
 # Arrivals-first flow
 
 The native app uses one window and drawing layer, fixed-size models and direct
-button navigation. No alerts, vibration, settings or service-status dashboard.
+button navigation on Time 2 and Round 2. No alerts, vibration, settings or
+service-status dashboard.
 
 ## Navigation
 
@@ -32,6 +33,12 @@ Holding Up/Down repeats. Removal is confirmed and does not rewrite other favouri
 Switching changes an index/subscription, without allocating a menu/object tree.
 Only visible menu rows are drawn. Static menus redraw on changes or the minute
 clock tick, not every second.
+
+Time 2 uses the rectangular layout. Round 2 centers the station/line/direction,
+measures the main ETA and its unit as one centered group, and insets header/footer
+text away from the circular edge. The last of four menu rows is narrower to stay
+inside the bottom curve. Compact round footers keep counts such as 17/19 visible.
+These are layout differences only; estimates, cache and navigation semantics match.
 
 ## Data path
 

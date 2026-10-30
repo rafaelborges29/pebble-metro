@@ -1,7 +1,8 @@
 # Release checklist
 
 Source publication and distributing a watch binary are separate steps. The target
-is **Pebble Time 2 (`emery`) and Android**; do not claim iOS/other-watch support or
+is **Pebble Time 2 (`emery`), Pebble Round 2 (`gabbro`) and Android**; do not claim
+iOS, original Time Round (`chalk`) or other-watch support or
 publish removed alert/service features. See [Appstore publishing](appstore.md) for
 current requirements, a draft listing and the recommended Dashboard → Unlisted →
 store-install test → Listed workflow.
@@ -24,13 +25,15 @@ store-install test → Listed workflow.
 
 ## Verification baseline
 
-The native 0.2 baseline passed all seven emulator flows twice (14/14), including
-16 favourites and 160 switches per stress run. Across 112 samples, free heap was
-64,344–64,424 bytes; every switch sample used 5,448 bytes. See [E2E](e2e.md) for
-scope, artifacts and commands. Recheck after production changes.
+The E2E matrix covers eight native flows on each target, including 16 favourites
+and 160 switches per platform's stress run. Heap assertions require at least
+50 KiB free and stable switch samples. See [E2E](e2e.md) for scope, artifacts and
+commands. Recheck the full matrix after production changes.
 
 A native build has been installed on Time 2 and loaded the full station catalogue.
-This is initial hardware evidence, not completed acceptance. The earlier 0.1
+This is initial hardware evidence, not completed acceptance. Round 2 currently
+has emulator evidence only; obtain physical-device feedback before claiming full
+hardware acceptance. The earlier 0.1
 Alloy build failed with memory exhaustion during switching; its initial successes
 are not evidence for the native implementation.
 
@@ -56,7 +59,7 @@ are not evidence for the native implementation.
 - [ ] Confirm applicable SDK/toolchain redistribution terms. Retain generated
   copyright notices and distribute complete applicable licence texts.
 - [ ] Build cleanly with SDK 4.33.1; inspect `build/<checkout-name>.pbw`, version,
-  UUID, Emery target and absence of credentials or unexpected runtime assets.
+  UUID, both Emery/Gabbro targets and absence of credentials or unexpected runtime assets.
 - [ ] Record the exact PBW SHA-256, source revision and verification results.
 - [ ] Provide `LICENSE`, `THIRD_PARTY_NOTICES.md` and `LICENSES/` with binary
   distributions, not merely links to a private repository. For a download bundle,
@@ -69,7 +72,8 @@ are not evidence for the native implementation.
   ```
 
 - [x] Prepare original 80×80/144×144 store icons, a 25×25 watch launcher icon and
-  four unframed 200×228 captures from the native emulator. See [assets](../assets/README.md).
+  four unframed captures per native emulator: Emery 200×228 and Gabbro 260×260.
+  See [assets](../assets/README.md).
 - [ ] Review the artwork/screenshots for the release. Fixture captures must not be
   represented as live hardware.
 - [ ] Confirm agreements, public contact details and intended Unlisted/Listed

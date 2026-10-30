@@ -22,13 +22,15 @@ watch app through the Pebble mobile app's store.
    Release for the matching source tag. Keep public support/privacy links working.
 4. Sign in to the Developer Dashboard with the same Pebble account/sign-in method
    used for development. Review any legal agreements yourself.
-5. Choose **New**, upload the exact PBW, and check type, UUID, version and **Emery
-   only** platform detection. Fill in the listing and upload the assets below.
+5. Choose **New**, upload the exact PBW, and check type, UUID, version and both
+   **Emery (Time 2) / Gabbro (Round 2)** platform detections. Fill in the listing
+   and upload each platform's assets below.
 6. **Explicitly select Unlisted before Submit App.** Store submissions can become
    available immediately: there is no review queue. Verify the resulting direct
    link is installable but not discoverable in search/browsing.
-7. Install from that store link on Time 2/Android and repeat switching, reopen,
-   expiry and disconnect/reconnect checks. Collect feedback during the beta.
+7. Install from that store link on Time 2 and Round 2 with Android and repeat
+   switching, reopen, expiry and disconnect/reconnect checks. Round 2 currently
+   has emulator coverage; collect physical-device feedback during the beta.
 8. When ready, use **Edit → App visibility → Listed** in the dashboard. For later
    versions use **New Release**, the same UUID, an unused version and release notes.
    Check the release's published/draft state as well as overall app visibility.
@@ -47,6 +49,7 @@ Current official requirements, checked 2026-10-29:
 | Small store icon | 80×80 | `assets/appstore/icon-small.png` |
 | Large store icon | 144×144 | `assets/appstore/icon-large.png` |
 | Emery screenshots | Exactly 200×228; unframed; up to five | Four `assets/appstore/emery_*.png` files |
+| Gabbro screenshots | Exactly 260×260; unframed; up to five | Four `assets/appstore/gabbro_*.png` files |
 | Banner | Optional, 720×320 | Not required for the initial beta |
 | Watch launcher icon | At most 25×25; separate from store icons | `resources/images/menu-icon.png` |
 
@@ -54,16 +57,19 @@ Store images accept PNG/JPEG/GIF, at most 4.4 MB each. These prepared assets use
 Icons and dashboard screenshots can technically be omitted/generated, but original
 icons and useful real-app screenshots make a much clearer listing.
 
-Suggested screenshot order: **seconds → approximate minutes → SAVED → favourites**.
-These are unmodified emulator captures from the native app, with deterministic
-example arrival data. Do not describe them as physical-watch captures or current
-train observations. See [asset provenance and generation](../assets/README.md).
+Suggested screenshot order on each platform: **seconds → approximate minutes →
+SAVED → favourites**. These are unmodified emulator captures from the native app,
+with deterministic example arrival data. Do not describe them as physical-watch
+captures or current train observations. Upload each set to its correct platform;
+Round 2 is Gabbro, not the original Time Round/Chalk. See
+[asset provenance and generation](../assets/README.md).
 
 ## Draft listing
 
 - **Name:** Metro Lisboa
 - **Type/category:** Watchapp / Daily (confirm the dashboard category label).
-- **Compatibility:** Pebble Time 2 + Android; no iOS/other-watch claim.
+- **Compatibility:** Pebble Time 2 and Pebble Round 2 + Android; no iOS, original
+  Time Round or other-watch claim. Round 2 hardware acceptance remains pending.
 - **Website/support:** public repository README and GitHub Issues.
 - **Source:** `https://github.com/rafaelborges29/pebble-metro` once the native changes
   are committed/pushed and the repository is public.
@@ -74,7 +80,7 @@ train observations. See [asset provenance and generation](../assets/README.md).
 Plain-text description draft:
 
 ```text
-Lisbon Metro arrival estimates on your Pebble Time 2.
+Lisbon Metro arrival estimates on your Pebble Time 2 or Pebble Round 2.
 
 Save up to 16 station, line and direction favourites. See the next three estimates,
 with second-by-second countdowns when the source supplies seconds. Minute-only
@@ -95,7 +101,8 @@ Screenshots are emulator captures using example arrival data.
 Initial release notes draft:
 
 ```text
-Native C arrivals beta for Pebble Time 2 and Android.
+Native C arrivals beta for Pebble Time 2, Pebble Round 2 and Android.
+Round 2 includes a circular layout verified in the emulator; device feedback is welcome.
 Favourites, source-precision countdowns, two-route saved cache and tiny-train loader.
 Earlier Alloy favourites must be re-added after upgrading; the old store is not erased.
 ```

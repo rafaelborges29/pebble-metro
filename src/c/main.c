@@ -645,7 +645,12 @@ static void rect(GContext *ctx, GColor color, int x, int y, int width, int heigh
 }
 static void text(GContext *ctx, const char *value, const char *font, int x, int y, int width, int height, GColor color) {
   graphics_context_set_text_color(ctx, color);
-  graphics_draw_text(ctx, value, fonts_get_system_font(font), GRect(x, y, width, height), GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  graphics_draw_text(ctx, value, fonts_get_system_font(font), GRect(x, y, width, height), GTextOverflowModeTrailingEllipsis,
+    PBL_IF_ROUND_ELSE(GTextAlignmentCenter, GTextAlignmentLeft), NULL);
+}
+static int text_width(const char *value, const char *font, int height) {
+  return graphics_text_layout_get_content_size(value, fonts_get_system_font(font), GRect(0, 0, PBL_DISPLAY_WIDTH - 48, height),
+    GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter).w;
 }
 static void train(GContext *ctx, int x, int y, uint32_t now) {
   rect(ctx, GColorLightGray, x, y + 17, 30, 1);
@@ -696,26 +701,42 @@ static void menu_label(int row, char *title, size_t size, char *detail, size_t d
   else copy_label(title, size, row ? "Remove it" : "Keep favourite");
 }
 static void update_layer(Layer *layer, GContext *ctx) {
-  (void)layer;
+  GRect bounds = layer_get_bounds(layer);
+  int width = bounds.size.w, height = bounds.size.h;
+  const bool round = PBL_IF_ROUND_ELSE(true, false);
+  int margin = round ? 24 : 10, content_width = round ? width - 48 : 182;
+  int title_y = round ? 50 : 28;
   uint32_t now = now_seconds();
   char clock[8], footer[64] = "", value[24], unit[20], buffer[192];
   clock_copy_time_string(clock, sizeof(clock));
   const char *header = s_view == ARRIVALS ? status(now) : s_view == EMPTY ? !s_station_count ? now - s_attempt >= 15 ? "UNAVAILABLE" : "CONNECTING" : "METRO LISBOA" : "METRO LISBOA";
-  rect(ctx, GColorWhite, 0, 0, 200, 228); rect(ctx, GColorBlack, 0, 0, 200, 24);
-  text(ctx, header, FONT_KEY_GOTHIC_14_BOLD, 8, 3, 144, 22, GColorWhite);
-  text(ctx, clock, FONT_KEY_GOTHIC_14, 155, 3, 43, 22, GColorWhite);
+  rect(ctx, GColorWhite, 0, 0, width, height); rect(ctx, GColorBlack, 0, 0, width, round ? 48 : 24);
+  text(ctx, header, FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, GColorWhite);
+  text(ctx, clock, FONT_KEY_GOTHIC_14, round ? 170 : 155, round ? 24 : 3, round ? 40 : 43, 22, GColorWhite);
   if (s_view == ARRIVALS && s_favorites[s_selected].version) {
     Labels labels = labels_for(&s_favorites[s_selected]);
-    text(ctx, labels.station, strlen(labels.station) > 21 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD, 10, 28, 182, 31, GColorBlack);
-    rect(ctx, labels.color, 10, 65, 4, 14); text(ctx, labels.line, FONT_KEY_GOTHIC_18_BOLD, 19, 59, 174, 25, GColorBlack);
-    snprintf(buffer, sizeof(buffer), "→ %s", labels.direction); text(ctx, buffer, FONT_KEY_GOTHIC_18, 10, 82, 184, 26, GColorBlack);
+    text(ctx, labels.station, strlen(labels.station) > 21 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    int line_y = round ? 82 : 59;
+    int line_x = round ? (width - text_width(labels.line, FONT_KEY_GOTHIC_18_BOLD, 25)) / 2 - 9 : 10;
+    rect(ctx, labels.color, line_x, line_y + 6, 4, 14);
+    text(ctx, labels.line, FONT_KEY_GOTHIC_18_BOLD, round ? margin : 19, line_y, round ? content_width : 174, 25, GColorBlack);
+    snprintf(buffer, sizeof(buffer), "→ %s", labels.direction);
+    text(ctx, buffer, FONT_KEY_GOTHIC_18, margin, round ? 105 : 82, round ? content_width : 184, 26, GColorBlack);
     const Arrival *arrival = &s_arrivals[s_selected];
     arrival_label(&arrival->predictions[0], now, value, sizeof(value), unit, sizeof(unit));
     // The number-only Bitham font has no Unicode range dash.
     bool numeric = value[0] >= '0' && value[0] <= '9' && arrival->predictions[0].type != 'i';
     bool show_unit = unit[0] && !strchr(value, ':') && strcmp(value, "Due");
-    text(ctx, value[0] ? value : "--:--", numeric ? FONT_KEY_BITHAM_42_BOLD : FONT_KEY_GOTHIC_24_BOLD, 10, 108, show_unit ? 126 : 182, 53, GColorBlack);
-    if (show_unit) text(ctx, unit, FONT_KEY_GOTHIC_18, 142, 124, 50, 34, GColorBlack);
+    const char *primary = value[0] ? value : "--:--";
+    const char *font = numeric ? FONT_KEY_BITHAM_42_BOLD : FONT_KEY_GOTHIC_24_BOLD;
+    int value_x = margin, value_width = round ? content_width : show_unit ? 126 : 182;
+    int unit_x = 142, unit_width = 50;
+    if (round && show_unit) {
+      value_width = text_width(primary, font, 53); unit_width = text_width(unit, FONT_KEY_GOTHIC_18, 34);
+      value_x = (width - value_width - 8 - unit_width) / 2; unit_x = value_x + value_width + 8;
+    }
+    text(ctx, primary, font, value_x, round ? 130 : 108, value_width, 53, GColorBlack);
+    if (show_unit) text(ctx, unit, FONT_KEY_GOTHIC_18, unit_x, round ? numeric ? 146 : 137 : 124, unit_width, 34, GColorBlack);
     buffer[0] = 0;
     for (int p = 1; p < 3; p++) {
       char next[24], next_unit[20], entry[48];
@@ -727,33 +748,45 @@ static void update_layer(Layer *layer, GContext *ctx) {
     bool waiting = !arrival->live && (!arrival->seen || has_predictions(arrival, now)) && !s_error[0] && s_source != SOURCE_DISCONNECTED;
     bool loading = waiting && now - s_attempt < 15;
     if (!buffer[0] && !loading) copy_label(buffer, sizeof(buffer), !strcmp(value, "Due") ? unit : s_error[0] ? s_error : !strcmp(header, "STALE") ? "Waiting for fresh data" : !strcmp(header, "NO ESTIMATE") ? "No live estimate" : "Waiting for data");
-    text(ctx, buffer, FONT_KEY_GOTHIC_18, 10, 159, 182, 24, GColorBlack);
-    if (loading) { train(ctx, 10, 182, now); text(ctx, "Updating", FONT_KEY_GOTHIC_14, 46, 182, 146, 20, GColorBlack); }
-    snprintf(footer, sizeof(footer), "Select: actions  %d/%d", favorite_ordinal() + 1, favorite_count());
+    text(ctx, buffer, FONT_KEY_GOTHIC_18, margin, round ? 178 : 159, content_width, 24, GColorBlack);
+    if (loading) {
+      train(ctx, round ? 83 : 10, round ? 205 : 182, now);
+      text(ctx, "Updating", FONT_KEY_GOTHIC_14, round ? 119 : 46, round ? 205 : 182, round ? 80 : 146, 20, GColorBlack);
+    }
+    snprintf(footer, sizeof(footer), round ? "Actions %d/%d" : "Select: actions  %d/%d", favorite_ordinal() + 1, favorite_count());
   } else if (s_view == EMPTY) {
-    text(ctx, "Your Metro.", FONT_KEY_GOTHIC_24_BOLD, 10, 28, 182, 31, GColorBlack);
-    if (!s_station_count && !s_error[0] && now - s_attempt < 15) { train(ctx, 10, 85, now); text(ctx, stage(), FONT_KEY_GOTHIC_14, 46, 81, 146, 30, GColorBlack); }
-    else text(ctx, s_station_count ? "Save a station and direction. No GPS needed." : s_error[0] ? s_error : "Open the Pebble phone app and retry.", FONT_KEY_GOTHIC_18, 10, 65, 182, 125, GColorBlack);
+    text(ctx, "Your Metro.", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    if (!s_station_count && !s_error[0] && now - s_attempt < 15) {
+      train(ctx, round ? 44 : 10, round ? 112 : 85, now);
+      text(ctx, stage(), FONT_KEY_GOTHIC_14, round ? 80 : 46, round ? 108 : 81, round ? 158 : 146, 30, GColorBlack);
+    } else text(ctx, s_station_count ? "Save a station and direction. No GPS needed." : s_error[0] ? s_error : "Open the Pebble phone app and retry.",
+      FONT_KEY_GOTHIC_18, round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? 124 : 125, GColorBlack);
     copy_label(footer, sizeof(footer), "Select: add / retry");
   } else if (s_view == NOTICE || s_view == ABOUT) {
-    text(ctx, s_view == ABOUT ? "About Metro" : "Metro", FONT_KEY_GOTHIC_24_BOLD, 10, 28, 182, 31, GColorBlack);
-    text(ctx, s_view == ABOUT ? "Metro 0.2 (native).\nIndependent app.\nUnderLX · ODbL 1.0\nunderlx.com\nEstimates, not guarantees." : s_notice, FONT_KEY_GOTHIC_18, 10, 65, 182, 132, GColorBlack);
+    text(ctx, s_view == ABOUT ? "About Metro" : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    text(ctx, s_view == ABOUT ? "Metro 0.2 (native).\nIndependent app.\nUnderLX · ODbL 1.0\nunderlx.com\nEstimates, not guarantees." : s_notice,
+      FONT_KEY_GOTHIC_18, round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? 124 : 132, GColorBlack);
     copy_label(footer, sizeof(footer), "Select: back");
   } else {
     const char *title = s_view == FAVORITES ? "Favourites" : s_view == STATIONS ? "Station" : s_view == LINES ? "Line" : s_view == DIRECTIONS ? "Direction" : s_view == ACTIONS ? "Actions" : "Remove it?";
-    text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, 10, 28, 182, 31, GColorBlack);
+    text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
     int count = row_count(), first = (s_row / 4) * 4;
     for (int i = first; i < count && i < first + 4; i++) {
       char label[81], detail[65]; menu_label(i, label, sizeof(label), detail, sizeof(detail));
-      int y = 61 + (i - first) * 34; bool selected = i == s_row;
-      if (selected) rect(ctx, GColorBlack, 0, y, 200, 34);
-      text(ctx, label, FONT_KEY_GOTHIC_18, 10, y, 182, detail[0] ? 21 : 33, selected ? GColorWhite : GColorBlack);
-      if (detail[0]) text(ctx, detail, FONT_KEY_GOTHIC_14, 10, y + 17, 182, 18, selected ? GColorWhite : GColorBlack);
+      int row = i - first, y = (round ? 86 : 61) + row * 34;
+      // The fourth row reaches the narrower bottom of the round display.
+      int x = round ? row == 3 ? 48 : 24 : 10, span = round ? width - 2 * x : 182;
+      bool selected = i == s_row;
+      if (selected) rect(ctx, GColorBlack, 0, y, width, 34);
+      text(ctx, label, FONT_KEY_GOTHIC_18, x, y, span, detail[0] ? 21 : 33, selected ? GColorWhite : GColorBlack);
+      if (detail[0]) text(ctx, detail, FONT_KEY_GOTHIC_14, x, y + 17, span, 18, selected ? GColorWhite : GColorBlack);
     }
-    snprintf(footer, sizeof(footer), "Up/Down: choose  %d/%d", s_row + 1, count);
+    snprintf(footer, sizeof(footer), round ? "Choose %d/%d" : "Up/Down: choose  %d/%d", s_row + 1, count);
   }
-  rect(ctx, GColorLightGray, 0, 202, 200, 26);
-  text(ctx, s_storage_error ? "Storage unavailable" : s_cache_error ? "Cache unavailable" : footer, FONT_KEY_GOTHIC_14_BOLD, 8, 205, 190, 23, GColorBlack);
+  int footer_y = round ? 226 : 202;
+  rect(ctx, GColorLightGray, 0, footer_y, width, height - footer_y);
+  text(ctx, s_storage_error ? "Storage unavailable" : s_cache_error ? "Cache unavailable" : footer, FONT_KEY_GOTHIC_14_BOLD,
+    round ? 62 : 8, round ? 229 : 205, round ? 136 : 190, 23, GColorBlack);
   if (!s_announced) { s_announced = true; APP_LOG(APP_LOG_LEVEL_INFO, "Metro native UI ready"); log_memory("ready"); }
 }
 static void draw(void) { if (s_layer) layer_mark_dirty(s_layer); }
@@ -780,7 +813,7 @@ static void init(void) {
   s_window = window_create();
   if (!s_window) return;
   window_set_background_color(s_window, GColorWhite); window_set_click_config_provider(s_window, click_config);
-  s_layer = layer_create(GRect(0, 0, 200, 228));
+  s_layer = layer_create(layer_get_bounds(window_get_root_layer(s_window)));
   if (!s_layer) return;
   layer_set_update_proc(s_layer, update_layer); layer_add_child(window_get_root_layer(s_window), s_layer);
   app_message_register_inbox_received(receive_packet); app_message_register_outbox_sent(outbox_sent); app_message_register_outbox_failed(outbox_failed);

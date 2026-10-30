@@ -1,14 +1,15 @@
-# Metro Lisboa for Pebble Time 2
+# Metro Lisboa for Pebble
 
 Lisbon Metro arrival estimates on your wrist. A small native C watch app with a
 PebbleKit JavaScript phone companion, connecting directly to [UnderLX](https://underlx.com/).
 
-**Target:** Pebble Time 2 (`emery`), firmware 4.33+, and Android. Other watches and
-iOS are not currently supported. Version 0.2 is under hardware validation;
-emulator results are not a guarantee of reliability or battery life on every device.
+**Targets:** Pebble Time 2 (`emery`, 200×228) and Pebble Round 2 (`gabbro`,
+260×260), firmware 4.33+, and Android. The original Pebble Time Round (`chalk`),
+other watches and iOS are not supported. Version 0.2 is under hardware validation;
+Round 2 has emulator coverage, not physical-watch acceptance yet.
 
-![Arrival estimates in the emulator](e2e/screenshots/arrivals.png)
-![Saved estimates in the emulator](e2e/screenshots/saved-arrivals.png)
+![Time 2 arrival estimates in the emulator](assets/appstore/emery_seconds.png)
+![Round 2 arrival estimates in the emulator](assets/appstore/gabbro_seconds.png)
 
 Screenshots use deterministic emulator fixtures, not live train observations.
 
@@ -90,9 +91,11 @@ npm run e2e
 ```
 
 The tests run the actual package and phone bundle with real buttons, AppMessage
-receipts and disposable Emery QEMU storage. REST/MQTT fixtures replace only the
-external data sources. Tests never connect to a physical watch. They cover reopen,
-expiry, phone restart, source replacement and 16-favourite/160-switch memory stress.
+receipts and disposable Emery/Gabbro QEMU storage. Both platforms run the same
+flows with separate native screenshot baselines. REST/MQTT fixtures replace only
+the external data sources. Tests never connect to a physical watch. They cover
+reopen, expiry, phone restart, source replacement, About/removal navigation and
+16-favourite/160-switch memory stress.
 See [E2E documentation](docs/e2e.md) and [contributing](CONTRIBUTING.md).
 
 To install on your own watch, enable Developer Connection in the Android Pebble app:

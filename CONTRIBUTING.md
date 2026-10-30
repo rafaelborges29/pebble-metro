@@ -1,7 +1,8 @@
 # Contributing
 
 Keep the app small, predictable and arrivals-focused. The supported target is
-Pebble Time 2 (`emery`) with Android, SDK 4.33.1 and Node 24.21.0.
+Pebble Time 2 (`emery`) and Pebble Round 2 (`gabbro`) with Android, SDK 4.33.1
+and Node 24.21.0.
 See [README](README.md) for setup and [architecture](docs/architecture.md) for the
 model, protocol and storage boundaries.
 
@@ -14,6 +15,10 @@ npm run typecheck
 npm run check
 npm run e2e
 ```
+
+E2E runs both platform projects. Use `npm run e2e -- --project=gabbro` (or
+`--project=emery`) for a focused run. New Round 2 baselines live under
+`e2e/screenshots/gabbro/`; the existing Time 2 baselines remain at the root.
 
 The emulator harness needs the Pebble tool and its Python `libpebble2` dependency.
 The tested versions and Linux system packages are pinned in

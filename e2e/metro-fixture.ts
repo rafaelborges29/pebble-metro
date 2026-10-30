@@ -2,7 +2,7 @@ import { test as base, expect } from '@playwright/test';
 import { Effect } from 'effect';
 import { writeFileSync } from 'node:fs';
 import mqtt from 'mqtt-packet';
-import { acquireEmulator, root, type Button, type Loader, type MemorySample } from './emulator';
+import { acquireEmulator, root, type Button, type Loader, type MemorySample, type Platform } from './emulator';
 
 export type Favourite = { station: string; line: string; direction: string };
 type PhoneData = { DATA: string };
@@ -15,6 +15,7 @@ type Units = 's' | 'm';
 type PredictionType = 'e' | 'i' | 'l' | 'm';
 type Publisher = (values: number[], units: Units, direction: string, type?: PredictionType) => void;
 export interface Metro {
+  platform: Platform;
   commands: WatchCommand[];
   subscriptions: string[];
   memory: MemorySample[];
@@ -113,7 +114,8 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
         async function expectScreen(name: string, loader?: Loader) {
           await expect(async () => {
             const image = Buffer.from(await Effect.runPromise(device.request('screenshot', { mask_clock: true, mask_loader: loader })), 'base64');
-            expect(image).toMatchSnapshot(`${name}.png`, { threshold: 0, maxDiffPixels: 0 });
+            const snapshot = device.platform === 'gabbro' ? ['gabbro', `${name}.png`] : `${name}.png`;
+            expect(image).toMatchSnapshot(snapshot, { threshold: 0, maxDiffPixels: 0 });
           }).toPass({ timeout: 10_000, intervals: [250, 500] });
         }
         try {
@@ -227,6 +229,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
           await expectScreen('connecting', 'empty');
           await startPhone();
           const metro: Metro = {
+            platform: device.platform,
             commands, subscriptions, memory: device.memory, stations: catalogue, favourite,
             async press(button) { await Effect.runPromise(device.request('press', { button })); },
             expectScreen, delivered, startPhone,

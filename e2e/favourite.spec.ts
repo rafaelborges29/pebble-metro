@@ -8,7 +8,7 @@ async function captureStoreScreen(metro: Metro, name: string) {
   if (!captureAssets) return;
   const directory = resolve(root, 'assets/appstore');
   mkdirSync(directory, { recursive: true });
-  writeFileSync(resolve(directory, `emery_${name}.png`), await metro.screenshot());
+  writeFileSync(resolve(directory, `${metro.platform}_${name}.png`), await metro.screenshot());
 }
 
 async function expectSelection(metro: Metro, favourite: Favourite, after: number) {
@@ -83,6 +83,24 @@ test('reopen immediately from the watch cache, then receive fresh arrivals', asy
     await metro.press('back');
     await captureStoreScreen(metro, 'favourites');
   }
+});
+
+test('About attribution and removal confirmation remain navigable', async ({ metro }) => {
+  await saveFavourite(metro);
+  await metro.press('back');
+  await metro.press('up'); // About is the last root row.
+  await metro.press('select');
+  await metro.expectScreen('about');
+  await metro.press('select');
+  await metro.press('down'); // Wrap from About to the favourite.
+  await metro.press('select');
+  await metro.press('select');
+  await metro.press('down');
+  await metro.press('select');
+  await metro.expectScreen('remove-confirmation');
+  await metro.press('select'); // Keep the favourite.
+  await metro.press('back');
+  await metro.expectScreen('arrivals');
 });
 
 test('revisiting a RAM-only route persists it without waiting for another source update', async ({ metro }) => {
@@ -204,6 +222,7 @@ test.describe('full native data budget', () => {
     await metro.press('back');
     await metro.expectScreen('full-favourites');
     for (let i = 0; i < 3; i++) await metro.press('up');
+    await metro.expectScreen('favourites-add-limit'); // Two-digit 17/19 stays visible on Round 2.
     await metro.press('select');
     await metro.expectScreen('favourites-limit');
     await metro.press('back');
