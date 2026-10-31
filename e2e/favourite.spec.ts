@@ -116,7 +116,7 @@ test('reopen immediately from the watch cache, then receive fresh arrivals', asy
   }
 });
 
-test('About attribution and removal confirmation remain navigable', async ({ metro }) => {
+test('About shows UnderLX source, licence and methods URLs; removal confirmation remains navigable', async ({ metro }) => {
   await saveFavourite(metro);
   await metro.press('back');
   await metro.press('up'); // About is the last root row.

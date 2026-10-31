@@ -21,7 +21,9 @@ store-install test → Listed workflow.
   Keep `package.json`'s `private: true`: it prevents accidental npm publication,
   not public Git hosting.
 - [ ] Recheck [third-party notices](../THIRD_PARTY_NOTICES.md), complete texts in
-  `LICENSES/`, [privacy](../PRIVACY.md) and UnderLX attribution.
+  `LICENSES/`, [privacy](../PRIVACY.md) and
+  [UnderLX data/methods scope](../DATA_METHODS.md). Preserve ODbL for data;
+  0BSD covers original software/artwork, not the provider's database.
 
 ## Verification baseline
 
@@ -62,21 +64,35 @@ are not evidence for the native implementation.
 - [ ] Build cleanly with SDK 4.33.1; inspect `build/<checkout-name>.pbw`, version,
   UUID, both Emery/Gabbro targets and absence of credentials or unexpected runtime assets.
 - [ ] Record the exact PBW SHA-256, source revision and verification results.
-- [ ] Provide `LICENSE`, `THIRD_PARTY_NOTICES.md` and `LICENSES/` with binary
-  distributions, not merely links to a private repository. For a download bundle,
-  after choosing the original-code licence, for example:
+- [ ] Provide `LICENSE`, `THIRD_PARTY_NOTICES.md`, `DATA_METHODS.md` and `LICENSES/`
+  (including ODbL 1.0) with binary downloads. Offer the exact matching source
+  revision/archive free of charge, including all transformation/fixture methods
+  and additional test data. Do not rely on a private repository link.
+- [ ] Before any external distribution, including an Unlisted store beta, verify
+  anonymously that the About/listing links reach the notices, complete licence
+  and matching machine-readable methods/source archive. Record the source
+  tag/commit next to the PBW. This remains a release gate, not a claim that an
+  unpublished source offer is already publicly accessible.
+
+  From the clean, committed revision used to build the candidate, for example:
 
   ```sh
   mkdir -p dist
+  git archive --format=zip --output=dist/metro-lisboa-0.2.0-source.zip HEAD
   zip -r dist/metro-lisboa-0.2.0.zip \
-    "build/$(basename "$PWD").pbw" LICENSE THIRD_PARTY_NOTICES.md LICENSES/
+    "build/$(basename "$PWD").pbw" LICENSE THIRD_PARTY_NOTICES.md DATA_METHODS.md LICENSES/
   ```
+
+  Make both archives available with the matching release. The store listing must
+  link to the public source/methods offer even when installation delivers only
+  the PBW. Do not include users' personal caches in the offer.
 
 - [x] Prepare original 80×80/144×144 store icons, a 25×25 watch launcher icon and
   four unframed captures per native emulator: Emery 200×228 and Gabbro 260×260.
   See [assets](../assets/README.md).
 - [ ] Review the artwork/screenshots for the release. Fixture captures must not be
-  represented as live hardware.
+  represented as live hardware. Keep the UnderLX source/ODbL notice with the
+  images, including in the store description; do not label their data as 0BSD.
 - [ ] Confirm agreements, public contact details and intended Unlisted/Listed
   visibility before an appstore upload. A source release does not publish an app.
 - [ ] Install from the distribution link and verify the expected watch/phone build.

@@ -29,6 +29,17 @@ left intact. Gabbro's black corners are the actual round display mask, not a
 watch-frame overlay.
 Do not substitute the clock/loader-masked E2E baselines for these store images.
 
+The 0BSD artwork/UI licence does not relicense displayed UnderLX-derived data.
+Keep this notice with publicly shared screenshots (in the store description,
+README or an accompanying caption):
+
+> Contains information from UnderLX (https://underlx.com/), made available under
+> ODbL 1.0 (https://opendatacommons.org/licenses/odbl/1-0/). Arrival values are
+> artificial examples, not live observations.
+
+The fixture data, added fictional stations and capture methods are covered by the
+[data notice and machine-readable methods offer](../DATA_METHODS.md).
+
 ## Rebuild icons
 
 The generated PNGs are checked in; ordinary builds/CI do not need an SVG renderer.

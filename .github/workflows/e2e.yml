@@ -49,5 +49,11 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            LICENSE
+            THIRD_PARTY_NOTICES.md
+            DATA_METHODS.md
+            LICENSES/
+            src/
+            e2e/
           if-no-files-found: ignore
           retention-days: 7

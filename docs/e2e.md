@@ -41,8 +41,9 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 6. **Metadata replacement:** highlight the second line in an interchange picker,
    remove that line in the REST fixture and refresh through the real companion.
    The native picker/history resets safely instead of indexing a removed line.
-7. **About/removal navigation:** inspect attribution and removal confirmation,
-   keep the favourite, and return to arrivals on both screen shapes.
+7. **About/removal navigation:** inspect the UnderLX source, ODbL licence and data
+   methods URLs without truncation, then inspect removal confirmation, keep the
+   favourite, and return to arrivals on both screen shapes.
 8. **Reported-crash regression:** use 50 stations and four lines (4,204 bytes in
    the validated original metadata shape), create all 16 favourites with actual
    buttons, and perform 160 UP/DOWN switches in both directions with new source
@@ -107,8 +108,8 @@ disabled. Across 208 samples in the full matrix:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
-| Time 2 / Emery | 64,168–64,248 bytes | 5,448 / 64,248 bytes |
-| Round 2 / Gabbro | 64,048–64,128 bytes | 5,448 / 64,128 bytes |
+| Time 2 / Emery | 64,064–64,144 bytes | 5,448 / 64,144 bytes |
+| Round 2 / Gabbro | 63,944–64,024 bytes | 5,448 / 64,024 bytes |
 
 No unexpected native restart occurred. Recheck against the candidate revision
 rather than treating these measurements as permanent guarantees.
@@ -184,7 +185,10 @@ replaced by a prior menu/connecting frame just because an update run accepted it
 
 The existing least-privilege Ubuntu workflow builds/tests and saves reports,
 traces, native screenshots, `phone.log`, `emulator.log`, commands/subscriptions
-and heap samples. It never installs on hardware or publishes. A local pass does
+and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
+`DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` methods so
+screenshots/data retain their attribution and machine-readable alteration offer.
+It never installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
 
 During development, the allocation-free C JSON decoder was separately checked

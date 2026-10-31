@@ -769,8 +769,9 @@ static void update_layer(Layer *layer, GContext *ctx) {
     copy_label(footer, sizeof(footer), "Select: add / retry");
   } else if (s_view == NOTICE || s_view == ABOUT) {
     text(ctx, s_view == ABOUT ? "About Metro" : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
-    text(ctx, s_view == ABOUT ? "Metro 0.2 (native).\nIndependent app.\nUnderLX · ODbL 1.0\nunderlx.com\nEstimates, not guarantees." : s_notice,
-      FONT_KEY_GOTHIC_18, round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? 124 : 132, GColorBlack);
+    text(ctx, s_view == ABOUT ? "Metro 0.2 · independent\nUnderLX data · ODbL 1.0\nhttps://underlx.com/\nhttps://opendatacommons.org/\nlicenses/odbl/1-0/\nData methods + notices:\nhttps://github.com/\nrafaelborges29/pebble-metro" : s_notice,
+      s_view == ABOUT ? FONT_KEY_GOTHIC_14 : FONT_KEY_GOTHIC_18,
+      round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? (s_view == ABOUT ? 136 : 124) : 132, GColorBlack);
     copy_label(footer, sizeof(footer), "Select: back");
   } else {
     const char *title = s_view == FAVORITES ? "Favourites" : s_view == STATIONS ? "Station" : s_view == LINES ? "Line" : s_view == DIRECTIONS ? "Direction" : s_view == ACTIONS ? "Actions" : "Remove it?";

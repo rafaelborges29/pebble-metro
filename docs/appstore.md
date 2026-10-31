@@ -18,8 +18,12 @@ watch app through the Pebble mobile app's store.
    such as `0.2.0`, not a `-beta` suffix.
 3. Prepare the [release checklist](publishing-todo.md), including physical-watch
    checks, applicable SDK/toolchain terms and complete binary licence delivery.
-   Attach the PBW, a licence/notices download bundle and checksums to a GitHub
-   Release for the matching source tag. Keep public support/privacy links working.
+   Attach the PBW, a licence/notices download bundle, matching source archive and
+   checksums to a GitHub Release for the source tag. Include
+   [DATA_METHODS.md](../DATA_METHODS.md) and the complete ODbL text. Before even an
+   Unlisted upload, verify the source/licence/methods links without signing in;
+   recipients must be able to obtain the matching alteration methods for free.
+   Keep public support/privacy links working.
 4. Sign in to the Developer Dashboard with the same Pebble account/sign-in method
    used for development. Review any legal agreements yourself.
 5. Choose **New**, upload the exact PBW, and check type, UUID, version and both
@@ -93,9 +97,12 @@ an arriving train. A tiny animated train shows when the app is updating.
 Requires an Android phone with the Pebble app and internet for live updates.
 No GPS, app-specific account, alerts or background service.
 
-Independent app, not affiliated with or endorsed by Metro de Lisboa.
-Data: UnderLX, under ODbL 1.0 unless otherwise indicated by the provider.
-Screenshots are emulator captures using example arrival data.
+Independent app, not affiliated with or endorsed by UnderLX or Metro de Lisboa.
+Contains information from UnderLX (https://underlx.com/), made available under
+ODbL 1.0 (https://opendatacommons.org/licenses/odbl/1-0/) unless otherwise indicated.
+Data adaptations remain ODbL. Data transformation methods and notices:
+https://github.com/rafaelborges29/pebble-metro
+Screenshots are emulator captures using artificial example arrival data.
 ```
 
 Initial release notes draft:

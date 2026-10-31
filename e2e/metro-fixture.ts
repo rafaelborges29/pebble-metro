@@ -50,6 +50,9 @@ declare global {
   }
 }
 
+// Base catalogue facts: UnderLX (https://underlx.com/), ODbL 1.0:
+// https://opendatacommons.org/licenses/odbl/1-0/
+// Fixture data/additions retain ODbL; harness code is 0BSD. See DATA_METHODS.md.
 const topicFor = (station: string) => `json/vehicleeta/pt-ml/${station}/all`;
 const favourite: Favourite = { station: 'pt-ml-sa', line: 'pt-ml-red', direction: 'pt-ml-ap' };
 const stations = [

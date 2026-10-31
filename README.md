@@ -12,6 +12,9 @@ Round 2 has emulator coverage, not physical-watch acceptance yet.
 ![Round 2 arrival estimates in the emulator](assets/appstore/gabbro_seconds.png)
 
 Screenshots use deterministic emulator fixtures, not live train observations.
+Contains information from [UnderLX](https://underlx.com/), made available under
+[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+See the [data attribution and transformation methods](DATA_METHODS.md).
 
 ## Features
 
@@ -116,11 +119,15 @@ the app with the same UUID; read the migration note above before upgrading.
 - [Artwork and screenshots](assets/README.md)
 - [Release checklist](docs/publishing-todo.md)
 - [Privacy](PRIVACY.md)
+- [UnderLX data attribution and transformation methods](DATA_METHODS.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md) and [licence texts](LICENSES/)
 
 Original project code is licensed under [0BSD](LICENSE): use, modify, redistribute
 or sell it without an attribution requirement. It is provided without warranty.
 Third-party components and UnderLX data retain their own terms; see the notices.
 
-Independent application, not affiliated with or endorsed by Metro de Lisboa.
-Data: **UnderLX**, under **ODbL 1.0** unless otherwise indicated by the provider.
+Independent application, not affiliated with or endorsed by UnderLX or Metro de
+Lisboa. Contains information from [UnderLX](https://underlx.com/), made available
+under [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) unless otherwise
+indicated by the provider. Data adaptations remain ODbL; see
+[the methods/access offer](DATA_METHODS.md) and [complete licence](LICENSES/ODbL-1.0.txt).

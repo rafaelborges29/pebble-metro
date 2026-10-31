@@ -5,15 +5,35 @@ licences of dependencies, generated third-party code or UnderLX data.
 
 ## UnderLX data
 
-Station, line and arrival data come from [UnderLX](https://underlx.com/). Its
-developer portal describes API data as [Open Database Licence 1.0
+Contains information from [UnderLX](https://underlx.com/), made available under
+the [Open Database Licence 1.0
 (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/) unless otherwise indicated.
-The app credits UnderLX and ODbL in **About / data**. No live database is bundled
-in the source repository; fixture data is for deterministic tests. Redistributing
-provider data requires respecting its separate terms.
+Its [developer portal](https://developer.underlx.com/#dados-abertos) states this
+licence for API data. The complete text is in
+[`LICENSES/ODbL-1.0.txt`](LICENSES/ODbL-1.0.txt).
 
-This is an independent application, not affiliated with or endorsed by Metro de
-Lisboa. The project licence does not grant rights to third-party branding.
+UnderLX-derived data and this project's data adaptations remain under ODbL 1.0,
+not 0BSD. This covers normalized/compact catalogues, retained labels, arrival
+snapshots and the UnderLX-derived facts in fixtures/screenshots. Test arrival
+values and extra stress-test stations are artificial, not live observations.
+No full live database is bundled in the repository or PBW.
+
+**[Data transformation methods and access offer](DATA_METHODS.md):** the matching
+application and fixture source supplies the machine-readable alteration methods
+under ODbL section 4.6(b). Every binary release must provide that revision free of
+charge through the public repository and a matching downloadable source archive.
+Do not rely on a private repository link. Preserve attribution/licence notices
+with redistributed data and publicly shared screenshots.
+
+The watch's **About / data** shows UnderLX, ODbL, the source/licence URLs and the
+methods/notices repository URL; long URLs wrap across lines. The README and draft
+store listing also carry the notice. Recheck provider-specific exceptions when
+adding data. See [DATA_METHODS.md](DATA_METHODS.md) for the scope and release gates.
+
+This is an independent application, not affiliated with or endorsed by UnderLX or
+Metro de Lisboa. The project/data licences do not grant third-party branding
+rights. UnderLX's software is separately Apache-2.0-licensed; consuming its data
+does not incorporate that software into this app.
 
 ## Eclipse Paho JavaScript client
 

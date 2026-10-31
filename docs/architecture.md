@@ -12,6 +12,10 @@ Android: bundled PebbleKit JS inside the Pebble mobile app
 UnderLX hosted sources
 ```
 
+UnderLX-derived data and its adaptations retain ODbL 1.0; original software is
+0BSD. [DATA_METHODS.md](../DATA_METHODS.md) documents the exact inputs, alterations,
+fixture additions and machine-readable methods offer required for distribution.
+
 There are no alerts, vibration, disturbances, settings page, custom backend,
 background worker or watch-side JS runtime. No GPS or private Metro credentials.
 
@@ -50,7 +54,9 @@ layout. Round 2 centers text and measured ETA/unit groups, places the header and
 footer inside the circular safe area, and increases the last menu row's insets.
 Both keep four visible menu rows and the same buttons/model/storage/protocol.
 The loader remains on the existing one-second tick; no round-specific object tree,
-framebuffer or animation timer is allocated by the app.
+framebuffer or animation timer is allocated by the app. About / data displays the
+provider, ODbL, full source/licence URLs and the methods/notices repository URL in
+a compact font, with long URLs wrapped across lines on both shapes.
 
 ## Sources and validation
 
