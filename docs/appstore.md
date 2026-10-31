@@ -19,7 +19,9 @@ watch app through the Pebble mobile app's store.
 3. Prepare the [release checklist](publishing-todo.md), including physical-watch
    checks, applicable SDK/toolchain terms and complete binary licence delivery.
    Attach the PBW, a licence/notices download bundle, matching source archive and
-   checksums to a GitHub Release for the source tag. Include
+   checksums to a GitHub Release for an immutable source tag. Use that exact
+   Release/tag URL in the listing, retain previous versions' source/notices, and
+   never substitute a seven-day CI artifact or a moving default branch. Include
    [DATA_METHODS.md](../DATA_METHODS.md) and the complete ODbL text. Before even an
    Unlisted upload, verify the source/licence/methods links without signing in;
    recipients must be able to obtain the matching alteration methods for free.
@@ -75,8 +77,10 @@ Round 2 is Gabbro, not the original Time Round/Chalk. See
 - **Compatibility:** Pebble Time 2 and Pebble Round 2 + Android; no iOS, original
   Time Round or other-watch claim. Round 2 hardware acceptance remains pending.
 - **Website/support:** public repository README and GitHub Issues.
-- **Source:** `https://github.com/rafaelborges29/pebble-metro` once the native changes
-  are committed/pushed and the repository is public.
+- **Source/methods/notices:** the exact public tagged Release for this PBW,
+  containing its matching source archive, notices bundle and checksums. Choose the
+  actual approved version/tag before filling this URL; the repository root is
+  only a landing page, not a version-pinned offer.
 - **Privacy:** public `PRIVACY.md` linked from the README/listing.
 - **Android companion app:** leave the custom-companion field empty. The bundled
   PebbleKit JavaScript uses the normal Pebble mobile app, not a separate Android app.
@@ -101,9 +105,13 @@ Independent app, not affiliated with or endorsed by UnderLX or Metro de Lisboa.
 Contains information from UnderLX (https://underlx.com/), made available under
 ODbL 1.0 (https://opendatacommons.org/licenses/odbl/1-0/) unless otherwise indicated.
 Data adaptations remain ODbL. Data transformation methods and notices:
-https://github.com/rafaelborges29/pebble-metro
+<matching-public-release-URL>
 Screenshots are emulator captures using artificial example arrival data.
 ```
+
+Replace `<matching-public-release-URL>` with the approved immutable Release/tag
+URL and test it anonymously before submission. The About repository URL must
+lead users to the retained release-specific sources/notices as well.
 
 Initial release notes draft:
 

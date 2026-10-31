@@ -14,7 +14,11 @@ function cachedNetwork(value) {
 // Platform edges are supplied by the Android bridge.
 export function createCompanion(options) {
   var pebble = options.Pebble, timers = options.timers, now = options.now;
-  var transport = createTransport(pebble, timers), network = null, cached = false;
+  var transport = createTransport(pebble, timers, function () {
+    // Queue eviction or exhausted retries lost a required station invalidation.
+    feedGeneration = (feedGeneration + 1) >>> 0;
+    send(connection, "invalidation");
+  }), network = null, cached = false;
   var session = null, favorite = null, stations = [], feed = null;
   var metadataBusy = false, metadataRetry = null, closed = false;
   var metadataGeneration = 0, cancels = [];
@@ -27,7 +31,7 @@ export function createCompanion(options) {
           (message.status === "connecting" && announcedConnection === "connected")) feedGeneration = (feedGeneration + 1) >>> 0;
       announcedConnection = message.status;
     }
-    // A coalesced disconnect must still invalidate every cached route.
+    // Connection gaps and lost station invalidations must still clear cached routes.
     if (message.type === "connection" || message.type === "arrivals") message.generation = feedGeneration;
     if (!transport.send(message, key) && message.type === "arrivals")
       transport.send({ type: "arrivals", station: message.station, predictions: [], at: now(), generation: feedGeneration }, key);

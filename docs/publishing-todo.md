@@ -15,6 +15,15 @@ store-install test → Listed workflow.
 - [ ] Review reachable Git history for credentials, private files and personal
   author/committer identities. Ignoring a file does not remove its history.
   Coordinate any intentional history rewrite with collaborators first.
+- [ ] Review GitHub-hosted material with authenticated access **before** changing
+  visibility: branches/tags and PR refs, issues/PR bodies/comments/reviews,
+  attachments, Actions logs/artifacts and any releases. Local Git scans do not
+  cover all of this. If a secret is found, rotate it and resolve its exposure
+  before publication; do not rely on an anonymous check after the fact.
+- [ ] Inspect `git ls-remote origin` and publish only intended branches/tags with
+  explicit refspecs. Never use `git push --mirror` or push `refs/t3/*` / local
+  checkpoint refs. Local-only checkpoints do not need deleting to publish normal
+  branches. Review every already-remote branch, not just the current PR.
 - [ ] Run the pinned build/typecheck/E2E workflow against the exact candidate.
   Confirm hosted checks separately; local passes are not hosted-CI evidence.
 - [ ] Confirm public project identity, support contact and repository visibility.
@@ -25,9 +34,22 @@ store-install test → Listed workflow.
   [UnderLX data/methods scope](../DATA_METHODS.md). Preserve ODbL for data;
   0BSD covers original software/artwork, not the provider's database.
 
+## After an approved source-visibility change
+
+- [ ] Recheck the repository, reviewed source revision, notices, licence files and
+  GitHub metadata without authentication. Inspect advertised remote refs again.
+- [ ] Verify that the default branch and public links lead to the intended source;
+  making a repository public does not merge an open native PR.
+- [ ] Keep binary/store distribution blocked until the separate versioned-source,
+  licence-delivery and hardware gates below are satisfied. A private methods URL
+  during preparation is not a reason to block publishing reviewed source itself.
+
+Source visibility, merges, tagged releases and store uploads are separate actions.
+
 ## Verification baseline
 
-The E2E matrix covers 16 native flows on each target, including delayed/in-flight
+The E2E matrix covers 18 native flows on each target, including queued invalidation
+and coalescing races during station changes, delayed/in-flight
 additions and removals, duplicate/opposite-direction favourites, delete/reopen
 persistence, and 16 favourites with 160 switches per platform's stress run.
 Heap assertions require at least 50 KiB free and stable switch samples.
@@ -63,7 +85,9 @@ are not evidence for the native implementation.
   copyright notices and distribute complete applicable licence texts.
 - [ ] Build cleanly with SDK 4.33.1; inspect `build/<checkout-name>.pbw`, version,
   UUID, both Emery/Gabbro targets and absence of credentials or unexpected runtime assets.
-- [ ] Record the exact PBW SHA-256, source revision and verification results.
+- [ ] Record the exact PBW SHA-256, full source commit, immutable release tag and
+  verification results. Use the matching permanent Release/tag URL in the listing;
+  the moving repository root/default branch alone is not a versioned offer.
 - [ ] Provide `LICENSE`, `THIRD_PARTY_NOTICES.md`, `DATA_METHODS.md` and `LICENSES/`
   (including ODbL 1.0) with binary downloads. Offer the exact matching source
   revision/archive free of charge, including all transformation/fixture methods
@@ -83,9 +107,12 @@ are not evidence for the native implementation.
     "build/$(basename "$PWD").pbw" LICENSE THIRD_PARTY_NOTICES.md DATA_METHODS.md LICENSES/
   ```
 
-  Make both archives available with the matching release. The store listing must
-  link to the public source/methods offer even when installation delivers only
-  the PBW. Do not include users' personal caches in the offer.
+  Make both archives and SHA-256 checksums available with the matching tagged
+  release. Keep prior versions' sources/notices accessible; do not overwrite
+  artifacts or move an existing release tag. The store listing must link to that
+  exact release/methods offer even when installation delivers only the PBW.
+  CI artifacts expire and are diagnostics, not the permanent release source
+  archive. Do not include users' personal caches in the offer.
 
 - [x] Prepare original 80×80/144×144 store icons, a 25×25 watch launcher icon and
   four unframed captures per native emulator: Emery 200×228 and Gabbro 260×260.

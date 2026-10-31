@@ -34,6 +34,7 @@ export interface Metro {
   startPhone(): Promise<void>;
   publish(values: number[], units?: Units, type?: PredictionType): Promise<void>;
   publishStation(routes: RoutePredictions[]): Promise<void>;
+  queueStation(routes: RoutePredictions[]): Promise<() => Promise<void>>;
   deferNextArrival(): { wait(): Promise<void>; release(): void };
   removeLine(id: string): Promise<void>;
   setAutoArrivals(enabled: boolean): void;
@@ -41,6 +42,7 @@ export interface Metro {
 declare global {
   interface Window {
     sendToWatch(data: PhoneData): Promise<void>;
+    observeArrival(raw: string): Promise<void>;
     phoneEvent(name: string, event: unknown): void;
     Pebble: {
       addEventListener(name: string, callback: Listener): void;
@@ -100,6 +102,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
         const publishers = new Map<string, Publisher>();
         let deferredArrival: DeferredArrival | undefined;
         const sent = new Map<string, Batch>(), receipts = new Set<string>();
+        const serializedArrivals: Message[] = [];
         const phoneLog: string[] = [], inbox: PhoneData[] = [];
         let phoneReady = false, closing = false, autoArrivals = true, uiStarts = 0, expectedStarts = 1, delivering = Promise.resolve();
         function dispatch(payload: PhoneData) {
@@ -122,20 +125,27 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             && matches(record.message) && receipts.has(`${id}/${record.total - 1}`)),
           { message: `${type} consumed by the real watch` }).toBe(true);
         }
-        async function publishStation(routes: RoutePredictions[]) {
+        async function queueStation(routes: RoutePredictions[]) {
           const selected = commands.filter(command => command.type === 'watch').at(-1)?.favorite;
           if (!selected) throw new Error('No selected favourite');
           const topic = topicFor(selected.station);
           await expect.poll(() => publishers.has(topic), { message: `Active arrival subscription for ${selected.station}` }).toBe(true);
           const predictions = routes.flatMap(({ direction, values, units = 'm', type = 'e' }) =>
             values.map((value, index) => ({ direction, order: index + 1, value, units, type })));
-          const previous = new Set(sent.keys());
-          publishers.get(topic)!(predictions);
-          await delivered('arrivals', previous, message => message.station === selected.station
+          const matches = (message: Message) => message.station === selected.station
             && message.predictions?.length === predictions.length
             && predictions.every(expected => message.predictions!.some(actual => actual.direction === expected.direction
               && actual.order === expected.order && actual.value === expected.value
-              && actual.units === expected.units && actual.type === expected.type)));
+              && actual.units === expected.units && actual.type === expected.type));
+          const previous = new Set(sent.keys()), before = serializedArrivals.length;
+          publishers.get(topic)!(predictions);
+          await expect.poll(() => serializedArrivals.slice(before).some(matches),
+            { message: 'Real phone transport serialized the source snapshot' }).toBe(true);
+          return () => delivered('arrivals', previous, matches);
+        }
+        async function publishStation(routes: RoutePredictions[]) {
+          const consumed = await queueStation(routes);
+          await consumed();
         }
         async function expectScreen(name: string, loader?: Loader) {
           await expect(async () => {
@@ -206,6 +216,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             });
             socket.onMessage(message => parser.parse(typeof message === 'string' ? Buffer.from(message) : message));
           });
+          await page.exposeFunction('observeArrival', (raw: string) => { serializedArrivals.push(JSON.parse(raw)); });
           await page.exposeFunction('sendToWatch', async (data: PhoneData) => {
             const message = track(data.DATA);
             const gate = deferredArrival;
@@ -218,6 +229,13 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             await Effect.runPromise(device.request('send', { data: data.DATA }));
           });
           await page.addInitScript(() => {
+            // Observe queue entry without changing any bytes, values or application model.
+            const stringify = JSON.stringify;
+            JSON.stringify = function (...args: [unknown, ...unknown[]]) {
+              const raw = Reflect.apply(stringify, JSON, args);
+              if ((args[0] as { type?: string } | null)?.type === 'arrivals') void window.observeArrival(raw);
+              return raw;
+            };
             const listeners: Record<string, Listener[]> = {};
             window.Pebble = {
               addEventListener(name, callback) { (listeners[name] ||= []).push(callback); },
@@ -243,7 +261,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             await delivering;
             publishers.clear();
             await page.goto('http://metro.test/');
-            sent.clear(); receipts.clear();
+            sent.clear(); receipts.clear(); serializedArrivals.length = 0;
             await page.addScriptTag({ content: phoneBundle + '\n//# sourceURL=pebble-js-app.js' });
             await page.evaluate(() => window.phoneEvent('ready', {}));
             phoneReady = true;
@@ -277,7 +295,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
               if (!selected) throw new Error('No selected favourite');
               await publishStation([{ direction: selected.direction, values, units, type }]);
             },
-            publishStation,
+            publishStation, queueStation,
             deferNextArrival() {
               if (deferredArrival) throw new Error('An arrival is already deferred');
               let release!: () => void;
@@ -328,7 +346,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
           await page.close();
           writeFileSync(testInfo.outputPath('phone.log'), phoneLog.join('\n'));
           writeFileSync(testInfo.outputPath('messages.json'), JSON.stringify({ commands, subscriptions, activeSubscriptions: [...publishers.keys()], errors,
-            memory: device.memory, messages: [...sent.values()].map(record => record.message) }, null, 2));
+            memory: device.memory, serializedArrivals, messages: [...sent.values()].map(record => record.message) }, null, 2));
         }
       } });
     })));

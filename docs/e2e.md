@@ -76,6 +76,14 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 16. **Cancel an unfinished add:** back out of the direction/station pickers while
     A is loading. Its selection/subscription remains unchanged, no draft is saved,
     and fresh A data still renders correctly.
+17. **Queued invalidation during a switch:** cache A/B, hold a newer A batch, and
+    serialize an empty A update behind it before selecting B. Release the batch
+    and require the empty update's actual native receipt. A must show no estimate
+    in RAM or after reopening, while B's valid cache remains available.
+18. **Invalidation coalesced into new data:** use the same ordering but replace the
+    queued empty update with a newer nonempty A snapshot before switching. That
+    replacement must reach native C and replace both the older RAM/durable data;
+    pruning must not erase the pending invalidation obligation.
 
 Only two recent routes are durable; other still-valid snapshots are RAM-only.
 The stress deliberately asserts the uncached third route rather than pretending
@@ -95,16 +103,16 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **16 flows per platform (32 tests)**. Each platform
+The normal matrix has **18 flows per platform (36 tests)**. Each platform
 independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (64 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (72 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The normal two-platform reference run passed **32/32 tests** in about 8½ minutes,
+The normal two-platform reference run passed **36/36 tests** in about nine minutes,
 including 160-switch stress on each watch. A separate repeated late-data subset
-passed **12/12** (three cases × two repeats × two watches), with snapshot updates
-disabled. Across 208 samples in the full matrix:
+passed **12/12** (two queued-invalidation cases × three repeats × two watches),
+with snapshot updates disabled. Across 232 samples in the full matrix:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
@@ -169,8 +177,13 @@ rejected. Normal assertions poll boundedly.
 Delayed-data tests disable automatic fixture publishing instead of sleeping.
 For in-flight races, the harness holds the final unmodified chunk emitted by the
 real phone bundle, changes the route through native buttons, then releases that
-same chunk and waits for the native application receipt. It does not inject a
-replacement watch model or renderer. Whole-station fixtures can include both
+same chunk and waits for the native application receipt. A transparent
+`JSON.stringify` observer records the real phone's arrival serialization without
+changing its arguments, bytes or result. `queueStation()` uses that checkpoint to
+prove an empty snapshot entered transport before changing stations, then returns
+a separate native-receipt waiter; the test does not rely on a sleep or assume a
+WebSocket send has already been processed. It does not inject a replacement watch
+model or renderer. Whole-station fixtures can include both
 directions; active MQTT subscriptions are recorded separately from their history.
 
 ```sh
@@ -202,6 +215,14 @@ source disconnect/reconnect: even when coalescing removes the disconnect message
 empty arrivals and the final connected message retain the invalidation generation.
 The C probe separately checks initial-zero, initial-nonzero and changed-generation
 handling against all route caches.
+
+A temporary actual companion/feed/transport probe also covers retained empty,
+malformed and oversized-fallback invalidations, coalescing into newer data,
+20-station queue pressure, monotonic generations and exhausted retries of both
+an invalidation and its replacement barrier. The pending queue remains bounded at
+eight; losses fail closed through the existing native generation mechanism. The
+two corresponding emulator regressions failed on both watches before the fix.
+These scratch probes are not a restored unit-test suite.
 
 Remaining hardware acceptance on both watches, particularly physical Round 2:
 real Android WebView/Bluetooth, source variations,

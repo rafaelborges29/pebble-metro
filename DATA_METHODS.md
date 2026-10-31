@@ -44,6 +44,13 @@ must identify the exact source tag/commit and its matching PBW. Do not publish a
 binary, including an Unlisted store beta, while this offer is inaccessible to its
 recipients. A private repository link alone is not a public methods offer.
 
+Use an immutable tag and a permanent Release URL for the exact PBW version in the
+store listing/download page, with source/notices archives and SHA-256 checksums.
+The About repository URL is a landing page: it must lead to those versioned
+releases, not only the latest default-branch files. Retain sources/notices for
+older distributed versions. Expiring CI artifacts are diagnostics with their own
+methods included, not the permanent binary-release offer.
+
 There is no custom backend or additional privately held transformation algorithm.
 Do not upload users' favourites, device storage or private activity to fulfil this
 offer: supply the methods, not their personal cache contents. If a future version

@@ -30,13 +30,13 @@ async function removeFavourite(metro: Metro) {
   await metro.press('select');
 }
 
-async function withDeferredArrival(metro: Metro, values: number[], action: () => Promise<void>) {
+async function withDeferredArrival<T>(metro: Metro, values: number[], action: () => Promise<T>): Promise<T> {
   const gate = metro.deferNextArrival();
   // Attach rejection handling immediately while the real send is deliberately stalled.
   const pending = Promise.allSettled([metro.publish(values)]);
   try {
     await gate.wait();
-    await action();
+    return await action();
   } finally {
     gate.release();
     const [result] = await pending;
@@ -165,6 +165,32 @@ test.describe('favourite lifecycle', () => {
     await switchFavourite(metro, 'up', metro.favourite);
     await metro.expectScreen('saved-late-first', 'arrivals'); // The late data belongs to A, not B.
   });
+
+  for (const replacement of [false, true]) {
+    test(`queued invalidation survives station switching${replacement ? ' and coalescing with a newer snapshot' : ''}`, async ({ metro }) => {
+      await saveFavourite(metro);
+      metro.setAutoArrivals(false);
+      const b = await addStation(metro, 0, { waitForData: false });
+      await metro.publish([7, 8, 9]);
+      await switchFavourite(metro, 'up', metro.favourite);
+      await metro.publish([3, 4, 5]);
+      const consumed = await withDeferredArrival(metro, [11, 12, 13], async () => {
+        let consumed = await metro.queueStation([]); // A's empty update is serialized BEHIND the held batch.
+        if (replacement) consumed = await metro.queueStation([{ direction: metro.favourite.direction, values: [13, 14, 15] }]);
+        await switchFavourite(metro, 'down', b); // Pruning must not erase the pending invalidation obligation.
+        await expectSubscription(metro, b.station);
+        return consumed;
+      });
+      await consumed(); // Assert the empty snapshot (or its newer replacement) actually reached native C.
+      await metro.expectScreen('airport-saved', 'arrivals'); // An A-only invalidation must not clear B.
+      await switchFavourite(metro, 'up', metro.favourite);
+      await metro.expectScreen(replacement ? 'saved-replaced-first' : 'no-estimate-first-of-two', replacement ? 'arrivals' : undefined);
+      await metro.relaunch(); // No fresh source data may hide a RAM or durable-cache resurrection.
+      await metro.expectScreen(replacement ? 'saved-replaced-first' : 'connecting-first-of-two', 'arrivals');
+      await metro.press('down');
+      await metro.expectScreen('airport-saved', 'arrivals');
+    });
+  }
 
   test('remove a loading route with data in flight without overwriting the surviving route', async ({ metro }) => {
     await saveFavourite(metro);

@@ -123,7 +123,9 @@ notices are sent. Connection and arrival messages carry a phone-owned uint32
 `generation`: initially zero, incremented on connection failure. A changed or first
 nonzero generation invalidates every route's RAM/durable ETAs before applying data.
 Thus coalescing a disconnect into a later connected message cannot silently retain
-another station's stale cache. This is a feed-gap barrier, not vehicle tracking.
+another station's stale cache. The same barrier covers a transport queue eviction
+or exhausted retry that loses a required station invalidation. This is a cache
+continuity barrier, not vehicle tracking.
 
 Phone payloads are UTF-8-bounded to 5,000 bytes and split into up to 32 chunks of
 500 JS characters, without splitting surrogate pairs:
@@ -133,7 +135,14 @@ Phone payloads are UTF-8-bounded to 5,000 bytes and split into up to 32 chunks o
 ```
 
 The phone waits for the watch's application receipt for each chunk, not just the
-physical ACK. Retries preserve bytes/IDs and are bounded. The watch rejects foreign
+physical ACK. Retries preserve bytes/IDs and are bounded per ordinary batch.
+Empty snapshots carry a sticky invalidation obligation through coalescing and
+station pruning: a newer nonempty replacement must also reach the watch. The
+phone queue stays bounded at eight pending batches. If eviction/exhausted retries
+lose an obligation, the companion advances its generation and queues a protected
+connection barrier after older snapshots; losing that barrier reannounces it.
+Normal station-specific invalidations do not clear unrelated saved routes.
+The watch rejects foreign
 sessions, inconsistent/out-of-order chunks, mismatched retries and oversized
 prefixes. Reassembly expires after 20 seconds without progress. Partial messages
 never renew an ETA.
