@@ -7,7 +7,7 @@
     "url": "git+https://github.com/rafaelborges29/pebble-metro.git"
   },
   "version": "0.2.0",
-  "description": "Small native Lisbon Metro arrivals app for Pebble Time 2.",
+  "description": "Small native Lisbon Metro arrivals app for Pebble Time 2 and Pebble Round 2.",
   "scripts": {
     "build": "pebble build --sdk 4.33.1",
     "typecheck": "tsc --project e2e/tsconfig.json",
