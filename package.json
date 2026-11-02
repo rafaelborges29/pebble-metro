@@ -1,13 +1,19 @@
 {
   "name": "pebble-metro",
   "author": "Rafael Borges",
-  "version": "0.1.0",
-  "description": "Independent Lisbon Metro watch app for Pebble Time 2, built with Alloy.",
+  "license": "0BSD",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafaelborges29/pebble-metro.git"
+  },
+  "version": "0.2.0",
+  "description": "Small native Lisbon Metro arrivals app for Pebble Time 2 and Pebble Round 2.",
   "scripts": {
     "build": "pebble build --sdk 4.33.1",
     "typecheck": "tsc --project e2e/tsconfig.json",
     "e2e": "npm run typecheck && npm run check && playwright test",
-    "check": "node --check src/embeddedjs/main.js && node --check src/pkjs/index.js && npm run build"
+    "assets:screenshots": "npm run typecheck && npm run check && METRO_CAPTURE_ASSETS=1 playwright test --grep 'reopen immediately' --output=test-results/store-capture --reporter=list",
+    "check": "node --check src/pkjs/index.js && npm run build"
   },
   "keywords": [
     "pebble-app"
@@ -19,11 +25,12 @@
   "pebble": {
     "displayName": "Metro Lisboa",
     "uuid": "5576168a-8b38-4be1-90e7-343af607c167",
-    "projectType": "moddable",
+    "projectType": "native",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
-      "emery"
+      "emery",
+      "gabbro"
     ],
     "watchapp": {
       "watchface": false
@@ -32,7 +39,14 @@
       "DATA"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "MENU_ICON",
+          "file": "images/menu-icon.png",
+          "menuIcon": true
+        }
+      ]
     }
   },
   "devDependencies": {

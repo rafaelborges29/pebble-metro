@@ -1,128 +1,230 @@
-# Real-emulator functional tests
+# Native real-emulator verification
 
-The first slice is one black-box flow, not a restoration of the deleted unit
-suite. The runner, fixtures and configuration use **TypeScript**. **Effect** owns
-the emulator process scope and typed RPC operations, with startup/operation
-timeouts and guaranteed release. It is a development dependency, not watch code.
+The harness uses TypeScript, Playwright and Effect; the watch application is
+native C. Effect owns emulator scope, typed RPC, timeouts and guaranteed cleanup.
+No application model or watch renderer is replaced by a mock.
 
 ## What actually runs
 
-- The real release `.pbw` on the SDK 4.33.1 **Emery QEMU** firmware.
-- That same PBW's compiled phone JavaScript, extracted from the archive and run
-  in Chromium. This includes the production parser, Paho client and chunk queue.
-- Native button events, real AppMessage dictionaries, physical ACK/NACK and the
-  application's chunk receipts, real watch rendering and persistent storage.
-- A small browser-side Pebble host adapter, plus a Python bridge using the
-  Pebble tool's existing `libpebble2`. No app models or renderers are replaced.
-- Three-station REST and MQTT-over-WebSocket fixtures. MQTT framing is encoded
-  and decoded by `mqtt-packet`; the real Paho client connects and subscribes.
-  Unexpected HTTP and WebSocket destinations fail the test instead of reaching
-  live services. No UnderLX availability, Pebble account, credentials or physical
-  watch is needed.
+- The current checkout's real release PBW on SDK 4.33.1 Emery and Gabbro QEMU,
+  selected by Playwright's `emery` / `gabbro` projects.
+- That same PBW's extracted phone JavaScript in Chromium, including the source
+  parser, real Paho client, metadata cache and chunk/receipt transport.
+- Native buttons, AppMessage dictionaries/ACKs, native drawing and persistence.
+- Deterministic station/line REST and MQTT-over-WebSocket fixtures, encoded by
+  `mqtt-packet`. Unexpected destinations/methods fail instead of reaching the
+  internet. Service/disruption requests are not allowed in this slim version.
 
-The test saves **Saldanha / Vermelha / Aeroporto**, verifies the watch command
-and corresponding MQTT subscription, checks arrivals, exits with real buttons,
-and relaunches the app to verify the favourite survives. A fresh Chromium page
-ends/restarts the phone-JavaScript lifecycle while retaining its metadata cache.
+Each test uses new private flash images and a private loopback port. The harness
+never connects to a physical watch or wipes managed emulator storage. Python
+reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 
-Each test receives fresh temporary flash images and a private loopback QEMU port.
-Nothing uses or wipes the developer's managed emulator state. Python/QEMU are
-released on success and failure; the scope only kills its own process group.
-The Python bridge remains necessary to reuse the SDK protocol implementation;
-there is no competing `pypkjs` process running the companion.
+## Flows
 
-## Run locally
+1. **Create and reopen:** save Saldanha / Vermelha / Aeroporto through real menus,
+   receive arrivals, close/relaunch and show SAVED data before any phone runtime
+   starts. A cropped native-frame assertion verifies the train advances. Start a
+   fresh phone runtime and recover LIVE data. Inspect the two-item actions menu.
+2. **RAM-only revisit:** visit three routes to evict A from the two-slot durable
+   cache, pause automatic source publishing, revisit A from RAM, close/relaunch and
+   recover the same SAVED data without another source update.
+3. **Phone-only restart:** recreate only PKJS while the native process and physical
+   app connection stay alive. The startup wake must trigger a new hello and recover
+   LIVE arrivals without requiring manual Retry.
+4. **Expiry while closed:** advance the native watch clock 130 seconds while the
+   app is stopped. Saved numbers stay hidden; fresh data returns after the new
+   phone-clock handshake. This uses the SDK time packet, not a fake app clock.
+5. **Ranges, bounds, zero and empty data:** render ranges and both bounds through
+   real MQTT, keeping the range dash visible (the large number-only font lacks it).
+   Render `Due` / `Estimated now`, then an empty update. Relaunch must not resurrect
+   its invalidated ETA. Route names remain without implying an available estimate.
+6. **Metadata replacement:** highlight the second line in an interchange picker,
+   remove that line in the REST fixture and refresh through the real companion.
+   The native picker/history resets safely instead of indexing a removed line.
+7. **About/removal navigation:** inspect the UnderLX source, ODbL licence and data
+   methods URLs without truncation, then inspect removal confirmation, keep the
+   favourite, and return to arrivals on both screen shapes.
+8. **Reported-crash regression:** use 50 stations and four lines (4,204 bytes in
+   the validated original metadata shape), create all 16 favourites with actual
+   buttons, and perform 160 UP/DOWN switches in both directions with new source
+   updates, including seconds. Then inspect the two durable recent-route caches,
+   relaunch, verify every persisted favourite ID, exercise wraparound and the
+   16-favourite limit. A snapshot at menu position 17/19 checks that two-digit
+   counts remain visible inside the round footer. This test has a 180-second bound.
 
-Currently supported: **Linux x86-64**, Node **24.21.0**, Pebble Tool **5.0.39**,
-`libpebble2` **0.0.31**, and SDK **4.33.1**. Install the usual
-[Pebble tools](https://developer.repebble.com/sdk/) first. The GitHub workflow
-contains the pinned tool installation and Ubuntu runtime packages.
+9. **Add after LIVE:** keep A's loaded data, add B with source publishing paused,
+   verify B's empty loading screen and animated train, then deliver distinct B
+   estimates. Reopen and verify both recent routes remain SAVED.
+10. **Add while loading:** hold A's actual final AppMessage chunk, add B, then
+    release A. B must stay empty until its own update; revisiting A shows only
+    A's delayed estimates, not B's values.
+11. **Remove while loading:** remove B while its real arrival packet is in flight.
+    Late B data must not recreate its row or overwrite surviving A. A is SAVED
+    until a fresh update, then survives reopening without B.
+12. **Remove a loaded first slot:** delete A after both routes have data. B remains
+    in its original nonzero persistence slot, appears SAVED until fresh data,
+    survives reopening and wraps in both directions without resurrecting A.
+13. **Remove the last favourite:** delete a loaded route with another update in
+    flight, verify the empty root and no active station subscription, and release
+    the late data. Reopen and re-add the same route: no old favourite or ETA may
+    reappear before a new source update.
+14. **Duplicate favourite:** adding the same station/line/direction selects the
+    existing row, keeps one subscription and persists only one favourite.
+15. **Opposite directions:** publish one whole-station snapshot with distinct
+    estimates for both directions. Switching directions retains the correct LIVE
+    data without resubscribing; removing one direction leaves the other intact.
+16. **Cancel an unfinished add:** back out of the direction/station pickers while
+    A is loading. Its selection/subscription remains unchanged, no draft is saved,
+    and fresh A data still renders correctly.
+17. **Queued invalidation during a switch:** cache A/B, hold a newer A batch, and
+    serialize an empty A update behind it before selecting B. Release the batch
+    and require the empty update's actual native receipt. A must show no estimate
+    in RAM or after reopening, while B's valid cache remains available.
+18. **Invalidation coalesced into new data:** use the same ordering but replace the
+    queued empty update with a newer nonempty A snapshot before switching. That
+    replacement must reach native C and replace both the older RAM/durable data;
+    pruning must not erase the pending invalidation obligation.
+
+Only two recent routes are durable; other still-valid snapshots are RAM-only.
+The stress deliberately asserts the uncached third route rather than pretending
+all 16 arrival histories persist.
+
+The removal cases caught a native fallback bug: changing stations after deletion
+could label the survivor's retained data LIVE without a new update. The fallback
+now marks it SAVED; a continuously subscribed same-station direction remains LIVE.
+
+## Memory assertions
+
+The native app logs `Metro memory <reason>: used=<bytes> free=<bytes>` at startup,
+catalogue replacement and every 16 selections (also the first). Samples are
+captured in `messages.json`. The stress requires:
+
+- At least **50 KiB free native heap** throughout sampled operation.
+- No more than **4 KiB variation** after font/SDK warmup.
+- Exactly the expected app starts; no hidden crash/restart is accepted.
+
+The normal matrix has **18 flows per platform (36 tests)**. Each platform
+independently checks heap headroom, switch variation and expected startup count.
+For repeated runs use `npm run e2e -- --repeat-each=2` (72 tests). Recheck after
+every production change; samples are not continuous allocation traces or a
+physical-watch/battery guarantee.
+
+The normal two-platform reference run passed **36/36 tests** in about nine minutes,
+including 160-switch stress on each watch. A separate repeated late-data subset
+passed **12/12** (two queued-invalidation cases × three repeats × two watches),
+with snapshot updates disabled. Across 232 samples in the full matrix:
+
+| Target | Free native heap | Switch samples (used / free) |
+| --- | --- | --- |
+| Time 2 / Emery | 64,064–64,144 bytes | 5,448 / 64,144 bytes |
+| Round 2 / Gabbro | 63,944–64,024 bytes | 5,448 / 64,024 bytes |
+
+No unexpected native restart occurred. Recheck against the candidate revision
+rather than treating these measurements as permanent guarantees.
+
+## Run
+
+Supported locally: Linux x86-64, Node 24.21.0, Pebble Tool 5.0.39,
+`libpebble2` 0.0.31 and SDK 4.33.1.
 
 ```sh
-pebble sdk activate 4.33.1
 npm ci
 npx playwright install chromium
 npm run e2e
 ```
 
-Keep 4.33.1 active: the Alloy prebuild uses the active SDK even with `--sdk`.
-`e2e` runs strict TypeScript checking, the existing syntax/build checks, and then
-Playwright. It rebuilds the PBW first, so it cannot silently check stale code.
-Restore your previous SDK afterward if necessary.
+`e2e` typechecks the harness, builds native C and phone JS, then runs Playwright.
+The SDK names the PBW after the checkout directory; the harness installs exactly
+`build/<checkout-name>.pbw`, never an old differently named package.
 
-The bridge discovers the Python interpreter from the `pebble` executable's
-shebang. For a wrapper/shim or unusual installation, set `PEBBLE_PYTHON` to the
-Python **inside the pebble-tool environment**, not the SDK's separate build venv
-or a resolved system-Python symlink.
-
-Useful commands:
+The bridge discovers Python from the `pebble` executable's shebang. For a wrapper
+installation, set `PEBBLE_PYTHON` to the interpreter inside the Pebble tool's venv.
 
 ```sh
 npm run typecheck
-npm run e2e -- --repeat-each=3
+npm run e2e -- --project=gabbro
+npm run e2e -- --project=emery
+npm run e2e -- --repeat-each=2
+npm run e2e -- --grep 'favourite lifecycle'
 npx playwright show-report
 ```
 
-Do not add `"type": "module"` to the root package: that breaks the SDK's generated
-CommonJS webpack configuration. Playwright handles the `.ts` files itself;
-`e2e/tsconfig.json` typechecks only this harness/configuration.
+Do not add `"type": "module"` to the root package: the SDK webpack configuration
+is CommonJS. One-off host C probes can check production helpers and persistence
+failures, but do not replace the actual native PBW flows.
 
 ## Screenshots and synchronization
 
-Six reviewed native-framebuffer baselines live in `e2e/screenshots/`. They cover
-initial/relaunch connection screens, first-use state, station/direction selection
-and arrivals. Comparison is pixel-exact, with two explicit exceptions:
+Time 2 baselines remain in `e2e/screenshots/`; Round 2 baselines are isolated in
+`e2e/screenshots/gabbro/` and are 260×260. Pixel comparison masks only:
 
-- The header clock rectangle is masked in every comparison.
-- Only on connecting screens, the animated loader-dot rectangle is masked.
+- The header clock at that platform's native position.
+- The platform-specific 30 × 18 train area on loading/saved screens. An unmasked
+  cropped assertion separately checks that its frames change.
 
-Destination text, status and rendered arrivals remain asserted. Legitimate
-minute-unit fixture estimates display `~3`, `~4` and `~5` without a second-by-second
-snapshot race; they are synthetic observations, not captured live measurements.
-Readiness uses the pinned SDK's native inbox-ready message (`15025`), subsequent
-real frames and application-level receipts—not fixed startup sleeps. Assertions
-poll for bounded periods instead of assuming every frame is immediately ready.
+Raw store screenshots are captured without either mask by the explicit
+`npm run assets:screenshots` command, for both platforms. Normal tests never
+rewrite the checked-in store assets. See [asset generation](../assets/README.md).
 
-To intentionally update baselines after a UI change:
+The source's legitimate minute units keep ordinary ETA screenshots stable. Numeric
+seconds are exercised during churn and zero rendering; tests do not manufacture
+seconds for minute-only observations. Fixture data is not a live measurement.
+
+Readiness waits for `Metro native UI ready`, emitted after the first real draw,
+then real frames and application receipts. System launch-animation frames are
+rejected. Normal assertions poll boundedly.
+
+Delayed-data tests disable automatic fixture publishing instead of sleeping.
+For in-flight races, the harness holds the final unmodified chunk emitted by the
+real phone bundle, changes the route through native buttons, then releases that
+same chunk and waits for the native application receipt. A transparent
+`JSON.stringify` observer records the real phone's arrival serialization without
+changing its arguments, bytes or result. `queueStation()` uses that checkpoint to
+prove an empty snapshot entered transport before changing stations, then returns
+a separate native-receipt waiter; the test does not rely on a sleep or assume a
+WebSocket send has already been processed. It does not inject a replacement watch
+model or renderer. Whole-station fixtures can include both
+directions; active MQTT subscriptions are recorded separately from their history.
 
 ```sh
-npm run e2e -- --update-snapshots
+npm run e2e -- --project=gabbro --update-snapshots
 ```
 
-Review every changed PNG before committing it, especially the connecting screens:
-an intermediate loading frame must not replace an intended app screen. CI never
-updates baselines automatically. New scenarios should use distinct snapshot names.
+Review every changed image before accepting it, especially during startup/source
+transitions. CI never updates baselines. A useful source state must not be
+replaced by a prior menu/connecting frame just because an update run accepted it.
 
-## CI and failure evidence
+## CI, probes and limits
 
-`.github/workflows/e2e.yml` runs on pull requests, pushes to `main`, and manual
-workflow dispatch. It uses Ubuntu 24.04, installs the pinned tool/SDK, activates
-4.33.1, installs Chromium and runs one worker. It has read-only repository
-permissions and no publishing/deployment step or personal credentials.
+The existing least-privilege Ubuntu workflow builds/tests and saves reports,
+traces, native screenshots, `phone.log`, `emulator.log`, commands/subscriptions
+and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
+`DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` methods so
+screenshots/data retain their attribution and machine-readable alteration offer.
+It never installs on hardware or publishes. A local pass does
+not prove hosted checks passed for an exact revision.
 
-The uploaded `emulator-e2e` artifact contains the HTML/JUnit report and outputs:
+During development, the allocation-free C JSON decoder was separately checked
+using one-off host probes with C99 warnings,
+ASan/UBSan, malformed UTF-8/escapes/numbers/nesting/token bounds and differential
+probes. Temporary host probes include catalogue replacement while editing,
+invalid draft indices, cache deletion/commit failures, invalidation, retained
+labels, original expiry, clock rollback and revisiting an evicted RAM snapshot.
+A temporary real companion/feed/transport probe holds a batch active across a
+source disconnect/reconnect: even when coalescing removes the disconnect message,
+empty arrivals and the final connected message retain the invalidation generation.
+The C probe separately checks initial-zero, initial-nonzero and changed-generation
+handling against all route caches.
 
-- Actual/expected/diff PNGs on mismatches, plus an unmasked final watch screenshot.
-- A Playwright trace on failure.
-- `emulator.log`, `phone.log`, and observed commands/subscriptions in `messages.json`.
+A temporary actual companion/feed/transport probe also covers retained empty,
+malformed and oversized-fallback invalidations, coalescing into newer data,
+20-station queue pressure, monotonic generations and exhausted retries of both
+an invalidation and its replacement barrier. The pending queue remains bounded at
+eight; losses fail closed through the existing native generation mechanism. The
+two corresponding emulator regressions failed on both watches before the fix.
+These scratch probes are not a restored unit-test suite.
 
-These generated reports are ignored by Git. Native console output can contain
-binary diagnostic fragments; the readable application log lines precede them.
-
-Local verification includes strict typechecking, repeated fresh-emulator runs,
-and a deliberate 25-pixel baseline corruption: the test failed and produced
-image diffs, trace and logs. The original baseline was restored afterward.
-Check the PR's GitHub Checks tab for the hosted result for its exact revision;
-a local pass does not replace that verification. The workflow is checked with
-`actionlint`.
-
-## Limits and next slices
-
-This checks the application/phone-bundle software path, not an actual Android
-WebView, Bluetooth radio, background restrictions, vibration, Quiet Time or
-physical battery use. Hardware acceptance remains separate.
-
-Future focused flows: loading timeout/retry, metadata failure/recovery, stale
-prediction expiry, disconnection/reconnection, phone-only clock changes, service
-pagination/deduplication, and exact two-minute alerts with coalesced uncertainty.
-Do not claim those are covered by this initial happy-path/persistence flow.
+Remaining hardware acceptance on both watches, particularly physical Round 2:
+real Android WebView/Bluetooth, source variations,
+repeated favourite switching, quick reopen, phone/internet loss/recovery and
+battery use. This version does not use vibration.

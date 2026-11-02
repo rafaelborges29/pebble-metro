@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  <title>Metro Lisboa — original train icon</title>
+  <rect width="144" height="144" fill="#102b3b"/>
+  <g fill="#f7fbfc">
+    <rect x="60" y="17" width="24" height="5" rx="2.5"/>
+    <rect x="41" y="26" width="62" height="77" rx="13"/>
+  </g>
+  <rect x="53" y="34" width="38" height="4" rx="2" fill="#42d4ab"/>
+  <g fill="#102b3b">
+    <rect x="49" y="45" width="19" height="23" rx="4"/>
+    <rect x="76" y="45" width="19" height="23" rx="4"/>
+    <rect x="61" y="91" width="22" height="5" rx="2.5"/>
+  </g>
+  <g fill="#42d4ab">
+    <circle cx="55" cy="82" r="4"/>
+    <circle cx="89" cy="82" r="4"/>
+  </g>
+  <g fill="none" stroke="#f7fbfc" stroke-width="5" stroke-linecap="round">
+    <path d="M59 104 49 118M85 104 95 118M54 112H90"/>
+  </g>
+  <circle cx="52" cy="132" r="3.5" fill="#499fe2"/>
+  <circle cx="65" cy="132" r="3.5" fill="#f5cc47"/>
+  <circle cx="78" cy="132" r="3.5" fill="#42d4ab"/>
+  <circle cx="91" cy="132" r="3.5" fill="#ef6478"/>
+</svg>

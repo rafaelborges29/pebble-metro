@@ -1,6 +1,6 @@
-// Build-time adapter for SDK 4.17's webpack 1 (which does not lower ESM).
+// Build-time adapter for SDK 4.33.1's webpack 1 (which does not lower ESM).
 // Only the named imports, function/var exports and named export lists used by
-// our own modules are accepted. Watch/Node consume the original ESM; third-party code is untouched.
+// our phone modules are accepted. Third-party code is untouched.
 module.exports = function (source) {
   this.cacheable();
   var names = [], index = 0;

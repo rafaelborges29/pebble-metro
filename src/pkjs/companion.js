@@ -1,4 +1,4 @@
-import { parseNetwork, parseFavorites, parseDisturbances, exactSeconds } from "../common/metro.js";
+import { parseNetwork, parseFavorites } from "../common/metro.js";
 import { createTransport } from "./transport.js";
 import { openFeed } from "./feed.js";
 
@@ -14,29 +14,46 @@ function cachedNetwork(value) {
 // Platform edges are supplied by the Android bridge.
 export function createCompanion(options) {
   var pebble = options.Pebble, timers = options.timers, now = options.now;
-  var transport = createTransport(pebble, timers), network = null, cached = false;
-  var session = null, desired = { favorite: null, armed: null }, stations = [], feed = null;
-  var metadataBusy = false, serviceBusy = false, poll = null, closed = false;
-  var metadataGeneration = 0, serviceGeneration = 0, cancels = [];
-  var arrivalGeneration = 0, snapshots = [];
-  var service = { type: "service", ok: false, updated: 0, disturbances: [] };
+  var transport = createTransport(pebble, timers, function () {
+    // Queue eviction or exhausted retries lost a required station invalidation.
+    feedGeneration = (feedGeneration + 1) >>> 0;
+    send(connection, "invalidation");
+  }), network = null, cached = false;
+  var session = null, favorite = null, stations = [], feed = null;
+  var metadataBusy = false, metadataRetry = null, closed = false;
+  var metadataGeneration = 0, cancels = [];
   var connection = { type: "connection", status: "disconnected" };
+  var feedGeneration = 0, announcedConnection = null;
   function send(message, key) {
     if (!session || closed) return;
-    if (!transport.send(message, key) && message.type === 'arrivals') {
-      arrivalGeneration++;
-      transport.send({ type: 'arrivals', station: message.station, predictions: [], at: now(), generation: arrivalGeneration }, key);
+    if (message.type === "connection") {
+      if ((message.status === "disconnected" && announcedConnection !== "disconnected") ||
+          (message.status === "connecting" && announcedConnection === "connected")) feedGeneration = (feedGeneration + 1) >>> 0;
+      announcedConnection = message.status;
     }
+    // Connection gaps and lost station invalidations must still clear cached routes.
+    if (message.type === "connection" || message.type === "arrivals") message.generation = feedGeneration;
+    if (!transport.send(message, key) && message.type === "arrivals")
+      transport.send({ type: "arrivals", station: message.station, predictions: [], at: now(), generation: feedGeneration }, key);
   }
-  function catalog() { if (network) send({ type: "catalog", network: network, cached: cached }); }
-  function selection() {
-    var next = [];
-    if (network) [desired.favorite, desired.armed].forEach(function (f) {
-      var valid = parseFavorites(JSON.stringify([f]), network)[0];
-      if (valid && next.indexOf(valid.station) === -1) next.push(valid.station);
+  function catalog() {
+    if (!network) return;
+    var ids = network.stations.map(function (s) { return s.id; });
+    send({ type: "catalog", cached: cached,
+      stations: network.stations.map(function (s) {
+        var mask = network.lines.reduce(function (value, line, index) {
+          return s.lines.indexOf(line.id) === -1 ? value : value | (1 << index);
+        }, 0);
+        return [s.id, s.name, mask];
+      }),
+      lines: network.lines.map(function (l) {
+        return [l.id, l.name, l.color, l.stations.map(function (station) { return ids.indexOf(station); })];
+      })
     });
-    stations = next;
-    snapshots = snapshots.filter(function (snapshot) { return stations.indexOf(snapshot.station) !== -1; });
+  }
+  function selection() {
+    var valid = network && parseFavorites(JSON.stringify([favorite]), network)[0];
+    stations = valid ? [valid.station] : [];
     transport.setStations(stations);
     if (feed) feed.setStations(stations);
   }
@@ -49,8 +66,19 @@ export function createCompanion(options) {
       cached = true;
     } catch (_) {}
   }
+  function scheduleMetadataRetry() {
+    if (metadataRetry) timers.clearTimeout(metadataRetry);
+    metadataRetry = null;
+    if (closed || !session || (network && !cached)) return;
+    metadataRetry = timers.setTimeout(function () {
+      metadataRetry = null;
+      loadMetadata();
+    }, 30000);
+  }
   function loadMetadata() {
     if (metadataBusy || closed) return;
+    if (metadataRetry) timers.clearTimeout(metadataRetry);
+    metadataRetry = null;
     metadataBusy = true;
     var generation = ++metadataGeneration, stationData, lineData, count = 0, failed = false;
     function result(kind, error, data) {
@@ -73,7 +101,7 @@ export function createCompanion(options) {
       catalog();
       if (!failed) send(connection);
       selection();
-      refreshService();
+      scheduleMetadataRetry();
     }
     ["stations", "lines"].forEach(function (path) { request(path, function (error, data) { result(path, error, data); }); });
   }
@@ -88,54 +116,13 @@ export function createCompanion(options) {
     try { cancel = options.request(path, done); } catch (error) { if (!complete) done(error); }
     if (!complete && typeof cancel === "function") cancels.push(cancel);
   }
-  function refreshService() {
-    if (serviceBusy || !network || closed) return;
-    serviceBusy = true;
-    var generation = ++serviceGeneration;
-    request("disturbances?filter=ongoing", function (error, data) {
-      if (generation !== serviceGeneration) return;
-      serviceBusy = false;
-      if (!error) {
-        try { service = { type: "service", ok: true, updated: now(), disturbances: parseDisturbances(data, network) }; }
-        catch (parseError) { error = parseError; }
-      }
-      if (error) service = { type: "service", ok: false, updated: service.updated, disturbances: service.disturbances };
-      send(service);
-    });
-  }
   function startFeed() {
     if (feed || closed) return;
     feed = openFeed({ createClient: options.createClient, timers: timers, now: now, onEvent: function (event) {
-      if (event.type === "connection") {
-        if (event.status !== "connected" && event.status !== connection.status) arrivalGeneration++;
-        connection = event;
-      } else if (event.type === "arrivals") {
-        var previous = snapshots.filter(function (snapshot) { return snapshot.station === event.station; })[0];
-        var gap = !event.predictions.length || (previous && previous.predictions.some(function (prediction) {
-          return prediction.expires <= event.at || (prediction.order === 1 && !event.predictions.some(function (next) {
-            return next.direction === prediction.direction && next.order === 1
-              && (prediction.type !== "e" || prediction.units !== "s" || isFinite(exactSeconds(next, event.at)));
-          }));
-        }));
-        if (gap) arrivalGeneration++;
-        // Stamp before serialization: coalescing/retries must not hide a gap.
-        event.generation = arrivalGeneration;
-        snapshots = snapshots.filter(function (snapshot) { return snapshot.station !== event.station; });
-        snapshots.push({ station: event.station, predictions: event.predictions });
-      }
+      if (event.type === "connection") connection = event;
       send(event, event.type === "arrivals" ? "arrivals:" + event.station : undefined);
     } });
     feed.setStations(stations);
-  }
-  function schedulePoll() {
-    if (poll || closed) return;
-    poll = timers.setTimeout(function () {
-      poll = null;
-      if (!network || cached) loadMetadata();
-      // A hung request is bounded by the requester's 15-second timeout.
-      refreshService();
-      schedulePoll();
-    }, 30000);
   }
   function receive(event) {
     if (closed) return;
@@ -149,20 +136,16 @@ export function createCompanion(options) {
     if (command.type === "hello") {
       if (typeof command.now !== "number" || !isFinite(command.now) || command.now < 0) return;
       session = command.session;
-      arrivalGeneration = 0;
-      snapshots = [];
-      desired = { favorite: null, armed: null };
+      favorite = null;
       transport.reset(session);
       // Must be the first logical response, even when metadata is synchronous.
       send({ type: "hello", echo: command.now, at: now() });
       selection();
       catalog();
-      send({ type: "service", ok: false, updated: service.updated, disturbances: service.disturbances });
       startFeed();
       feed.refresh();
       send(connection);
       loadMetadata();
-      schedulePoll();
       return;
     }
     if (!session || command.session !== session) return;
@@ -170,11 +153,10 @@ export function createCompanion(options) {
       if (typeof command.id === "number" && command.id > 0 && command.id % 1 === 0 && typeof command.part === "number" && command.part >= 0 && command.part < 32 && command.part % 1 === 0)
         transport.receipt(command.id, command.part);
     } else if (command.type === "watch") {
-      desired = { favorite: command.favorite || null, armed: command.armed || null };
+      favorite = command.favorite || null;
       selection();
     } else if (command.type === "refresh") {
       loadMetadata();
-      refreshService();
       if (feed) feed.refresh();
     } else if (command.type === "catalog") {
       catalog();
@@ -189,8 +171,7 @@ export function createCompanion(options) {
     close: function () {
       closed = true;
       metadataGeneration++;
-      serviceGeneration++;
-      if (poll) timers.clearTimeout(poll);
+      if (metadataRetry) timers.clearTimeout(metadataRetry);
       cancels.forEach(function (cancel) { cancel(); });
       cancels = [];
       if (feed) feed.close();

@@ -11,5 +11,6 @@ export default defineConfig({
   updateSnapshots: 'none',
   snapshotPathTemplate: '{testDir}/screenshots/{arg}{ext}',
   reporter: [['list'], ['html', { open: 'never' }], ['junit', { outputFile: 'test-results/junit.xml' }]],
+  projects: [{ name: 'emery' }, { name: 'gabbro' }],
   use: { browserName: 'chromium', headless: true, trace: 'retain-on-failure' },
 });

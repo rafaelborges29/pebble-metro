@@ -22,6 +22,7 @@ from libpebble2.communication.transports.qemu import QemuTransport, MessageTarge
 from libpebble2.communication.transports.qemu.protocol import QemuBluetoothConnection, QemuButton
 from libpebble2.protocol.apps import AppRunState, AppRunStateStart
 from libpebble2.protocol.logs import AppLogMessage, AppLogShippingControl
+from libpebble2.protocol.system import TimeMessage, SetUTC
 from libpebble2.services.appmessage import AppMessageService, CString
 from libpebble2.services.install import AppInstaller
 from libpebble2.services.screenshot import Screenshot
@@ -46,9 +47,14 @@ logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 
 
 def run():
+    platform = sys.argv[1] if len(sys.argv) == 2 else "emery"
+    if platform not in ("emery", "gabbro"):
+        raise ValueError(f"Unsupported platform: {platform}")
+    round_display = platform == "gabbro"
+    size = (260, 260) if round_display else (200, 228)
     sdk = Path(sdk_manager.path_for_sdk("4.33.1"))
     toolchain = Path(sdk_manager.root_path_for_sdk("4.33.1")) / "toolchain"
-    firmware = sdk / "pebble/emery/qemu"
+    firmware = sdk / "pebble" / platform / "qemu"
     process = None
     connection = None
     # Each process gets new flash, not the developer's managed emulator storage.
@@ -63,7 +69,7 @@ def run():
             port = reservation.getsockname()[1]
         command = [
             str(toolchain / "bin/qemu-pebble"),
-            "-machine", "pebble-emery", "-cpu", "cortex-m33",
+            "-machine", "pebble-" + platform, "-cpu", "cortex-m33",
             "-kernel", str(directory / "micro.bin"),
             "-drive", f"if=mtd,format=raw,file={directory / 'spi.bin'}",
             "-rtc", "base=utc", "-display", "none",
@@ -101,8 +107,11 @@ def run():
             service.register_handler("nack", lambda tid, app: acknowledged(tid, app, False))
             service.register_handler("appmessage", lambda _tid, app, data:
                 emit({"event": "appmessage", "data": data}) if app == APP else None)
-            connection.register_endpoint(AppLogMessage, lambda packet:
-                print(f"{packet.filename}:{packet.line_number}: {packet.message}", file=sys.stderr, flush=True))
+            def app_log(packet):
+                print(f"{packet.filename}:{packet.line_number}: {packet.message}", file=sys.stderr, flush=True)
+                emit({"event": "log", "message": packet.message})
+
+            connection.register_endpoint(AppLogMessage, app_log)
             connection.send_packet(AppLogShippingControl(enable=True))
             emit({"event": "ready"})
             for line in sys.stdin:
@@ -138,18 +147,32 @@ def run():
                         time.sleep(0.1)
                         connection.transport.send_packet(QemuButton(state=0), MessageTargetQemu())
                         time.sleep(0.15)
+                    elif method == "time":
+                        connection.send_packet(TimeMessage(message=SetUTC(unix_time=params["seconds"], utc_offset=0, tz_name="UTC")))
                     elif method == "launch":
                         connection.send_packet(AppRunState(data=AppRunStateStart(uuid=APP)))
                     elif method == "screenshot":
                         rows = Screenshot(connection).grab_image()
                         image = Image.frombytes("RGB", (len(rows[0]) // 3, len(rows)), b"".join(rows))
+                        if image.size != size:
+                            raise RuntimeError(f"Unexpected {platform} screenshot size: {image.size}")
                         drawing = ImageDraw.Draw(image)
                         if params.get("mask_clock", False):
-                            drawing.rectangle((155, 0, 199, 23), fill="black")
+                            # Snapshot updates must not capture the system launch animation.
+                            top = (130, 2) if round_display else (0, 0)
+                            bottom = (130, 225) if round_display else (199, 201)
+                            if image.getpixel(top) not in ((0, 0, 0), (255, 255, 0)) or image.getpixel(bottom) != (255, 255, 255):
+                                raise RuntimeError("Waiting for a rendered Metro frame")
+                            drawing.rectangle((170, 24, 209, 47) if round_display else (155, 0, 199, 23), fill="black")
+                        loader_positions = {"empty": (44, 112), "arrivals": (83, 205)} if round_display else {"empty": (10, 85), "arrivals": (10, 182)}
                         loader = params.get("mask_loader")
-                        if loader in ("empty", "arrivals"):
-                            y = 85 if loader == "empty" else 130
-                            drawing.rectangle((10, y, 57, y + 7), fill="white")
+                        if loader in loader_positions:
+                            x, y = loader_positions[loader]
+                            drawing.rectangle((x, y, x + 29, y + 17), fill="white")
+                        crop = params.get("crop_loader")
+                        if crop in loader_positions:
+                            x, y = loader_positions[crop]
+                            image = image.crop((x, y, x + 30, y + 18))
                         output = io.BytesIO()
                         image.save(output, format="PNG")
                         result = base64.b64encode(output.getvalue()).decode()

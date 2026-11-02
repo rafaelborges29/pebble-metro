@@ -1,6 +1,6 @@
-// One AppMessage in flight. Also wait until Alloy has READ each chunk:
-// its native inbox ACK can otherwise precede JS delivery and overwrite unread data.
-export function createTransport(pebble, timers) {
+// One AppMessage in flight; wait for the watch's application receipt before
+// advancing. Partial or unconsumed batches must never renew an arrival estimate.
+export function createTransport(pebble, timers, onInvalidationLoss) {
   var session = null, sequence = 0, queue = [], active = null, busy = false, retry, closed = false;
   function clearRetry() { if (retry) timers.clearTimeout(retry); retry = null; }
   function wake() {
@@ -23,8 +23,10 @@ export function createTransport(pebble, timers) {
   }
   function failed(batch) {
     batch.attempts++;
-    if (batch.attempts >= 3 && batch.key !== 'hello') active = null;
+    var discarded = batch.attempts >= 3 && batch.key !== 'hello';
+    if (discarded) active = null;
     retry = timers.setTimeout(function () { retry = null; pump(); }, Math.min(5000, 250 * Math.pow(2, Math.min(batch.attempts, 5))));
+    if (discarded && batch.invalidates) onInvalidationLoss();
   }
   function receipt(id, part) {
     if (!active || active.id !== id || active.part !== part) return;
@@ -74,13 +76,21 @@ export function createTransport(pebble, timers) {
         parts.push(text.slice(start, end)); start = end;
       }
       key = key || message.type;
-      queue = queue.filter(function (batch) { return batch.key !== key; });
-      if (queue.length >= 8) queue.splice(queue[0].key === 'hello' ? 1 : 0, 1);
-      queue.push({ session: session, id: ++sequence, part: 0, total: parts.length, parts: parts, key: key, attempts: 0 });
+      var invalidates = key === 'invalidation' || (message.type === 'arrivals' && Array.isArray(message.predictions) && !message.predictions.length);
+      queue = queue.filter(function (batch) {
+        if (batch.key !== key) return true;
+        // A newer snapshot must reach the watch before it can supersede an invalidation.
+        invalidates = invalidates || batch.invalidates;
+        return false;
+      });
+      var discarded = queue.length >= 8 ? queue.splice(queue[0].key === 'hello' ? 1 : 0, 1)[0] : null;
+      queue.push({ session: session, id: ++sequence, part: 0, total: parts.length, parts: parts, key: key, attempts: 0, invalidates: invalidates });
+      // Publish the generation barrier AFTER every older queued snapshot.
+      if (discarded && discarded.invalidates) onInvalidationLoss();
       pump(); return true;
     },
     setStations: function (stations) {
-      queue = queue.filter(function (batch) { return batch.key.indexOf('arrivals:') !== 0 || stations.indexOf(batch.key.slice(9)) !== -1; });
+      queue = queue.filter(function (batch) { return batch.invalidates || batch.key.indexOf('arrivals:') !== 0 || stations.indexOf(batch.key.slice(9)) !== -1; });
     },
     close: function () { closed = true; this.reset(null); }
   };
