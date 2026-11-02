@@ -176,16 +176,3 @@ The cache stores no service state or alert continuity. Favourites plus both cach
 slots use approximately 3.2 KiB of value payloads at the 16-favourite limit. The
 actual firmware persistence limit is queried/documented by `persist_get_max_size()`;
 all writes are checked, rather than assuming global watch storage is available.
-
-**Alloy migration:** its WebStorage uses the private `local-<UUID>` SettingsFile
-with string keys; public native persistence uses `ps<UUID>` and integer keys.
-They are separate. The UUID is retained and the old store is not erased, but this
-implementation does not import it. Users upgrading from 0.1 must re-add their
-favourites. No unsupported firmware file access is used.
-
-## Verification boundaries
-
-See [E2E](e2e.md) for actual native PBW/phone-bundle flows, long-run navigation,
-real native heap samples and remaining cases. Emulator success is not hardware
-acceptance. Validate repeated switching, recovery and battery behaviour on the
-supported physical watch before claiming release readiness.
