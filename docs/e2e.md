@@ -42,9 +42,10 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
    real MQTT, keeping the range dash visible (the large number-only font lacks it).
    Render `Due` / `Estimated now`, then an empty update. Relaunch must not resurrect
    its invalidated ETA. Route names remain without implying an available estimate.
-6. **Metadata replacement:** highlight the second line in an interchange picker,
-   remove that line in the REST fixture and refresh through the real companion.
-   The native picker/history resets safely instead of indexing a removed line.
+6. **Metadata replacement (three stages):** highlight or select the second line,
+   remove it while the line, filtered station or direction picker is open, and
+   refresh through the real companion. Each native draft/history resets safely
+   without changing existing favourites.
 7. **About/removal navigation:** inspect the UnderLX provider and ODbL licence
    URLs plus privacy/notices locations without truncation or private repository
    links, then inspect removal confirmation, keep the favourite, and return to
@@ -78,7 +79,7 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 15. **Opposite directions:** publish one whole-station snapshot with distinct
     estimates for both directions. Switching directions retains the correct LIVE
     data without resubscribing; removing one direction leaves the other intact.
-16. **Cancel an unfinished add:** back out of the direction/station pickers while
+16. **Cancel an unfinished add:** back out of the direction/station/line pickers while
     A is loading. Its selection/subscription remains unchanged, no draft is saved,
     and fresh A data still renders correctly.
 17. **Queued invalidation during a switch:** cache A/B, hold a newer A batch, and
@@ -89,6 +90,12 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
     queued empty update with a newer nonempty A snapshot before switching. That
     replacement must reach native C and replace both the older RAM/durable data;
     pruning must not erase the pending invalidation obligation.
+
+19. **Line-first creation:** select Azul from the four-line fixture, verify only
+    its two synthetic interchange stations appear, and keep that line through
+    direction selection. Both termini exclude themselves; a one-item direction
+    picker wraps safely. Back preserves highlighted station/line rows; cancelling
+    first use saves nothing. Save, inspect the favourite and reopen it from cache.
 
 Only two recent routes are durable; other still-valid snapshots are RAM-only.
 The stress deliberately asserts the uncached third route rather than pretending
@@ -108,9 +115,9 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **18 flows per platform (36 tests)**. Each platform
+The normal matrix has **21 cases per platform (42 tests)**. Each platform
 independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (72 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (84 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
