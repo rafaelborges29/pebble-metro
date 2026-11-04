@@ -65,9 +65,10 @@ const stations = [
 const lines = [{ network: 'pt-ml', id: 'pt-ml-red', name: 'Vermelha', color: 'ff0000',
   stations: ['pt-ml-ss', 'pt-ml-sa', 'pt-ml-ap'] }];
 
-export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
+export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLocale: string }>({
   largeNetwork: [false, { option: true }],
-  metro: async ({ page, largeNetwork }, use, testInfo) => {
+  watchLocale: ['en_US', { option: true }],
+  metro: async ({ page, largeNetwork, watchLocale }, use, testInfo) => {
     await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
       const device = yield* acquireEmulator(testInfo);
       yield* device.ready;
@@ -150,7 +151,8 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
         async function expectScreen(name: string, loader?: Loader) {
           await expect(async () => {
             const image = Buffer.from(await Effect.runPromise(device.request('screenshot', { mask_clock: true, mask_loader: loader })), 'base64');
-            const snapshot = device.platform === 'gabbro' ? ['gabbro', `${name}.png`] : `${name}.png`;
+            const snapshot = [...(device.platform === 'gabbro' ? ['gabbro'] : []),
+              ...(watchLocale === 'pt_PT' ? ['pt-PT'] : []), `${name}.png`];
             expect(image).toMatchSnapshot(snapshot, { threshold: 0, maxDiffPixels: 0 });
           }).toPass({ timeout: 10_000, intervals: [250, 500] });
         }
@@ -270,11 +272,17 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean }>({
             for (const record of sent.values()) if (record.message?.type === 'catalog')
               expect(record.message).toEqual(expectedCatalog);
           }
-          device.onLog = message => { if (message === 'Metro native UI ready') uiStarts++; };
+          let reportedLocale = '';
+          device.onLog = message => {
+            if (message === 'Metro native UI ready') uiStarts++;
+            if (message.startsWith('Metro locale=')) reportedLocale = message.slice('Metro locale='.length);
+          };
+          if (watchLocale !== 'en_US') await Effect.runPromise(device.request('locale', { locale: watchLocale }));
           // Pebble names the PBW after the checkout directory, not package.json.
           const phoneBundle = await Effect.runPromise(device.request('install', { path: root + '/build/' + root.split('/').pop() + '.pbw' }));
           // The native app announces readiness only after its first real draw.
           await expect.poll(() => uiStarts, { message: 'First native Metro draw completed' }).toBe(1);
+          expect(reportedLocale, 'Actual SDK system locale').toBe(watchLocale);
           await expectScreen('connecting', 'empty');
           await startPhone();
           const metro: Metro = {

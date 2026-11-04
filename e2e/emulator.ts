@@ -11,6 +11,7 @@ export type Button = 'back' | 'up' | 'select' | 'down';
 export type Loader = 'empty' | 'arrivals';
 export interface MemorySample { reason: string; used: number; free: number }
 interface Requests {
+  locale: { params: { locale: string }; result: null };
   install: { params: { path: string }; result: string };
   send: { params: { data: string }; result: null };
   press: { params: { button: Button }; result: null };

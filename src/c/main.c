@@ -89,6 +89,81 @@ static void touch_set_active(bool active);
 static void touch_cancel(void) {}
 #endif
 
+// UI only: never translate source labels, protocol values or persisted records.
+// The SDK can change the watch locale while the app is open; do not cache it.
+static const char *ui(const char *english) {
+  const char *locale = i18n_get_system_locale();
+  if (!locale || strcmp(locale, "pt_PT")) return english;
+  static const struct { const char *english, *portuguese; } copy[] = {
+    { "Station list updated. Please choose again.", "Lista de estações atualizada. Escolha novamente." },
+    { "Invalid station data", "Dados de estações inválidos" },
+    { "Direction unavailable. Choose the station again.", "Sentido indisponível. Escolha novamente a estação." },
+    { "Limit: 16 favourites. Remove one first.", "Limite: 16 favoritos. Remova um primeiro." },
+    { "Storage unavailable. Favourite was not saved.", "Erro de memória. O favorito não foi guardado." },
+    { "Station data is unavailable. Open the Pebble phone app and retry.", "Estações indisponíveis. Abra a app Pebble no telemóvel e tente de novo." },
+    { "Station unavailable. Choose again.", "Estação indisponível. Escolha novamente." },
+    { "Line unavailable. Choose the station again.", "Linha indisponível. Escolha novamente a estação." },
+    { "Storage unavailable. Favourite was not removed.", "Erro de memória. O favorito não foi removido." },
+    { "Due", "Agora" },
+    { "Estimated now", "Hora estimada" },
+    { "sec", "seg" },
+    { "Connecting to phone", "A ligar ao telemóvel" },
+    { "Loading stations", "A carregar estações" },
+    { "Connecting to feed", "A ligar à fonte" },
+    { "Waiting for arrivals", "A aguardar previsões" },
+    { "LIVE", "ATUAL" },
+    { "SAVED", "GUARDADO" },
+    { "UNAVAILABLE", "INDISPONÍVEL" },
+    { "STALE", "EXPIRADO" },
+    { "NO ESTIMATE", "SEM PREVISÃO" },
+    { "CONNECTING", "A LIGAR" },
+    { "LOADING", "A CARREGAR" },
+    { "+ Add favourite", "+ Adicionar favorito" },
+    { "Retry data", "Tentar de novo" },
+    { "About / data", "Sobre / dados" },
+    { "Unavailable", "Indisponível" },
+    { "Remove favourite", "Remover favorito" },
+    { "Retry live data", "Atualizar dados" },
+    { "Remove it", "Remover" },
+    { "Keep favourite", "Manter favorito" },
+    { "Waiting for fresh data", "A aguardar atualização" },
+    { "No live estimate", "Sem previsão atual" },
+    { "Waiting for data", "A aguardar dados" },
+    { "Updating", "A atualizar" },
+    { "Actions %d/%d", "Ações %d/%d" },
+    { "Select: actions  %d/%d", "Sel.: ações  %d/%d" },
+    { "Your Metro.", "O seu Metro." },
+    { "Save a station and direction. No GPS needed.", "Guarde uma estação e um sentido. Não precisa de GPS." },
+    { "Open the Pebble phone app and retry.", "Abra a app Pebble no telemóvel e tente de novo." },
+    { "Select: add / retry", "Sel.: criar / tentar" },
+    { "About Metro", "Sobre o Metro" },
+    { "Metro 0.2 · independent\nUnderLX data · ODbL 1.0\nhttps://underlx.com/\nhttps://opendatacommons.org/\nlicenses/odbl/1-0/\nPrivacy: store description\nLicences: phone bundle", "Metro 0.2 · independente\nDados UnderLX · ODbL 1.0\nhttps://underlx.com/\nhttps://opendatacommons.org/\nlicenses/odbl/1-0/\nPrivacidade: ver loja\nLicenças: app no telemóvel" },
+    { "Select: back", "Sel.: voltar" },
+    { "Favourites", "Favoritos" },
+    { "Station", "Estação" },
+    { "Line", "Linha" },
+    { "Direction", "Sentido" },
+    { "Actions", "Ações" },
+    { "Remove it?", "Remover?" },
+    { "Choose %d/%d", "Escolher %d/%d" },
+    { "Up/Down: choose  %d/%d", "Cima/Baixo: escolher %d/%d" },
+    { "Storage unavailable", "Erro de memória" },
+    { "Cache unavailable", "Erro de cache" },
+    { "Phone disconnected", "Telemóvel desligado" },
+    { "Phone messaging unavailable", "Ligação indisponível" },
+    { "Feed unavailable", "Fonte indisponível" },
+    { "Subscription failed", "Falha ao pedir dados" },
+    { "Feed disconnected", "Fonte desligada" },
+    { "MQTT connection failed", "Falha de ligação à fonte" },
+    { "MQTT unavailable", "Fonte indisponível" },
+    { "Unsubscribe failed", "Falha ao cancelar dados" },
+    { "Station metadata unavailable", "Estações indisponíveis" },
+  };
+  for (size_t i = 0; i < ARRAY_LENGTH(copy); i++)
+    if (!strcmp(english, copy[i].english)) return copy[i].portuguese;
+  return english;
+}
+
 static uint32_t now_seconds(void) { time_t now = time(NULL); return now > 0 ? (uint32_t)now : 0; }
 static bool id_valid(const char *id, size_t capacity) {
   const char *end = memchr(id, 0, capacity);
@@ -785,11 +860,11 @@ static void arrival_label(const Prediction *p, uint32_t now, char *value, size_t
   double elapsed = now - p->received, multiplier = p->units == 'm' ? 60 : 1;
   double seconds = fmax(0, p->type == 't' ? p->value - now : p->value * multiplier - elapsed);
   copy_label(unit, unit_size, "min");
-  if (!seconds && (p->type == 'e' || p->type == 't')) { copy_label(value, size, "Due"); copy_label(unit, unit_size, "Estimated now"); }
+  if (!seconds && (p->type == 'e' || p->type == 't')) { copy_label(value, size, ui("Due")); copy_label(unit, unit_size, ui("Estimated now")); }
   else if (p->type == 'i') snprintf(value, size, "%d–%d", (int)floor(seconds / 60), (int)ceil(fmax(0, p->upper * multiplier - elapsed) / 60));
   else if (p->type == 'l' || p->type == 'm') snprintf(value, size, "%c%d", p->type == 'l' ? '<' : '>', p->type == 'l' ? (int)ceil(seconds / 60) : (int)floor(seconds / 60));
   else if (p->units == 'm') snprintf(value, size, "~%d", (int)ceil(seconds / 60));
-  else if (seconds < 60) { snprintf(value, size, "%d", (int)ceil(seconds)); copy_label(unit, unit_size, "sec"); }
+  else if (seconds < 60) { snprintf(value, size, "%d", (int)ceil(seconds)); copy_label(unit, unit_size, ui("sec")); }
   else { int rounded = ceil(seconds); snprintf(value, size, "%d:%02d", rounded / 60, rounded % 60); }
 }
 static const char *stage(void) {
@@ -813,12 +888,12 @@ static void menu_label(int row, char *title, size_t size, char *detail, size_t d
   if (s_view == FAVORITES) {
     int count = favorite_count();
     if (row < count) { Labels labels = labels_for(&s_favorites[favorite_at(row)]); copy_label(title, size, labels.station); copy_label(detail, detail_size, labels.direction); }
-    else copy_label(title, size, row == count ? "+ Add favourite" : row == count + 1 ? "Retry data" : "About / data");
-  } else if (s_view == STATIONS) copy_label(title, size, row < s_station_count ? s_stations[row].name : "Unavailable");
-  else if (s_view == LINES) { int line = draft_line_at(row); copy_label(title, size, line >= 0 ? s_lines[line].name : "Unavailable"); }
-  else if (s_view == DIRECTIONS) { int direction = draft_direction_at(row); copy_label(title, size, direction >= 0 ? s_stations[direction].name : "Unavailable"); }
-  else if (s_view == ACTIONS) copy_label(title, size, row ? "Remove favourite" : "Retry live data");
-  else copy_label(title, size, row ? "Remove it" : "Keep favourite");
+    else copy_label(title, size, row == count ? ui("+ Add favourite") : row == count + 1 ? ui("Retry data") : ui("About / data"));
+  } else if (s_view == STATIONS) copy_label(title, size, row < s_station_count ? s_stations[row].name : ui("Unavailable"));
+  else if (s_view == LINES) { int line = draft_line_at(row); copy_label(title, size, line >= 0 ? s_lines[line].name : ui("Unavailable")); }
+  else if (s_view == DIRECTIONS) { int direction = draft_direction_at(row); copy_label(title, size, direction >= 0 ? s_stations[direction].name : ui("Unavailable")); }
+  else if (s_view == ACTIONS) copy_label(title, size, row ? ui("Remove favourite") : ui("Retry live data"));
+  else copy_label(title, size, row ? ui("Remove it") : ui("Keep favourite"));
 }
 static void update_layer(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
@@ -832,7 +907,7 @@ static void update_layer(Layer *layer, GContext *ctx) {
   clock_copy_time_string(clock, sizeof(clock));
   const char *header = s_view == ARRIVALS ? status(now) : s_view == EMPTY ? !s_station_count ? now - s_attempt >= 15 ? "UNAVAILABLE" : "CONNECTING" : "METRO LISBOA" : "METRO LISBOA";
   rect(ctx, GColorWhite, 0, 0, width, height); rect(ctx, GColorBlack, 0, 0, width, content.origin.y);
-  text(ctx, header, FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, GColorWhite);
+  text(ctx, ui(header), FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, GColorWhite);
   text(ctx, clock, FONT_KEY_GOTHIC_14, round ? 170 : 155, round ? 24 : 3, round ? 40 : 43, 22, GColorWhite);
   if (s_view == ARRIVALS && s_favorites[s_selected].version) {
     Labels labels = labels_for(&s_favorites[s_selected]);
@@ -847,7 +922,7 @@ static void update_layer(Layer *layer, GContext *ctx) {
     arrival_label(&arrival->predictions[0], now, value, sizeof(value), unit, sizeof(unit));
     // The number-only Bitham font has no Unicode range dash.
     bool numeric = value[0] >= '0' && value[0] <= '9' && arrival->predictions[0].type != 'i';
-    bool show_unit = unit[0] && !strchr(value, ':') && strcmp(value, "Due");
+    bool show_unit = unit[0] && !strchr(value, ':') && strcmp(value, ui("Due"));
     const char *primary = value[0] ? value : "--:--";
     const char *font = numeric ? FONT_KEY_BITHAM_42_BOLD : FONT_KEY_GOTHIC_24_BOLD;
     int value_x = margin, value_width = round ? content_width : show_unit ? 126 : 182;
@@ -868,29 +943,29 @@ static void update_layer(Layer *layer, GContext *ctx) {
     }
     bool waiting = !arrival->live && (!arrival->seen || has_predictions(arrival, now)) && !s_error[0] && s_source != SOURCE_DISCONNECTED;
     bool loading = waiting && now - s_attempt < 15;
-    if (!buffer[0] && !loading) copy_label(buffer, sizeof(buffer), !strcmp(value, "Due") ? unit : s_error[0] ? s_error : !strcmp(header, "STALE") ? "Waiting for fresh data" : !strcmp(header, "NO ESTIMATE") ? "No live estimate" : "Waiting for data");
+    if (!buffer[0] && !loading) copy_label(buffer, sizeof(buffer), !strcmp(value, ui("Due")) ? unit : s_error[0] ? ui(s_error) : !strcmp(header, "STALE") ? ui("Waiting for fresh data") : !strcmp(header, "NO ESTIMATE") ? ui("No live estimate") : ui("Waiting for data"));
     text(ctx, buffer, FONT_KEY_GOTHIC_18, margin, round ? 178 : 159, content_width, 24, GColorBlack);
     if (loading) {
       train(ctx, round ? 83 : 10, round ? 205 : 182, now);
-      text(ctx, "Updating", FONT_KEY_GOTHIC_14, round ? 119 : 46, round ? 205 : 182, round ? 80 : 146, 20, GColorBlack);
+      text(ctx, ui("Updating"), FONT_KEY_GOTHIC_14, round ? 119 : 46, round ? 205 : 182, round ? 80 : 146, 20, GColorBlack);
     }
-    snprintf(footer, sizeof(footer), round ? "Actions %d/%d" : "Select: actions  %d/%d", favorite_ordinal() + 1, favorite_count());
+    snprintf(footer, sizeof(footer), round ? ui("Actions %d/%d") : ui("Select: actions  %d/%d"), favorite_ordinal() + 1, favorite_count());
   } else if (s_view == EMPTY) {
-    text(ctx, "Your Metro.", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    text(ctx, ui("Your Metro."), FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
     if (!s_station_count && !s_error[0] && now - s_attempt < 15) {
       train(ctx, round ? 44 : 10, round ? 112 : 85, now);
-      text(ctx, stage(), FONT_KEY_GOTHIC_14, round ? 80 : 46, round ? 108 : 81, round ? 158 : 146, 30, GColorBlack);
-    } else text(ctx, s_station_count ? "Save a station and direction. No GPS needed." : s_error[0] ? s_error : "Open the Pebble phone app and retry.",
+      text(ctx, ui(stage()), FONT_KEY_GOTHIC_14, round ? 80 : 46, round ? 108 : 81, round ? 158 : 146, 30, GColorBlack);
+    } else text(ctx, s_station_count ? ui("Save a station and direction. No GPS needed.") : s_error[0] ? ui(s_error) : ui("Open the Pebble phone app and retry."),
       FONT_KEY_GOTHIC_18, round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? 124 : 125, GColorBlack);
-    copy_label(footer, sizeof(footer), "Select: add / retry");
+    copy_label(footer, sizeof(footer), ui("Select: add / retry"));
   } else if (s_view == NOTICE || s_view == ABOUT) {
-    text(ctx, s_view == ABOUT ? "About Metro" : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
-    text(ctx, s_view == ABOUT ? "Metro 0.2 · independent\nUnderLX data · ODbL 1.0\nhttps://underlx.com/\nhttps://opendatacommons.org/\nlicenses/odbl/1-0/\nPrivacy: store description\nLicences: phone bundle" : s_notice,
+    text(ctx, s_view == ABOUT ? ui("About Metro") : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    text(ctx, s_view == ABOUT ? ui("Metro 0.2 · independent\nUnderLX data · ODbL 1.0\nhttps://underlx.com/\nhttps://opendatacommons.org/\nlicenses/odbl/1-0/\nPrivacy: store description\nLicences: phone bundle") : ui(s_notice),
       s_view == ABOUT ? FONT_KEY_GOTHIC_14 : FONT_KEY_GOTHIC_18,
       round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? (s_view == ABOUT ? 136 : 124) : 132, GColorBlack);
-    copy_label(footer, sizeof(footer), "Select: back");
+    copy_label(footer, sizeof(footer), ui("Select: back"));
   } else {
-    const char *title = s_view == FAVORITES ? "Favourites" : s_view == STATIONS ? "Station" : s_view == LINES ? "Line" : s_view == DIRECTIONS ? "Direction" : s_view == ACTIONS ? "Actions" : "Remove it?";
+    const char *title = s_view == FAVORITES ? ui("Favourites") : s_view == STATIONS ? ui("Station") : s_view == LINES ? ui("Line") : s_view == DIRECTIONS ? ui("Direction") : s_view == ACTIONS ? ui("Actions") : ui("Remove it?");
     text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
     int count = row_count(), first = (s_row / MENU_ROWS) * MENU_ROWS;
     for (int i = first; i < count && i < first + MENU_ROWS; i++) {
@@ -905,11 +980,11 @@ static void update_layer(Layer *layer, GContext *ctx) {
       text(ctx, label, FONT_KEY_GOTHIC_18, x, y, span, detail[0] ? 21 : 33, selected ? GColorWhite : GColorBlack);
       if (detail[0]) text(ctx, detail, FONT_KEY_GOTHIC_14, x, y + 17, span, 18, selected ? GColorWhite : GColorBlack);
     }
-    snprintf(footer, sizeof(footer), round ? "Choose %d/%d" : "Up/Down: choose  %d/%d", s_row + 1, count);
+    snprintf(footer, sizeof(footer), round ? ui("Choose %d/%d") : ui("Up/Down: choose  %d/%d"), s_row + 1, count);
   }
   int footer_y = content.origin.y + content.size.h;
   rect(ctx, GColorLightGray, 0, footer_y, width, height - footer_y);
-  text(ctx, s_storage_error ? "Storage unavailable" : s_cache_error ? "Cache unavailable" : footer, FONT_KEY_GOTHIC_14_BOLD,
+  text(ctx, s_storage_error ? ui("Storage unavailable") : s_cache_error ? ui("Cache unavailable") : footer, FONT_KEY_GOTHIC_14_BOLD,
     round ? 62 : 8, round ? 229 : 205, round ? 136 : 190, 23, GColorBlack);
   if (!s_announced) { s_announced = true; APP_LOG(APP_LOG_LEVEL_INFO, "Metro native UI ready"); log_memory("ready"); }
 }
@@ -938,6 +1013,7 @@ static void focus_changed(bool focused) {
   draw();
 }
 static void init(void) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Metro locale=%s", i18n_get_system_locale());
   srand(now_seconds() ^ ((uint32_t)time_ms(NULL, NULL) << 16));
   load_preferences(); s_view = favorite_count() ? ARRIVALS : EMPTY; s_last_now = s_attempt = now_seconds();
   APP_LOG(APP_LOG_LEVEL_INFO, "Metro persistence limit=%lu", (unsigned long)persist_get_max_size());

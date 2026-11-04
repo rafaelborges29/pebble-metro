@@ -42,10 +42,10 @@ There is no interpreter or separately loaded JS archive. The per-app budget is
 128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
 rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-Each native target uses approximately **61 KiB code/static RAM**, leaving about
-**61 KiB free native heap** after UI/messages in emulator button-regression runs. The stress tests
+Each native target uses approximately **64 KiB code/static RAM**, leaving about
+**59 KiB free native heap** after UI/messages in emulator button-regression runs. The stress tests
 check both platforms independently for headroom and switch-sample growth. Each
-watch binary plus resources is approximately **31 KiB**. The PBW contains both
+watch binary plus resources is approximately **34 KiB**. The PBW contains both
 watch binaries but only one phone bundle/source map. Complete licence/notices
 copies are embedded as a comment in that phone bundle, not as watch resources.
 Rebuilds can change size/hash; these are emulator measurements, not physical-watch
@@ -198,3 +198,19 @@ The cache stores no service state or alert continuity. Favourites plus both cach
 slots use approximately 3.2 KiB of value payloads at the 16-favourite limit. The
 actual firmware persistence limit is queried/documented by `persist_get_max_size()`;
 all writes are checked, rather than assuming global watch storage is available.
+
+## UI language
+
+A small constant English/pt-PT copy table in `main.c` is applied only at UI
+boundaries. `ui()` reads the SDK system locale, uses Portuguese only for the
+exact documented `pt_PT` value, and otherwise returns the original English.
+Unknown copy also falls back to English. Error/notice strings remain untranslated
+internally so a subsequent redraw can follow a changed system language. Official
+source labels bypass translation. No protocol, companion, storage format, buffer
+capacity, locale override or new dependency is added.
+
+The [SDK internationalization guide](https://developer.repebble.com/guides/tools-and-resources/internationalization/)
+documents `pt_PT` and system-font language support. Text uses the existing Gothic
+system fonts; Bitham remains restricted to numbers. Portuguese accents are checked
+in real emulator frames on both targets. Hardware language selection/font packs
+remain a physical-watch acceptance item; see [test limitations](e2e.md).

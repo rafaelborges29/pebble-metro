@@ -108,13 +108,14 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **18 flows per platform (36 tests)**. Each platform
+The normal matrix has **22 flows per platform (44 tests)**, including the four
+language flows described below. Each platform
 independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (72 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (88 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The normal two-platform reference run passed **36/36 tests** in about nine minutes,
+The pre-localisation two-platform reference run passed **36/36 tests** in about nine minutes,
 including 160-switch stress on each watch. A separate repeated late-data subset
 passed **12/12** (two queued-invalidation cases × three repeats × two watches),
 with snapshot updates disabled. Across 232 samples in the full matrix:
@@ -234,3 +235,37 @@ Remaining hardware acceptance on both watches, particularly physical Round 2:
 real Android WebView/Bluetooth, source variations,
 repeated favourite switching, quick reopen, phone/internet loss/recovery and
 battery use. This version does not use vibration.
+
+## Portuguese and English fallback
+
+`locale.spec.ts` adds four flows per platform: menus, LIVE/SAVED, estimate
+ranges/bounds/zero/empty data, About and removal confirmation under `pt_PT` and
+unsupported `fr_FR`; and the line picker/catalogue-replacement notice in each
+locale. French deliberately expects the existing English baselines. Portuguese
+baselines live in `screenshots/pt-PT/` and `screenshots/gabbro/pt-PT/`. All app
+navigation still uses real buttons. The default English regression suite keeps
+its original firmware locale and baselines.
+
+**SDK limitation:** the SDK 4.33.1 emulator shell disables language settings:
+[`shell/sdk/stubs.c`](https://github.com/coredevices/pebbleos/blob/v4.33.2/src/fw/shell/sdk/stubs.c)
+returns English and an invalid language resource ID. Installing a language pack
+cannot select it there. For the two locale fixtures only, the harness uses the
+SDK's bundled GDB/debug ELF to set `s_system_domain.iso_locale` in the private
+emulator's RAM before installing Metro. It asserts the locale logged by the
+release app's actual `i18n_get_system_locale()` call; no app renderer, translation
+helper, phone language or app binary is substituted. The debugger uses a private
+loopback port and detaches immediately. Normal SDK files and managed emulators
+are untouched. These tests exercise the native API boundary and built-in system
+fonts, **not** the physical watch's language picker or downloaded font packs.
+
+Run `npm run e2e -- --grep 'watch locale'` for this matrix, and add
+`--repeat-each=2` to repeat it. Full hardware language-switch acceptance remains
+necessary on both shapes.
+
+The localisation candidate passed the 36 existing regressions and then the full
+**88/88 repeated matrix** with snapshot updates disabled (local, four workers).
+All 36 new images were visually reviewed; existing English images were unchanged.
+Across 568 samples in the repeated run, free heap was 60,296–60,376 bytes on Emery
+and 60,080–60,160 bytes on Gabbro. Switch samples used a constant 5,680 bytes;
+all expected app-start assertions passed (72 starts per platform, no unexpected
+restarts). These are local emulator results, not hosted-CI or hardware acceptance.
