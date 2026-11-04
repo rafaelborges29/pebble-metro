@@ -29,37 +29,51 @@ published data endpoints rather than incorporating that software. Neither the
 data licence nor 0BSD grants rights to UnderLX or Metro de Lisboa branding.
 The app is independent and does not claim either organization's endorsement.
 
-## Machine-readable methods offer
+## Access requirements for a private-source release
 
-ODbL section 4.6 allows an offer of the **method of making all alterations**, with
-any additional contents, instead of an entire derivative database. This project
-uses that option. The actual source files below, not just this prose description,
-are the machine-readable algorithms used by the app.
+The repository/history and application source remain private. Original software's
+0BSD licence does not require source publication. ODbL section 2.3(a) excludes
+programs used in making or operating the database; it is not a blanket requirement
+to publish this application.
 
-For every distributed binary, provide its matching source revision free of charge
-at <https://github.com/rafaelborges29/pebble-metro> and as a downloadable source
-archive alongside the release. Include this file, `THIRD_PARTY_NOTICES.md`,
-`LICENSES/` and the complete `src/` and `e2e/` trees in that archive. The release
-must identify the exact source tag/commit and its matching PBW. Do not publish a
-binary, including an Unlisted store beta, while this offer is inaccessible to its
-recipients. A private repository link alone is not a public methods offer.
+Data obligations remain separate. Under sections 4.4(c) and 4.6, publicly using a
+Derivative Database **or a Produced Work from one** requires an offer to its
+recipients of either:
 
-Use an immutable tag and a permanent Release URL for the exact PBW version in the
-store listing/download page, with source/notices archives and SHA-256 checksums.
-The About repository URL is a landing page: it must lead to those versioned
-releases, not only the latest default-branch files. Retain sources/notices for
-older distributed versions. Expiring CI artifacts are diagnostics with their own
-methods included, not the permanent binary-release offer.
+- The entire Derivative Database in machine-readable form; or
+- A machine-readable file containing all alterations or the method of making them,
+  including any additional contents that make up the differences.
 
-There is no custom backend or additional privately held transformation algorithm.
-Do not upload users' favourites, device storage or private activity to fulfil this
-offer: supply the methods, not their personal cache contents. If a future version
-introduces other alterations, additional data or a backend, update this offer
-before distributing it.
+Internet delivery must be free. A required offer must cover the actual alterations
+and additional contents; it need not automatically include unrelated application
+code, UI or the entire test harness. A private GitHub link, attribution alone, or
+this prose inventory is not a verified substitute for that offer.
+
+**Release gate — unresolved:** before external distribution, including an Unlisted
+beta, record whether these requirements apply to the current client and its
+published outputs/screenshots. The app fetches directly from UnderLX, transforms
+and caches data on the user's devices, has no custom backend and bundles no full
+live dataset. Those facts alone are not a conclusion that section 4.6 cannot apply.
+If it applies, prepare a complete, recipient-accessible data/alteration offer
+compatible with keeping application source private, or obtain suitable alternative
+permission. Do not distribute until the assessment and any required offer are
+resolved. Contacting UnderLX is one clarification option, not a per-use permission
+step imposed by the published ODbL grant.
+
+No public repository, full application-source ZIP or available methods offer is
+promised by this document. Keep the release's source revision, PBW hash and any
+required offer associated in private release records. A private GitHub Release or
+expiring CI artifact cannot serve as a recipient-facing offer. Retain any required
+materials for previously distributed versions. Never upload users' favourites,
+personal caches or activity to satisfy these obligations. Reassess when changing
+sources, transformations, additional data, public outputs or backend architecture.
 
 ## Inputs and alterations
 
-| Stage | Input and alterations | Complete implementation |
+The implementation links below are maintainer references inside the private
+repository, not recipient-facing access links.
+
+| Stage | Input and alterations | Implementation reference |
 | --- | --- | --- |
 | Metadata input | Fetch station and line JSON from `https://api.underlx.com/v1/stations` and `https://api.underlx.com/v1/lines`. No full live dataset is checked into the repository or bundled in the PBW. | [`src/pkjs/rest.js`](src/pkjs/rest.js) |
 | Normalized catalogue | Select the `pt-ml` network, retain IDs/names/served lines/colours/ordered station paths, validate bounds and reciprocal membership, prefix colours with `#`, and sort stations by name. | `parseNetwork()` in [`src/common/metro.js`](src/common/metro.js) |
@@ -73,8 +87,8 @@ before distributing it.
 
 The source revision is authoritative for exact validation, mappings, bounds and
 failure handling. It includes the JSON decoder and all helpers used by these
-methods. This is not an offer of an archived UnderLX feed or a historical database.
-Live source responses can change or expire.
+methods. This inventory is not an offer of application source, an archived UnderLX
+feed or a historical database. Live source responses can change or expire.
 
 ## Test data and screenshots
 
@@ -82,7 +96,8 @@ Live source responses can change or expire.
 UnderLX-derived station/line names, IDs and route facts. Additional stress-test
 stations/lines and every injected arrival estimate are artificial. Treat the
 fixture data and its additions as ODbL 1.0 data; the test harness code remains
-0BSD. The fixture/capture source is included in the methods offer.
+0BSD. Include any required fixture alterations and additional contents in the
+release's data/alteration offer if the access requirements above apply.
 
 Screenshots render that example data, not live observations. Original UI/artwork
 rights do not relicense the displayed UnderLX-derived facts. Keep the following

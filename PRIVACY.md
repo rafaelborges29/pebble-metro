@@ -3,6 +3,12 @@
 Metro Lisboa does not operate a custom server, require an app-specific account,
 request GPS, or include app analytics or advertising.
 
+For store distribution, prominently include the user-facing privacy policy in the
+store description, as drafted in [the listing](docs/appstore.md). The
+[Developer Distribution Agreement, section 5.3](https://developer.repebble.com/legal/distribution/)
+requires a privacy policy; optional website/source URL fields do not remove that
+requirement. A private link to this file is not the customer-facing policy.
+
 ## Network connections
 
 While the watch app runs, its phone companion connects directly to:

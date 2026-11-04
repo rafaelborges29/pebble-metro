@@ -14,7 +14,7 @@ UnderLX hosted sources
 
 UnderLX-derived data and its adaptations retain ODbL 1.0; original software is
 0BSD. [DATA_METHODS.md](../DATA_METHODS.md) documents the exact inputs, alterations,
-fixture additions and machine-readable methods offer required for distribution.
+fixture additions and the unresolved data-access assessment for distribution.
 
 There are no alerts, vibration, disturbances, settings page, custom backend,
 background worker or watch-side JS runtime. No GPS or private Metro credentials.
@@ -42,12 +42,14 @@ There is no interpreter or separately loaded JS archive. The per-app budget is
 128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
 rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-Each native target uses approximately **60 KiB code/static RAM**, leaving about
-**63 KiB free native heap** after UI/messages in emulator runs. The stress tests
+Each native target uses approximately **61 KiB code/static RAM**, leaving about
+**61 KiB free native heap** after UI/messages in emulator button-regression runs. The stress tests
 check both platforms independently for headroom and switch-sample growth. Each
-watch binary plus resources is approximately **30 KiB**. The PBW contains both
-watch binaries but only one phone bundle/source map. Rebuilds can change size/hash;
-these are emulator measurements, not physical-watch heap or battery acceptance.
+watch binary plus resources is approximately **31 KiB**. The PBW contains both
+watch binaries but only one phone bundle/source map. Complete licence/notices
+copies are embedded as a comment in that phone bundle, not as watch resources.
+Rebuilds can change size/hash; these are emulator measurements, not physical-watch
+heap or battery acceptance.
 
 The drawing layer uses the actual window bounds. Time 2 retains its rectangular
 layout. Round 2 centers text and measured ETA/unit groups, places the header and
@@ -55,8 +57,28 @@ footer inside the circular safe area, and increases the last menu row's insets.
 Both keep four visible menu rows and the same buttons/model/storage/protocol.
 The loader remains on the existing one-second tick; no round-specific object tree,
 framebuffer or animation timer is allocated by the app. About / data displays the
-provider, ODbL, full source/licence URLs and the methods/notices repository URL in
-a compact font, with long URLs wrapped across lines on both shapes.
+provider, ODbL and full provider/licence URLs in a compact font, with long URLs
+wrapped across lines on both shapes. Privacy points to the store description and
+licence copies to the phone bundle; no private repository link is advertised.
+
+### Touch input
+
+On `PBL_TOUCH` targets with firmware 4.33.2+, the window owns one SDK tap recognizer
+and one swipe recognizer, created once with allocation-failure fallback to buttons.
+Older 4.33 firmware has a recognizer-enabling crash; the runtime version guard
+leaves touch off there. The system button-emulation bridge is disabled for this
+custom window to avoid duplicate actions. Every physical-button binding remains.
+
+Touch row hit testing shares the renderer's four-row geometry and excludes the
+header/footer and invisible round corners. Recognized completions reuse `select()`,
+`move()` and `back()`; they never synthesize clicks or duplicate model/cache logic.
+A small raw-touch observer latches a navigational touchdown and its row. Actions,
+button navigation and catalogue replacement invalidate that contact, so a release
+cannot activate a new target or confirm deletion on the same contact. Focus and
+window visibility control the raw subscription; owned recognizers are released
+with the window. No per-gesture allocation, new timer or phone/protocol change is
+introduced. See the official [Touch guide](https://developer.repebble.com/guides/events-and-services/touch/)
+and [4.33.1 hotfix notes](https://developer.repebble.com/sdk/changelogs/4.33.1/).
 
 ## Sources and validation
 

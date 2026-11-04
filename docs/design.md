@@ -1,8 +1,8 @@
 # Arrivals-first flow
 
 The native app uses one window and drawing layer, fixed-size models and direct
-button navigation on Time 2 and Round 2. No alerts, vibration, settings or
-service-status dashboard.
+button navigation plus optional SDK tap/swipe input on Time 2 and Round 2.
+No alerts, vibration, settings or service-status dashboard.
 
 ## Navigation
 
@@ -20,6 +20,14 @@ Back at favourites root or empty screen → exit
 Each favourite is a station + line + reachable terminus. Interchanges offer a line
 picker; termini exclude the origin as a destination. Up to 16 favourites persist.
 Holding Up/Down repeats. Removal is confirmed and does not rewrite other favourites.
+
+Touch uses the same actions and four-row pages: tap a visible row to activate that
+row, swipe up/down for next/previous, and swipe right for Back. Main-content taps
+open Actions on arrivals, add/retry on first use, and return from About/notices.
+Removing a favourite requires a fresh contact on the explicit confirmation row;
+there is no swipe-to-delete. Blank rows, headers/footers and round-screen corners
+are excluded. A contact is discarded if buttons/navigation, focus loss or catalogue
+replacement changes its target. A tap ending on a different row is ignored.
 
 ## Arrivals
 

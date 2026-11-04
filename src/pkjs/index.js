@@ -1,3 +1,5 @@
+require("./licences-loader.cjs!../../LICENSE");
+
 // SDK webpack 1 needs a build-time adapter; runtime/shared sources stay ESM.
 var createCompanion = require("./esm-loader.cjs!./companion.js").createCompanion;
 var createJsonRequester = require("./esm-loader.cjs!./rest.js").createJsonRequester;

@@ -37,8 +37,9 @@ README or an accompanying caption):
 > ODbL 1.0 (https://opendatacommons.org/licenses/odbl/1-0/). Arrival values are
 > artificial examples, not live observations.
 
-The fixture data, added fictional stations and capture methods are covered by the
-[data notice and machine-readable methods offer](../DATA_METHODS.md).
+The fixture data, added fictional stations, capture methods and unresolved
+access assessment are documented in the
+[data scope and access requirements](../DATA_METHODS.md).
 
 ## Rebuild icons
 
