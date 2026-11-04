@@ -37,9 +37,13 @@ def build(ctx):
     ctx.env = cached_env
 
     ctx.set_group('bundle')
+    # Track the licence files read by the build-time phone notices loader.
     ctx.pbl_bundle(binaries=binaries,
                    js=ctx.path.ant_glob(['src/pkjs/**/*.js',
                                          'src/pkjs/**/*.cjs',
                                          'src/pkjs/**/*.json',
-                                         'src/common/**/*.js']),
+                                         'src/common/**/*.js',
+                                         'LICENSE',
+                                         'THIRD_PARTY_NOTICES.md',
+                                         'LICENSES/*.txt']),
                    js_entry_file='src/pkjs/index.js')

@@ -4,6 +4,10 @@ The harness uses TypeScript, Playwright and Effect; the watch application is
 native C. Effect owns emulator scope, typed RPC, timeouts and guaranteed cleanup.
 No application model or watch renderer is replaced by a mock.
 
+The existing flows use physical-button packets, not touchscreen input. The touch
+prototype has no automated/manual touch checks or QMP touch-injection extension;
+button regression passes do not verify touch gestures or finger usability.
+
 ## What actually runs
 
 - The current checkout's real release PBW on SDK 4.33.1 Emery and Gabbro QEMU,
@@ -41,9 +45,10 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 6. **Metadata replacement:** highlight the second line in an interchange picker,
    remove that line in the REST fixture and refresh through the real companion.
    The native picker/history resets safely instead of indexing a removed line.
-7. **About/removal navigation:** inspect the UnderLX source, ODbL licence and data
-   methods URLs without truncation, then inspect removal confirmation, keep the
-   favourite, and return to arrivals on both screen shapes.
+7. **About/removal navigation:** inspect the UnderLX provider and ODbL licence
+   URLs plus privacy/notices locations without truncation or private repository
+   links, then inspect removal confirmation, keep the favourite, and return to
+   arrivals on both screen shapes.
 8. **Reported-crash regression:** use 50 stations and four lines (4,204 bytes in
    the validated original metadata shape), create all 16 favourites with actual
    buttons, and perform 160 UP/DOWN switches in both directions with new source

@@ -9,6 +9,7 @@
 #define MAX_LINES 8
 #define MAX_FAVORITES 16
 #define CACHE_SLOTS 2
+#define MENU_ROWS 4
 #define KEY_SELECTED 1
 #define KEY_FAVORITE 100
 #define KEY_CACHE 200
@@ -78,6 +79,15 @@ static void send_next(void);
 static void begin_session(void);
 static void persist_cache(bool force);
 static void notice(const char *text);
+
+#ifdef PBL_TOUCH
+static bool s_touch_ready, s_touch_armed;
+static int8_t s_touch_row;
+static void touch_cancel(void) { s_touch_armed = false; }
+static void touch_set_active(bool active);
+#else
+static void touch_cancel(void) {}
+#endif
 
 static uint32_t now_seconds(void) { time_t now = time(NULL); return now > 0 ? (uint32_t)now : 0; }
 static bool id_valid(const char *id, size_t capacity) {
@@ -301,6 +311,7 @@ static bool receive_catalog(const JsonDoc *doc) {
   }
   for (int i = 0; i < ns; i++) for (int l = 0; l < nl; l++) if (!!(masks[i] & (1u << l)) != served[l][i]) return false;
   // Only replace the catalogue after the complete message validates.
+  touch_cancel(); // A held contact must not select from a replacement catalogue.
   for (int i = 0; i < ns; i++) {
     int station = array_at(doc, stations, i);
     read_id(doc, array_at(doc, station, 0), id);
@@ -512,11 +523,13 @@ static void begin_session(void) {
   send_next(); draw();
 }
 static void go(View view, bool push) {
+  touch_cancel();
   if (push && s_history_count < ARRAY_LENGTH(s_history)) s_history[s_history_count++] = (History){ s_view, s_row };
   s_view = view; s_row = 0; draw();
 }
 static void notice(const char *text) { copy_label(s_notice, sizeof(s_notice), text); go(NOTICE, true); }
 static void back(void) {
+  touch_cancel();
   if (s_view == EMPTY || s_view == FAVORITES) { persist_cache(true); window_stack_pop(true); return; }
   if (s_view == ARRIVALS) { s_history_count = 0; go(FAVORITES, false); return; }
   if (s_history_count) { History h = s_history[--s_history_count]; s_view = h.view; s_row = h.row; draw(); }
@@ -550,6 +563,7 @@ static int row_count(void) {
   }
 }
 static void select_favorite(int slot) {
+  touch_cancel();
   if (slot < 0) return;
   bool same_station = s_favorites[s_selected].version && !strcmp(s_favorites[s_selected].station, s_favorites[slot].station);
   persist_cache(true); s_selected = slot; save_selection(); s_attempt = now_seconds();
@@ -578,6 +592,7 @@ static void add_favorite(void) {
   s_history_count = 0; go(ARRIVALS, false); select_favorite(slot);
 }
 static void select(void) {
+  touch_cancel();
   if (s_view == ARRIVALS) { go(ACTIONS, true); return; }
   if (s_view == NOTICE || s_view == ABOUT) { back(); return; }
   int count = row_count();
@@ -627,6 +642,7 @@ static void select(void) {
 static void click_select(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; select(); draw(); }
 static void click_back(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; back(); }
 static void move(int delta) {
+  touch_cancel();
   if (s_view == ARRIVALS) {
     int count = favorite_count();
     if (count) select_favorite(favorite_at((favorite_ordinal() + count + delta) % count));
@@ -645,6 +661,105 @@ static void click_config(void *context) {
   window_single_repeating_click_subscribe(BUTTON_ID_UP, 160, click_up);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 160, click_down);
 }
+static GRect content_rect(int width) {
+  int top = PBL_IF_ROUND_ELSE(48, 24);
+  return GRect(0, top, width, PBL_IF_ROUND_ELSE(226, 202) - top);
+}
+static GRect menu_row_rect(int row, int width) {
+  return GRect(0, PBL_IF_ROUND_ELSE(86, 61) + row * 34, width, 34);
+}
+#ifdef PBL_TOUCH
+static bool touch_in_content(GPoint point) {
+  GRect bounds = layer_get_bounds(s_layer), content = content_rect(bounds.size.w);
+  if (!grect_contains_point(&bounds, &point) || !grect_contains_point(&content, &point)) return false;
+  if (PBL_IF_ROUND_ELSE(true, false)) {
+    int32_t dx = point.x - bounds.size.w / 2, dy = point.y - bounds.size.h / 2;
+    int32_t radius = (bounds.size.w < bounds.size.h ? bounds.size.w : bounds.size.h) / 2;
+    if (dx * dx + dy * dy > radius * radius) return false;
+  }
+  return true;
+}
+static int touch_row_at(GPoint point) {
+  int first = (s_row / MENU_ROWS) * MENU_ROWS, count = row_count();
+  int width = layer_get_bounds(s_layer).size.w;
+  for (int i = first; i < count && i < first + MENU_ROWS; i++) {
+    GRect row = menu_row_rect(i - first, width);
+    if (grect_contains_point(&row, &point)) return i;
+  }
+  return -1;
+}
+static void touch_contact(const TouchEvent *event, void *context) {
+  (void)context;
+  if (event->type == TouchEvent_Touchdown) {
+    touch_cancel();
+    GPoint point = GPoint(event->x, event->y);
+    if (!event->non_navigational && s_focused && touch_service_is_enabled() &&
+        window_stack_get_top_window() == s_window && touch_in_content(point)) {
+      s_touch_row = touch_row_at(point);
+      s_touch_armed = true;
+    }
+  } else if (event->non_navigational) {
+    touch_cancel();
+  }
+  // Completion consumes the contact; leaving liftoff alone avoids depending on
+  // whether the SDK dispatches its recognizer callbacks before or after this observer.
+}
+static bool touch_completed(RecognizerEvent event) {
+  if (event == RecognizerEvent_Cancelled) touch_cancel();
+  if (event != RecognizerEvent_Completed || !s_touch_armed || !s_focused ||
+      window_stack_get_top_window() != s_window || !touch_service_is_enabled()) return false;
+  touch_cancel(); // One action per contact, including entry into removal confirmation.
+  return true;
+}
+static void touch_tap(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!touch_completed(event)) return;
+  GPoint point = tap_recognizer_get_tap_point(recognizer);
+  if (!touch_in_content(point)) return;
+  if (row_count()) {
+    int row = touch_row_at(point);
+    if (row < 0 || row != s_touch_row) return;
+    s_row = row;
+  }
+  select(); draw();
+}
+static void touch_swipe(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!touch_completed(event)) return;
+  switch (swipe_recognizer_get_direction(recognizer)) {
+    case SwipeDirection_Up: move(1); break;
+    case SwipeDirection_Down: move(-1); break;
+    case SwipeDirection_Right: back(); break;
+    default: break;
+  }
+}
+static void touch_set_active(bool active) {
+  touch_cancel();
+  if (!s_touch_ready) return;
+  touch_service_unsubscribe();
+  if (active && touch_service_is_enabled()) touch_service_subscribe(touch_contact, NULL);
+}
+static void touch_load(Window *window) {
+  WatchInfoVersion version = watch_info_get_firmware_version();
+  // Older 4.33 firmware can crash when enabling the SDK recognizer dispatcher.
+  if (version.major < 4 || (version.major == 4 &&
+      (version.minor < 33 || (version.minor == 33 && version.patch < 2)))) return;
+  Recognizer *tap = tap_recognizer_create(touch_tap, NULL);
+  Recognizer *swipe = swipe_recognizer_create(touch_swipe, NULL,
+    SwipeDirection_Up | SwipeDirection_Down | SwipeDirection_Right);
+  if (!tap || !swipe) {
+    if (tap) recognizer_destroy(tap);
+    if (swipe) recognizer_destroy(swipe);
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Metro touch unavailable; buttons active");
+    return;
+  }
+  window_set_touch_bridge_disabled(window, true);
+  app_touch_navigation_enable(true);
+  window_attach_recognizer(window, tap);
+  window_attach_recognizer(window, swipe);
+  s_touch_ready = true; // The window owns both recognizers until destruction.
+}
+static void touch_appear(Window *window) { (void)window; touch_set_active(s_focused); }
+static void touch_disappear(Window *window) { (void)window; touch_set_active(false); }
+#endif
 static void rect(GContext *ctx, GColor color, int x, int y, int width, int height) {
   graphics_context_set_fill_color(ctx, color); graphics_fill_rect(ctx, GRect(x, y, width, height), 0, GCornerNone);
 }
@@ -711,11 +826,12 @@ static void update_layer(Layer *layer, GContext *ctx) {
   const bool round = PBL_IF_ROUND_ELSE(true, false);
   int margin = round ? 24 : 10, content_width = round ? width - 48 : 182;
   int title_y = round ? 50 : 28;
+  GRect content = content_rect(width);
   uint32_t now = now_seconds();
   char clock[8], footer[64] = "", value[24], unit[20], buffer[192];
   clock_copy_time_string(clock, sizeof(clock));
   const char *header = s_view == ARRIVALS ? status(now) : s_view == EMPTY ? !s_station_count ? now - s_attempt >= 15 ? "UNAVAILABLE" : "CONNECTING" : "METRO LISBOA" : "METRO LISBOA";
-  rect(ctx, GColorWhite, 0, 0, width, height); rect(ctx, GColorBlack, 0, 0, width, round ? 48 : 24);
+  rect(ctx, GColorWhite, 0, 0, width, height); rect(ctx, GColorBlack, 0, 0, width, content.origin.y);
   text(ctx, header, FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, GColorWhite);
   text(ctx, clock, FONT_KEY_GOTHIC_14, round ? 170 : 155, round ? 24 : 3, round ? 40 : 43, 22, GColorWhite);
   if (s_view == ARRIVALS && s_favorites[s_selected].version) {
@@ -769,27 +885,29 @@ static void update_layer(Layer *layer, GContext *ctx) {
     copy_label(footer, sizeof(footer), "Select: add / retry");
   } else if (s_view == NOTICE || s_view == ABOUT) {
     text(ctx, s_view == ABOUT ? "About Metro" : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
-    text(ctx, s_view == ABOUT ? "Metro 0.2 · independent\nUnderLX data · ODbL 1.0\nhttps://underlx.com/\nhttps://opendatacommons.org/\nlicenses/odbl/1-0/\nData methods + notices:\nhttps://github.com/\nrafaelborges29/pebble-metro" : s_notice,
+    text(ctx, s_view == ABOUT ? "Metro 0.2 · independent\nUnderLX data · ODbL 1.0\nhttps://underlx.com/\nhttps://opendatacommons.org/\nlicenses/odbl/1-0/\nPrivacy: store description\nLicences: phone bundle" : s_notice,
       s_view == ABOUT ? FONT_KEY_GOTHIC_14 : FONT_KEY_GOTHIC_18,
       round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? (s_view == ABOUT ? 136 : 124) : 132, GColorBlack);
     copy_label(footer, sizeof(footer), "Select: back");
   } else {
     const char *title = s_view == FAVORITES ? "Favourites" : s_view == STATIONS ? "Station" : s_view == LINES ? "Line" : s_view == DIRECTIONS ? "Direction" : s_view == ACTIONS ? "Actions" : "Remove it?";
     text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
-    int count = row_count(), first = (s_row / 4) * 4;
-    for (int i = first; i < count && i < first + 4; i++) {
+    int count = row_count(), first = (s_row / MENU_ROWS) * MENU_ROWS;
+    for (int i = first; i < count && i < first + MENU_ROWS; i++) {
       char label[81], detail[65]; menu_label(i, label, sizeof(label), detail, sizeof(detail));
-      int row = i - first, y = (round ? 86 : 61) + row * 34;
+      int row = i - first;
+      GRect row_bounds = menu_row_rect(row, width);
+      int y = row_bounds.origin.y;
       // The fourth row reaches the narrower bottom of the round display.
       int x = round ? row == 3 ? 48 : 24 : 10, span = round ? width - 2 * x : 182;
       bool selected = i == s_row;
-      if (selected) rect(ctx, GColorBlack, 0, y, width, 34);
+      if (selected) rect(ctx, GColorBlack, row_bounds.origin.x, y, row_bounds.size.w, row_bounds.size.h);
       text(ctx, label, FONT_KEY_GOTHIC_18, x, y, span, detail[0] ? 21 : 33, selected ? GColorWhite : GColorBlack);
       if (detail[0]) text(ctx, detail, FONT_KEY_GOTHIC_14, x, y + 17, span, 18, selected ? GColorWhite : GColorBlack);
     }
     snprintf(footer, sizeof(footer), round ? "Choose %d/%d" : "Up/Down: choose  %d/%d", s_row + 1, count);
   }
-  int footer_y = round ? 226 : 202;
+  int footer_y = content.origin.y + content.size.h;
   rect(ctx, GColorLightGray, 0, footer_y, width, height - footer_y);
   text(ctx, s_storage_error ? "Storage unavailable" : s_cache_error ? "Cache unavailable" : footer, FONT_KEY_GOTHIC_14_BOLD,
     round ? 62 : 8, round ? 229 : 205, round ? 136 : 190, 23, GColorBlack);
@@ -811,7 +929,14 @@ static void connection_changed(bool connected) {
   else begin_session();
   draw();
 }
-static void focus_changed(bool focused) { s_focused = focused; if (!focused) persist_cache(true); draw(); }
+static void focus_changed(bool focused) {
+  s_focused = focused;
+#ifdef PBL_TOUCH
+  touch_set_active(focused && window_stack_get_top_window() == s_window);
+#endif
+  if (!focused) persist_cache(true);
+  draw();
+}
 static void init(void) {
   srand(now_seconds() ^ ((uint32_t)time_ms(NULL, NULL) << 16));
   load_preferences(); s_view = favorite_count() ? ARRIVALS : EMPTY; s_last_now = s_attempt = now_seconds();
@@ -819,6 +944,9 @@ static void init(void) {
   s_window = window_create();
   if (!s_window) return;
   window_set_background_color(s_window, GColorWhite); window_set_click_config_provider(s_window, click_config);
+#ifdef PBL_TOUCH
+  window_set_window_handlers(s_window, (WindowHandlers){ .load = touch_load, .appear = touch_appear, .disappear = touch_disappear });
+#endif
   s_layer = layer_create(layer_get_bounds(window_get_root_layer(s_window)));
   if (!s_layer) return;
   layer_set_update_proc(s_layer, update_layer); layer_add_child(window_get_root_layer(s_window), s_layer);
@@ -829,6 +957,13 @@ static void init(void) {
   window_stack_push(s_window, true); begin_session();
 }
 static void deinit(void) {
+#ifdef PBL_TOUCH
+  if (s_touch_ready) {
+    touch_set_active(false);
+    app_touch_navigation_enable(false);
+    s_touch_ready = false;
+  }
+#endif
   persist_cache(true); tick_timer_service_unsubscribe(); connection_service_unsubscribe(); app_focus_service_unsubscribe(); app_message_deregister_callbacks();
   if (s_layer) layer_destroy(s_layer);
   if (s_window) window_destroy(s_window);

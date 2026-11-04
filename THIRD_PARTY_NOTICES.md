@@ -18,17 +18,21 @@ snapshots and the UnderLX-derived facts in fixtures/screenshots. Test arrival
 values and extra stress-test stations are artificial, not live observations.
 No full live database is bundled in the repository or PBW.
 
-**[Data transformation methods and access offer](DATA_METHODS.md):** the matching
-application and fixture source supplies the machine-readable alteration methods
-under ODbL section 4.6(b). Every binary release must provide that revision free of
-charge through the public repository and a matching downloadable source archive.
-Do not rely on a private repository link. Preserve attribution/licence notices
+**[Data transformations and access requirements](DATA_METHODS.md):** ODbL does not
+automatically require publishing the application source. Sections 4.4(c) and 4.6
+can require a recipient-accessible machine-readable database or complete alteration
+file/method, including additional contents, when publicly using a Derivative
+Database or a Produced Work from one. The applicability assessment and any required
+private-source-compatible offer remain release gates; a private repository link
+or attribution alone does not settle them. No public application-source archive
+or available methods offer is promised here. Preserve attribution/licence notices
 with redistributed data and publicly shared screenshots.
 
-The watch's **About / data** shows UnderLX, ODbL, the source/licence URLs and the
-methods/notices repository URL; long URLs wrap across lines. The README and draft
-store listing also carry the notice. Recheck provider-specific exceptions when
-adding data. See [DATA_METHODS.md](DATA_METHODS.md) for the scope and release gates.
+The watch's **About / data** shows UnderLX, ODbL, the provider/licence URLs and
+where privacy information and bundled licence copies are supplied. It does not
+link users to the private repository. The README and draft store listing also
+carry attribution. Recheck provider-specific exceptions when adding data. See
+[DATA_METHODS.md](DATA_METHODS.md) for the scope and unresolved release gate.
 
 This is an independent application, not affiliated with or endorsed by UnderLX or
 Metro de Lisboa. The project/data licences do not grant third-party branding
@@ -79,7 +83,14 @@ and applicable toolchain licences remain separate from this project's licence.
 The app does not bundle an Alloy/Moddable/Poco archive. Development dependencies
 retain the licence texts in their installed packages and are not watch resources.
 
-Binary distributions must accompany the PBW with this notice and the applicable
-complete texts in `LICENSES/`; do not rely on a private repository link. See the
-[release checklist](docs/publishing-todo.md) for a download-bundle example. Re-audit
-the emitted bundle and SDK/toolchain terms when changing dependencies or SDKs.
+Every normal build embeds `LICENSE`, this notice and the complete texts in
+`LICENSES/` as a comment in the phone JavaScript bundle, alongside the retained
+upstream copyright headers. The copies travel inside the PBW, including through
+store installation; they are not watch resources and add no native watch RAM.
+The build tracks these files so changes refresh the bundled copies. A private
+repository link or an optional download ZIP is not the licence-copy delivery path.
+
+This packaging step does not resolve the UnderLX data-access assessment above or
+make a build ready for external distribution. See the
+[release checklist](docs/publishing-todo.md). Re-audit the emitted bundle and
+SDK/toolchain terms when changing dependencies or SDKs.

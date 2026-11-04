@@ -2,30 +2,33 @@
 
 ## Recommended first release
 
+Keep the Git repository/history and application source **private**. This guide
+prepares a binary-only store release; it does not authorize source publication or
+an upload. **Do not submit yet:** the [UnderLX access assessment](../DATA_METHODS.md)
+and any required data/alteration offer remain unresolved release gates.
+
 Use the [Pebble Developer Dashboard](https://developer.repebble.com/dashboard)
 for the first release, with visibility explicitly set to **Unlisted**. It lets you
 review the exact PBW, artwork, URLs and visibility before submitting. After testing
 installation from the resulting store link, change the listing to **Listed**.
 
-The source repository and the appstore are separate: a public GitHub repository
-or Release does not create a Pebble listing. Users normally discover/install the
-watch app through the Pebble mobile app's store.
+Users normally discover/install the watch app through the Pebble mobile app's
+store. Website and source-code URL fields are optional; leave them blank rather
+than linking to private GitHub pages. A distributed PBW still contains extractable
+phone JavaScript and a source map; keeping GitHub private does not conceal them.
 
-1. Commit/review the native source and assets, run hosted CI, and publish the
-   source repository with its 0BSD licence, notices and privacy documentation.
-2. Build the chosen source revision with SDK 4.33.1. Record its version, UUID and
-   PBW SHA-256; preserve the UUID on all updates. Use an unused numeric version
-   such as `0.2.0`, not a `-beta` suffix.
-3. Prepare the [release checklist](publishing-todo.md), including physical-watch
-   checks, applicable SDK/toolchain terms and complete binary licence delivery.
-   Attach the PBW, a licence/notices download bundle, matching source archive and
-   checksums to a GitHub Release for an immutable source tag. Use that exact
-   Release/tag URL in the listing, retain previous versions' source/notices, and
-   never substitute a seven-day CI artifact or a moving default branch. Include
-   [DATA_METHODS.md](../DATA_METHODS.md) and the complete ODbL text. Before even an
-   Unlisted upload, verify the source/licence/methods links without signing in;
-   recipients must be able to obtain the matching alteration methods for free.
-   Keep public support/privacy links working.
+1. Review/commit the source and assets privately and run hosted CI. No public
+   repository or full application-source ZIP is part of this plan.
+2. Build the chosen revision with SDK 4.33.1. Record its version, UUID and PBW
+   SHA-256 privately; preserve the UUID on updates. Use an unused numeric version
+   such as `0.2.0`, not a `-beta` suffix. Retain each distributed version.
+3. Complete the [release checklist](publishing-todo.md), including physical-watch
+   checks and applicable SDK/toolchain terms. Standard builds embed complete
+   licence/notices copies in the phone bundle, so store-installed PBWs carry them.
+   Resolve the UnderLX assessment and any required recipient-accessible data or
+   alteration offer **before even an Unlisted upload**. This is separate from
+   application-source publication; a private Release or expiring CI artifact is
+   not a public offer. Test any recipient-facing URLs without signing in.
 4. Sign in to the Developer Dashboard with the same Pebble account/sign-in method
    used for development. Review any legal agreements yourself.
 5. Choose **New**, upload the exact PBW, and check type, UUID, version and both
@@ -44,6 +47,21 @@ watch app through the Pebble mobile app's store.
 Unlisted is still a shareable, installable release, not a private staging area.
 Hidden is not discoverable or installable. Changing visibility does not uninstall
 copies already on watches, and cached store pages can lag by up to ten minutes.
+
+## Privacy delivery
+
+The [Developer Distribution Agreement §5.3](https://developer.repebble.com/legal/distribution/)
+requires a prominently displayed privacy policy. Optional website/source fields
+are not a privacy exemption. The draft below includes the user-facing policy
+**directly in the store description**, so no separate website or public repository
+is needed for this delivery plan. Keep it visible in the final listing and verify
+it on the resulting store page. [PRIVACY.md](../PRIVACY.md) records the detailed
+behaviour for maintainers; its private URL is not a customer-facing policy.
+
+Review public publisher/contact details before submission. If providing an
+optional support contact, approve it separately; do not automatically reuse a
+commit email or private GitHub Issues. A future public privacy/notices-only page
+is an alternative, not an assumed prerequisite.
 
 ## Assets and limits
 
@@ -76,12 +94,15 @@ Round 2 is Gabbro, not the original Time Round/Chalk. See
 - **Type/category:** Watchapp / Daily (confirm the dashboard category label).
 - **Compatibility:** Pebble Time 2 and Pebble Round 2 + Android; no iOS, original
   Time Round or other-watch claim. Round 2 hardware acceptance remains pending.
-- **Website/support:** public repository README and GitHub Issues.
-- **Source/methods/notices:** the exact public tagged Release for this PBW,
-  containing its matching source archive, notices bundle and checksums. Choose the
-  actual approved version/tag before filling this URL; the repository root is
-  only a landing page, not a version-pinned offer.
-- **Privacy:** public `PRIVACY.md` linked from the README/listing.
+- **Website URL:** leave blank; no approved public website is selected.
+- **Source code URL:** leave blank; repository/application source remain private.
+- **Support (optional):** use an approved customer-facing contact if provided;
+  private GitHub Issues are not a public support channel.
+- **Data access:** resolve the assessment and any required data/alteration offer
+  before submission. Add its recipient-facing details if required; the draft does
+  not claim an offer is already available.
+- **Notices:** complete copies are embedded in the PBW's phone JavaScript bundle.
+- **Privacy:** include the policy below prominently in the store description.
 - **Android companion app:** leave the custom-companion field empty. The bundled
   PebbleKit JavaScript uses the normal Pebble mobile app, not a separate Android app.
 
@@ -89,6 +110,7 @@ Plain-text description draft:
 
 ```text
 Lisbon Metro arrival estimates on your Pebble Time 2 or Pebble Round 2.
+Privacy: no GPS, app-specific account, app analytics or advertising. Full policy below.
 
 Save up to 16 station, line and direction favourites. See the next three estimates,
 with second-by-second countdowns when the source supplies seconds. Minute-only
@@ -104,14 +126,45 @@ No GPS, app-specific account, alerts or background service.
 Independent app, not affiliated with or endorsed by UnderLX or Metro de Lisboa.
 Contains information from UnderLX (https://underlx.com/), made available under
 ODbL 1.0 (https://opendatacommons.org/licenses/odbl/1-0/) unless otherwise indicated.
-Data adaptations remain ODbL. Data transformation methods and notices:
-<matching-public-release-URL>
+Data adaptations remain ODbL. Third-party notices and complete licence texts are
+included in the app package's phone JavaScript bundle.
 Screenshots are emulator captures using artificial example arrival data.
+
+PRIVACY POLICY
+
+Metro Lisboa does not operate an application server, require an app-specific
+account, request GPS/background location, or include app analytics or advertising.
+
+While the watch app runs, its phone companion connects directly to
+https://api.underlx.com/v1/stations and /lines for metadata, and to
+wss://perturbacoes.pt/websocket/ for arrival estimates. These providers can receive
+the phone's public IP address, selected station topic and a generated MQTT
+connection identifier. The app does not upload the full favourites list.
+
+The watch stores up to 16 favourites, the selected route, and two recent routes'
+estimates, original timestamps and labels. The phone stores validated station/line
+metadata locally; selected-station data is transient in the running companion.
+Closing the app retains saved favourites/cache, but does not renew estimate expiry.
+Removing a favourite deletes its native preference and attempts to delete its saved
+estimates; storage errors are reported. Use platform app-data controls deliberately
+to clear stored data: clearing app/phone data is destructive. Older Alloy storage
+is separate and is not erased by the native upgrade.
+
+Native diagnostics log startup and heap counts. The app does not automatically
+send diagnostics to its developer. If you choose to share logs or screenshots,
+they can reveal selected stations; review and redact them first.
+
+The Pebble mobile app, operating system and UnderLX services have their own privacy
+practices, outside this app's control. See https://repebble.com/privacy/ and
+https://underlx.com/terms for the providers' published information.
 ```
 
-Replace `<matching-public-release-URL>` with the approved immutable Release/tag
-URL and test it anonymously before submission. The About repository URL must
-lead users to the retained release-specific sources/notices as well.
+This remains a draft, not a compliance clearance: review its privacy statements
+against the final build, review public publisher details and any optional support
+contact, and finish the UnderLX assessment. If data-access materials are required,
+include their actual access details and test them anonymously before submission.
+Do not insert a private GitHub link or promise public application source as a
+shortcut.
 
 Initial release notes draft:
 
@@ -145,6 +198,8 @@ Do not put sign-in tokens in commands, source, logs or screenshots.
 
 - [Publishing an app](https://developer.repebble.com/guides/appstore-publishing/publishing-an-app/)
 - [Submission fields, images and visibility](https://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/)
+- [Developer Distribution Agreement, including privacy §5.3](https://developer.repebble.com/legal/distribution/)
+- [Developer Program Policies](https://developer.repebble.com/legal/program-policies/)
 - [Watch launcher icon rules](https://developer.repebble.com/guides/app-resources/images/#menu-icon-in-the-launcher)
 - [Developer Dashboard](https://developer.repebble.com/dashboard)
 - [Public appstore](https://apps.repebble.com/)

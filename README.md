@@ -41,6 +41,20 @@ the Pebble mobile app and internet access. See [privacy](PRIVACY.md).
 
 Back at the favourites root or empty screen exits the app.
 
+**Touch prototype (firmware 4.33.2+):** tap the actual visible menu row to open it.
+On arrivals, tap the main content to open Actions; on About/notice screens, tap
+content to go back; on first use, tap content to add/retry. Swipe up for the next
+item/favourite, down for the previous, or right for Back. Removal still requires a
+separate tap on **Remove it**. Headers, footers, missing rows and round-screen
+corners are not tap targets. The existing four-row layout is unchanged.
+
+Touch must be enabled in the watch's system settings and the interaction session
+must be awake (button/wake gesture); unarmed touches are ignored. All buttons,
+including hold-to-repeat, remain available when touch is disabled or unavailable.
+Firmware 4.33/4.33.1 keeps button navigation without enabling the affected
+recognizer API. Touch behaviour/usability is unverified; no touch tests or injection
+infrastructure have been added.
+
 ## Saved arrivals
 
 All favourites persist. Arrival snapshots and short labels persist for **two
@@ -125,9 +139,13 @@ the app with the same UUID; read the migration note above before upgrading.
 Original project code is licensed under [0BSD](LICENSE): use, modify, redistribute
 or sell it without an attribution requirement. It is provided without warranty.
 Third-party components and UnderLX data retain their own terms; see the notices.
+The repository/history and application source remain private; 0BSD does not
+require publishing them. A distributed PBW still contains extractable phone
+JavaScript; private Git hosting does not make that bundled code confidential.
 
 Independent application, not affiliated with or endorsed by UnderLX or Metro de
 Lisboa. Contains information from [UnderLX](https://underlx.com/), made available
 under [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) unless otherwise
 indicated by the provider. Data adaptations remain ODbL; see
-[the methods/access offer](DATA_METHODS.md) and [complete licence](LICENSES/ODbL-1.0.txt).
+[data transformations and access requirements](DATA_METHODS.md) and the
+[complete licence](LICENSES/ODbL-1.0.txt).
