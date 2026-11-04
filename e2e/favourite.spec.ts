@@ -93,6 +93,10 @@ test('reopen immediately from the watch cache, then receive fresh arrivals', asy
   if (captureAssets) {
     await metro.publish([42, 95, 180], 's');
     await captureStoreScreen(metro, 'seconds');
+    await metro.publish([95, 180, 300], 's');
+    await captureStoreScreen(metro, 'minutes-seconds');
+    await metro.publish([86400], 's');
+    await captureStoreScreen(metro, 'long-countdown');
     await metro.publish([3, 4, 5]);
     await metro.expectScreen('arrivals');
   }
@@ -359,6 +363,12 @@ test('ranges and bounds remain estimates; Due and empty updates cannot invent ar
   await metro.expectScreen('arrival-upper-bound');
   await metro.publish([330, 510, 690], 's', 'm');
   await metro.expectScreen('arrival-lower-bound');
+  await metro.publish([1440]);
+  await metro.expectScreen('arrival-long-minutes');
+  await metro.publish([86370], 's', 'i');
+  await metro.expectScreen('arrival-long-range');
+  await metro.publish([1440], 'm', 'l');
+  await metro.expectScreen('arrival-long-bound');
   await metro.publish([0], 's');
   await metro.expectScreen('estimated-now');
   await metro.publish([]);
@@ -369,6 +379,30 @@ test('ranges and bounds remain estimates; Due and empty updates cannot invent ar
 
 test.describe('full native data budget', () => {
   test.use({ largeNetwork: true });
+  test('line headers follow selected routes and saved colours, including yellow', async ({ metro }) => {
+    await saveFavourite(metro, { large: true });
+    for (const [index, colour] of ['blue', 'green', 'yellow'].entries()) {
+      await metro.press('back');
+      for (let i = 0; i < 3; i++) await metro.press('up');
+      await metro.press('select');
+      const station = metro.stations.findIndex(station => station.id === `pt-ml-z${41 + index * 2}`);
+      for (let i = 0; i < station; i++) await metro.press('down');
+      await metro.press('select');
+      await metro.press('down'); // Red -> the other line, still chosen by its text label.
+      await metro.expectScreen(`line-choice-${colour}`);
+      await metro.press('select');
+      await metro.press('select'); // The other terminus is the only direction.
+      await metro.publish([3, 4, 5]);
+      await metro.expectScreen(`header-${colour}`);
+      if (captureAssets && colour === 'yellow') writeFileSync(resolve(root, `docs/assets/issue-5/${metro.platform}-yellow-live.png`), await metro.screenshot());
+      await metro.relaunch();
+      await metro.expectScreen(`header-${colour}-saved`, 'arrivals');
+      if (captureAssets && colour === 'yellow') writeFileSync(resolve(root, `docs/assets/issue-5/${metro.platform}-yellow-saved.png`), await metro.screenshot());
+      await metro.startPhone();
+      await metro.publish([3, 4, 5]);
+      await metro.expectScreen(`header-${colour}`);
+    }
+  });
   test('metadata replacement safely resets an open interchange picker', async ({ metro }) => {
     await saveFavourite(metro, { large: true });
     await metro.press('back');

@@ -21,7 +21,10 @@ It is not Metro de Lisboa's logo. No third-party artwork or fonts are embedded.
 | `appstore/gabbro_saved.png` | 260×260 | Round 2 saved estimates and tiny train |
 | `appstore/gabbro_favourites.png` | 260×260 | Round 2 favourites inside the circular safe area |
 
-All eight screenshots come from the real native PBW and bundled phone JS in
+Additional `*_minutes-seconds.png` and `*_long-countdown.png` captures document
+colon rendering and measured font fallback at the 24-hour input bound.
+
+All screenshots come from the real native PBW and bundled phone JS in
 Emery/Gabbro QEMU, using the existing deterministic REST/MQTT fixtures. They are
 **emulator captures with example arrival data**, not real-time observations or
 physical-watch photos. They are unframed, unscaled PNGs with the clock and train
@@ -66,7 +69,8 @@ npm run assets:screenshots
 
 This explicitly builds the current two-platform PBW and runs the existing
 cached-reopen flow for each platform with capture enabled. It briefly publishes
-second-unit fixture estimates, restores minute-unit fixtures, captures the saved
+second-unit fixture estimates (seconds, `m:ss`, and the 24-hour input bound),
+restores minute-unit fixtures, captures the saved
 state before restarting PKJS, and adds a second favourite for the list screen.
 Use `npm run assets:screenshots -- --project=gabbro` (or `--project=emery`) to
 recapture one watch. It does not touch physical hardware or upload anything.
