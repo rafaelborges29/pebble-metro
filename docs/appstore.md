@@ -4,8 +4,10 @@
 
 Keep the Git repository/history and application source **private**. This guide
 prepares a binary-only store release; it does not authorize source publication or
-an upload. **Do not submit yet:** the [UnderLX access assessment](../DATA_METHODS.md)
-and any required data/alteration offer remain unresolved release gates.
+an upload. The [case-specific UnderLX assessment](../DATA_METHODS.md) identifies no
+additional public data/methods download or permission email prerequisite for this
+release. Retain its attribution/licensing conditions and complete the remaining
+[submission checks](publishing-todo.md) before an approved Unlisted upload.
 
 Use the [Pebble Developer Dashboard](https://developer.repebble.com/dashboard)
 for the first release, with visibility explicitly set to **Unlisted**. It lets you
@@ -25,10 +27,12 @@ phone JavaScript and a source map; keeping GitHub private does not conceal them.
 3. Complete the [release checklist](publishing-todo.md), including physical-watch
    checks and applicable SDK/toolchain terms. Standard builds embed complete
    licence/notices copies in the phone bundle, so store-installed PBWs carry them.
-   Resolve the UnderLX assessment and any required recipient-accessible data or
-   alteration offer **before even an Unlisted upload**. This is separate from
-   application-source publication; a private Release or expiring CI artifact is
-   not a public offer. Test any recipient-facing URLs without signing in.
+   Confirm the candidate still matches the recorded UnderLX client/screenshot
+   assessment and preserve its notices. No blanket permission email or public
+   application-source archive is required by that assessment. Reassess before
+   changing data-distribution scope; a private Release or expiring CI artifact
+   would not satisfy an offer if one becomes necessary. Test public URLs without
+   signing in.
 4. Sign in to the Developer Dashboard with the same Pebble account/sign-in method
    used for development. Review any legal agreements yourself.
 5. Choose **New**, upload the exact PBW, and check type, UUID, version and both
@@ -98,9 +102,9 @@ Round 2 is Gabbro, not the original Time Round/Chalk. See
 - **Source code URL:** leave blank; repository/application source remain private.
 - **Support (optional):** use an approved customer-facing contact if provided;
   private GitHub Issues are not a public support channel.
-- **Data access:** resolve the assessment and any required data/alteration offer
-  before submission. Add its recipient-facing details if required; the draft does
-  not claim an offer is already available.
+- **Data access:** the current client/example-image assessment identifies no
+  separate data/alteration download requirement. Keep attribution and data terms;
+  reassess changed database distribution/public outputs before using this draft.
 - **Notices:** complete copies are embedded in the PBW's phone JavaScript bundle.
 - **Privacy:** include the policy below prominently in the store description.
 - **Android companion app:** leave the custom-companion field empty. The bundled
@@ -159,12 +163,12 @@ practices, outside this app's control. See https://repebble.com/privacy/ and
 https://underlx.com/terms for the providers' published information.
 ```
 
-This remains a draft, not a compliance clearance: review its privacy statements
-against the final build, review public publisher details and any optional support
-contact, and finish the UnderLX assessment. If data-access materials are required,
-include their actual access details and test them anonymously before submission.
-Do not insert a private GitHub link or promise public application source as a
-shortcut.
+This remains a draft: review its privacy statements against the final build,
+public publisher details and any optional support contact. Confirm that the
+candidate matches the recorded UnderLX assessment; it is a case-specific reading,
+not legal certification or a universal exemption for other data uses. Do not
+insert private GitHub links or promise public application source as a shortcut.
+Obtain approval for the exact candidate and Unlisted visibility before submission.
 
 Initial release notes draft:
 

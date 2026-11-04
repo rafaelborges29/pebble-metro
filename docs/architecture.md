@@ -14,7 +14,7 @@ UnderLX hosted sources
 
 UnderLX-derived data and its adaptations retain ODbL 1.0; original software is
 0BSD. [DATA_METHODS.md](../DATA_METHODS.md) documents the exact inputs, alterations,
-fixture additions and the unresolved data-access assessment for distribution.
+fixture additions and the case-specific private-client release assessment.
 
 There are no alerts, vibration, disturbances, settings page, custom backend,
 background worker or watch-side JS runtime. No GPS or private Metro credentials.

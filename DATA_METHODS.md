@@ -12,7 +12,8 @@ states that its API data is ODbL 1.0 unless otherwise indicated. Its
 [service terms](https://underlx.com/terms) distinguish data, software and branding;
 some station/route facts are described as public domain. This project does not
 rely on that exception to remove the ODbL notice from its data adaptations.
-These published sources and ODbL sections 2.3, 4.2–4.6 were checked on 2026-10-31.
+These published sources and ODbL sections 1.0, 2.3, 3.1, 4.2–4.6 and 6.2 were
+rechecked on 2026-11-04.
 
 UnderLX-derived data and this project's adaptations of that data are made
 available under ODbL 1.0, not the project's software licence. This includes the
@@ -29,44 +30,69 @@ published data endpoints rather than incorporating that software. Neither the
 data licence nor 0BSD grants rights to UnderLX or Metro de Lisboa branding.
 The app is independent and does not claim either organization's endorsement.
 
-## Access requirements for a private-source release
+## Current private-client release assessment
 
-The repository/history and application source remain private. Original software's
-0BSD licence does not require source publication. ODbL section 2.3(a) excludes
-programs used in making or operating the database; it is not a blanket requirement
-to publish this application.
+This is the maintainer's case-specific assessment, checked on 2026-11-04, not legal
+certification or an endorsement from UnderLX. The repository/history and application
+source remain private. Original software's 0BSD licence does not require source
+publication; ODbL section 2.3(a) excludes database-operating programs. Section 3.1
+already grants licensed use, including commercial use, subject to its conditions:
+individual permission is not a routine prerequisite for every API client.
 
-Data obligations remain separate. Under sections 4.4(c) and 4.6, publicly using a
-Derivative Database **or a Produced Work from one** requires an offer to its
-recipients of either:
+### Facts checked for this release
 
-- The entire Derivative Database in machine-readable form; or
-- A machine-readable file containing all alterations or the method of making them,
-  including any additional contents that make up the differences.
+- The PBW contains software, original artwork and licence notices, not a bundled
+  UnderLX catalogue or arrival database. `wscript` bundles `src/`, not the test
+  fixtures; the emitted phone bundle/source map was checked against that scope.
+- `src/pkjs/rest.js` and `feed.js` fetch directly from UnderLX. The application
+  publisher does not host or distribute a processed database/feed. Normalization,
+  filtering and caching occur on each user's phone and paired watch; their local
+  snapshots are not uploaded to the publisher or published as a shared dataset.
+- The prepared store screenshots come from the default three-station, one-line
+  fixture (Aeroporto, Saldanha and São Sebastião / Vermelha), not the stress-test
+  network or a live arrival archive. All shown arrival values are artificial.
+  The fixture/harness itself remains private and is not shipped in the PBW.
+- UnderLX's terms describe station/route facts as public domain. This does not by
+  itself waive rights in a substantial database extraction: ODbL distinguishes
+  contents from database rights and assesses substantiality by quantity/quality.
+  Considering the limited example facts and artificial estimates actually used,
+  this assessment does not identify the prepared images as publication of a
+  substantial adapted UnderLX database. Attribution is retained nevertheless.
 
-Internet delivery must be free. A required offer must cover the actual alterations
-and additional contents; it need not automatically include unrelated application
-code, UI or the entire test harness. A private GitHub link, attribution alone, or
-this prose inventory is not a verified substitute for that offer.
+### Outcome and retained obligations
 
-**Release gate — unresolved:** before external distribution, including an Unlisted
-beta, record whether these requirements apply to the current client and its
-published outputs/screenshots. The app fetches directly from UnderLX, transforms
-and caches data on the user's devices, has no custom backend and bundles no full
-live dataset. Those facts alone are not a conclusion that section 4.6 cannot apply.
-If it applies, prepare a complete, recipient-accessible data/alteration offer
-compatible with keeping application source private, or obtain suitable alternative
-permission. Do not distribute until the assessment and any required offer are
-resolved. Contacting UnderLX is one clarification option, not a per-use permission
-step imposed by the published ODbL grant.
+For this software-only direct-client release and these example images, **no
+additional public database/alteration-method download or individual UnderLX
+permission is identified as a prerequisite**. This is not a conclusion that
+attribution always suffices for any ODbL application. The assessment concerns the
+publisher's current release,
+not every possible later redistribution of a user's data.
 
-No public repository, full application-source ZIP or available methods offer is
-promised by this document. Keep the release's source revision, PBW hash and any
-required offer associated in private release records. A private GitHub Release or
-expiring CI artifact cannot serve as a recipient-facing offer. Retain any required
-materials for previously distributed versions. Never upload users' favourites,
-personal caches or activity to satisfy these obligations. Reassess when changing
-sources, transformations, additional data, public outputs or backend architecture.
+Keep the UnderLX/ODbL attribution and provider/licence URLs in About and the store
+description, preserve ODbL for data adaptations, supply complete applicable licence
+copies in the PBW, and disclose that screenshot estimates are artificial. Do not
+apply additional restrictions to UnderLX-derived data. Normal publisher/agreement,
+privacy, version, package and explicit submission-approval checks still apply.
+No public application-source ZIP, GitHub history or methods offer is promised.
+
+### When this assessment must be revisited
+
+Reassess before bundling/exporting a catalogue or live snapshots, serving processed
+data from a backend, publishing the fixture/data itself, or replacing these small
+example images with substantial real-data outputs. Changes to sources, additional
+contents or upstream terms also require review. Do not assume software exclusion,
+local caching, public-domain facts or absence of a backend is a universal exemption.
+
+If a changed release publicly uses a Derivative Database **or a Produced Work from
+one**, sections 4.4(c)/4.6 can require a complete machine-readable database or a
+file containing all alterations/the method of making them, including additional
+contents. Internet delivery must be free. An applicable offer must actually reach
+recipients; a private repository, expiring CI artifact or this prose is not a
+substitute. It need not automatically publish unrelated application code or the
+entire test harness. Never expose users' personal caches or activity to fulfil it.
+Keep any such offer associated with its exact version and retain required prior
+materials. Contacting UnderLX remains an optional clarification route, not a
+mandatory permission email for the release assessed above.
 
 ## Inputs and alterations
 
@@ -96,8 +122,9 @@ feed or a historical database. Live source responses can change or expire.
 UnderLX-derived station/line names, IDs and route facts. Additional stress-test
 stations/lines and every injected arrival estimate are artificial. Treat the
 fixture data and its additions as ODbL 1.0 data; the test harness code remains
-0BSD. Include any required fixture alterations and additional contents in the
-release's data/alteration offer if the access requirements above apply.
+0BSD. The assessment above covers the prepared example screenshots, not public
+redistribution of the fixture/database itself. Reassess access obligations before
+publishing that data or substantially different outputs.
 
 Screenshots render that example data, not live observations. Original UI/artwork
 rights do not relicense the displayed UnderLX-derived facts. Keep the following
