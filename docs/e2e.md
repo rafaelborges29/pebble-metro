@@ -204,9 +204,10 @@ replaced by a prior menu/connecting frame just because an update run accepted it
 The existing least-privilege Ubuntu workflow builds/tests and saves reports,
 traces, native screenshots, `phone.log`, `emulator.log`, commands/subscriptions
 and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
-`DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` methods so
-screenshots/data retain their attribution and machine-readable alteration offer.
-It never installs on hardware or publishes. A local pass does
+`DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
+reproducibility and data provenance. These private diagnostics are not a public
+methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
+The workflow never installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
 
 During development, the allocation-free C JSON decoder was separately checked

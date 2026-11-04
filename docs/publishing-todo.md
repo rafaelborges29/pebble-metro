@@ -26,13 +26,13 @@ Repository visibility, merges, tags/releases and store uploads are separate acti
   [Distribution Agreement §5.3](https://developer.repebble.com/legal/distribution/)
   requires prominent privacy information even though website/source fields are
   optional. A private `PRIVACY.md` URL is not the delivery path.
-- [ ] Resolve and record the [UnderLX data-access assessment](../DATA_METHODS.md),
-  including public outputs/screenshots. Do not assume that attribution, a local
-  cache or the absence of a backend settles ODbL §§4.4(c)/4.6. If applicable,
-  supply a complete, free, recipient-accessible machine-readable data/alteration
-  offer, or obtain suitable alternative permission. Do not distribute, including
-  an Unlisted beta, until this is resolved. No full application-source archive is
-  automatically required or promised; keep the application source private.
+- [x] Record the [case-specific UnderLX assessment](../DATA_METHODS.md), including
+  the direct-client/local-cache architecture and small artificial-example store
+  screenshots. No additional public data/methods download or permission email is
+  identified as a prerequisite for this release. This is a maintainer assessment,
+  not legal certification. Preserve attribution/data licensing and reassess before
+  publishing databases, exports, fixtures or substantially different public data
+  outputs. Application source/history remain private.
 - [ ] Review the diff, complete notices, privacy text and intended public publisher
   details. If providing an optional support contact, approve it separately; do not
   use private GitHub Issues as a customer-facing channel or assume a commit email
@@ -100,10 +100,12 @@ implementation.
 
   These commands publish nothing and do not create a full application-source archive.
 
-- [ ] Confirm the UnderLX assessment and any required data/alteration offer for
-  this exact version. Test every recipient-facing URL without authentication;
-  retain required materials for previous releases. Do not expose personal caches.
-  Expiring diagnostic CI artifacts are not a permanent offer.
+- [ ] Confirm this exact candidate still matches the recorded UnderLX assessment:
+  no bundled/hosted derivative database, direct fetch/local caches, and the same
+  small example screenshots. Preserve credits and test recipient-facing URLs
+  anonymously. Reassess changed data uses; if an offer then becomes necessary,
+  deliver/retain it properly rather than using private or expiring links. Never
+  expose personal caches.
 - [x] Prepare original 80×80/144×144 store icons, a 25×25 watch launcher icon and
   four unframed captures per native emulator: Emery 200×228 and Gabbro 260×260.
   See [assets](../assets/README.md).

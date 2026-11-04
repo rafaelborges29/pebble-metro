@@ -18,21 +18,22 @@ snapshots and the UnderLX-derived facts in fixtures/screenshots. Test arrival
 values and extra stress-test stations are artificial, not live observations.
 No full live database is bundled in the repository or PBW.
 
-**[Data transformations and access requirements](DATA_METHODS.md):** ODbL does not
-automatically require publishing the application source. Sections 4.4(c) and 4.6
-can require a recipient-accessible machine-readable database or complete alteration
-file/method, including additional contents, when publicly using a Derivative
-Database or a Produced Work from one. The applicability assessment and any required
-private-source-compatible offer remain release gates; a private repository link
-or attribution alone does not settle them. No public application-source archive
-or available methods offer is promised here. Preserve attribution/licence notices
-with redistributed data and publicly shared screenshots.
+**[Current client/data assessment](DATA_METHODS.md):** this release distributes
+software, not an UnderLX database. Users fetch directly from UnderLX and cache
+locally; the store images use a small example catalogue and artificial estimates.
+The maintainer's documented assessment identifies no additional public data/methods
+download or individual permission prerequisite for this release. This is not legal
+certification or a blanket exemption: publishing a Derivative Database or a
+Produced Work from one can trigger ODbL sections 4.4(c)/4.6 and must be reassessed.
+A required offer cannot be replaced by attribution or a private repository link.
+No public application-source archive or available methods offer is promised here.
+Preserve attribution/licence notices with redistributed data and shared screenshots.
 
 The watch's **About / data** shows UnderLX, ODbL, the provider/licence URLs and
 where privacy information and bundled licence copies are supplied. It does not
 link users to the private repository. The README and draft store listing also
 carry attribution. Recheck provider-specific exceptions when adding data. See
-[DATA_METHODS.md](DATA_METHODS.md) for the scope and unresolved release gate.
+[DATA_METHODS.md](DATA_METHODS.md) for the assessed scope and reassessment triggers.
 
 This is an independent application, not affiliated with or endorsed by UnderLX or
 Metro de Lisboa. The project/data licences do not grant third-party branding
@@ -90,7 +91,7 @@ store installation; they are not watch resources and add no native watch RAM.
 The build tracks these files so changes refresh the bundled copies. A private
 repository link or an optional download ZIP is not the licence-copy delivery path.
 
-This packaging step does not resolve the UnderLX data-access assessment above or
-make a build ready for external distribution. See the
-[release checklist](docs/publishing-todo.md). Re-audit the emitted bundle and
-SDK/toolchain terms when changing dependencies or SDKs.
+The current client/data assessment is recorded above; packaging alone would not
+settle access obligations for a changed data-distribution model. See the
+[release checklist](docs/publishing-todo.md) for the remaining submission checks.
+Re-audit the emitted bundle and SDK/toolchain terms when changing dependencies or SDKs.
