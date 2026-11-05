@@ -29,6 +29,22 @@ No alerts, vibration, line-status pages, GPS, watch-side JavaScript runtime,
 background worker, custom Android app or custom backend. The paired phone needs
 the Pebble mobile app and internet access. See [privacy](PRIVACY.md).
 
+## Language
+
+The watch's system locale selects the UI: **Portuguese (Portugal)** for `pt_PT`,
+English for every other locale (including unsupported languages). This follows
+[`i18n_get_system_locale()`](https://developer.repebble.com/docs/c/Foundation/Internationalization/),
+not the phone/browser language. Choose Portuguese in the watch's system language
+settings; availability depends on firmware/mobile-app language support. There is
+no Metro language setting or phone configuration page. Changes appear on the next
+redraw (a button press, arrival tick or minute tick).
+
+Portuguese uses **ATUAL / GUARDADO** for **LIVE / SAVED**, and **Agora / Hora
+estimada** for **Due / Estimated now**: these remain estimates, never an assertion
+that a train is present. `~`, ranges/bounds, minutes and source seconds (`seg`)
+retain their meanings. Official place/line names and complete legal texts are
+unchanged. Existing favourites and cached data need no migration.
+
 ## Controls
 
 | Screen | Buttons |
@@ -99,6 +115,16 @@ The SDK names the package after the checkout directory:
 Do not add `"type": "module"` to the root package: the SDK generates a CommonJS
 webpack configuration. A small build-time adapter handles the phone's ESM sources.
 Clean with `pebble clean --sdk 4.33.1` after changing SDK or project type.
+
+UI copy lives in `locales/en.json` and `locales/pt_PT.json`, keyed by meaning
+(for example, `menu.favourites`). The Pebble build validates both files and
+generates keys and constant C tables under `build/generated/` using the build's
+existing Python interpreter and standard library. `locales/index.json` maps Pebble
+locale strings to translation files and selects the English fallback. The native
+`localization` module owns selection, lookup and diagnostic translation; screens
+request text by key without language-specific branches. Clean and incremental
+builds track the registry and translations; no locale JSON is parsed on the watch.
+See [translation instructions](CONTRIBUTING.md#translations).
 
 ## Test and install
 

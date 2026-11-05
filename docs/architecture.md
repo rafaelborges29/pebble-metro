@@ -42,10 +42,10 @@ There is no interpreter or separately loaded JS archive. The per-app budget is
 128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
 rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-Each native target uses approximately **61 KiB code/static RAM**, leaving about
-**61 KiB free native heap** after UI/messages in emulator button-regression runs. The stress tests
+Each native target uses approximately **64 KiB code/static RAM**, leaving about
+**59 KiB free native heap** after UI/messages in emulator button-regression runs. The stress tests
 check both platforms independently for headroom and switch-sample growth. Each
-watch binary plus resources is approximately **31 KiB**. The PBW contains both
+watch binary plus resources is approximately **34 KiB**. The PBW contains both
 watch binaries but only one phone bundle/source map. Complete licence/notices
 copies are embedded as a comment in that phone bundle, not as watch resources.
 Rebuilds can change size/hash; these are emulator measurements, not physical-watch
@@ -198,3 +198,34 @@ The cache stores no service state or alert continuity. Favourites plus both cach
 slots use approximately 3.2 KiB of value payloads at the 16-favourite limit. The
 actual firmware persistence limit is queried/documented by `persist_get_max_size()`;
 all writes are checked, rather than assuming global watch storage is available.
+
+## UI language
+
+Flat `locales/en.json` and `locales/pt_PT.json` hold the UI copy under stable
+semantic keys. `locales/index.json` maps exact Pebble locale strings to these files
+and names the fallback locale. Aliases share one generated table. A dependency-free
+Python Waf task validates the registry, keys and format arguments and generates
+`build/generated/ui_keys.h` plus private `ui_tables.h` before either target compiles.
+The JSON files and generated data are isolated from the UI implementation.
+
+`localization_get(UI_MENU_FAVOURITES)` reads the current SDK locale and looks it up
+in the generated registry. Currently `pt_PT` selects Portuguese, `en`/`en_US`
+select English, and null/empty/unsupported values use the configured English
+fallback. There is no language-specific branching in C. The allocation-free
+`src/c/localization.c` module owns lookup, fallback and known diagnostic mappings;
+`main.c` only requests text by key. Invalid keys return empty text rather than
+indexing outside the table. Each lookup reads the current locale, so retained
+notice/error keys follow language changes on the next redraw.
+
+Incoming companion diagnostics retain their raw text and existing bounds:
+`localization_diagnostic()` maps known wire strings to keys, with verbatim fallback
+for unknown errors. Official source labels bypass translation. Protocol,
+companion, persistence, expiry, UUID, fonts and layout are unchanged. See
+[translation instructions](../CONTRIBUTING.md#translations).
+
+The [SDK internationalization guide](https://developer.repebble.com/guides/tools-and-resources/internationalization/)
+documents `pt_PT` and system-font language support. Text uses the existing Gothic
+system fonts; numeric countdowns use the LECO/Roboto/Bitham size fallback from
+the arrival layout. Portuguese accents are checked
+in real emulator frames on both targets. Hardware language selection/font packs
+remain a physical-watch acceptance item; see [test limitations](e2e.md).

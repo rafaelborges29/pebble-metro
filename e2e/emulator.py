@@ -67,12 +67,16 @@ def run():
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
             port = reservation.getsockname()[1]
+            with socket.socket() as debug_reservation:
+                debug_reservation.bind(("127.0.0.1", 0))
+                debug_port = debug_reservation.getsockname()[1]
         command = [
             str(toolchain / "bin/qemu-pebble"),
             "-machine", "pebble-" + platform, "-cpu", "cortex-m33",
             "-kernel", str(directory / "micro.bin"),
             "-drive", f"if=mtd,format=raw,file={directory / 'spi.bin'}",
             "-rtc", "base=utc", "-display", "none",
+            "-gdb", f"tcp:127.0.0.1:{debug_port}",
             "-audio", "driver=none,id=audio0",
             "-serial", "null", "-serial", f"tcp:127.0.0.1:{port},server=on,wait=off",
             "-serial", "file:" + str(directory / "console.log"),
@@ -134,6 +138,21 @@ def run():
                             connection.send_packet = original_send
                         with ZipFile(params["path"]) as bundle:
                             result = bundle.read("pebble-js-app.js").decode("utf-8")
+                    elif method == "locale":
+                        # SDK shell stubs hard-code English and disable system language settings.
+                        # Set ONLY firmware locale state, leaving the app/API/renderer untouched.
+                        # See docs/e2e.md; this does not test the physical settings UI.
+                        locale = params["locale"]
+                        if locale not in ("pt_PT", "fr_FR"):
+                            raise ValueError(f"Unsupported test locale: {locale}")
+                        connection.fetch_watch_info()  # Wait for firmware startup/handshake.
+                        subprocess.run([
+                            str(toolchain / "arm-none-eabi/bin/arm-none-eabi-gdb"),
+                            "--nx", "--batch", str(firmware / f"{platform}_sdk_debug.elf"),
+                            "-ex", f"target remote 127.0.0.1:{debug_port}",
+                            "-ex", f'set variable s_system_domain.iso_locale = "{locale}"',
+                            "-ex", "detach",
+                        ], check=True, timeout=15, stdout=sys.stderr, stderr=sys.stderr)
                     elif method == "send":
                         transaction = service.send_message(APP, {10000: CString(params["data"])})
                         with condition:

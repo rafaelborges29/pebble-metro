@@ -1,0 +1,8 @@
+{
+  "fallback": "en",
+  "locales": {
+    "en": "en.json",
+    "en_US": "en.json",
+    "pt_PT": "pt_PT.json"
+  }
+}

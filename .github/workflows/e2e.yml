@@ -12,7 +12,8 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # The combined navigation/layout/locale matrix has 52 serial emulator cases.
+    timeout-minutes: 20
     env:
       CI: 'true'
     steps:
@@ -37,6 +38,8 @@ jobs:
           echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
           pebble sdk install 4.33.1
           pebble sdk activate 4.33.1
+      - name: Validate locale generator
+        run: python3 -m unittest discover -s tools
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Build and test Time 2 and Round 2 in real emulators
@@ -54,6 +57,9 @@ jobs:
             DATA_METHODS.md
             LICENSES/
             src/
+            locales/
+            tools/
+            wscript
             e2e/
           if-no-files-found: ignore
           retention-days: 7

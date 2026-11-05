@@ -3,6 +3,8 @@
 #
 # Feel free to customize this to your needs.
 #
+import sys
+
 top = '.'
 out = 'build'
 
@@ -22,6 +24,12 @@ def configure(ctx):
 
 
 def build(ctx):
+    # Run once before either platform. Track the registry and translation files.
+    ctx.add_group('locales')
+    ctx.env.LOCALE_PYTHON = [sys.executable]
+    ctx(rule='${LOCALE_PYTHON} ${SRC[0].abspath()} ${SRC[1].abspath()} ${TGT}',
+        source=['tools/generate_locales.py', 'locales/index.json'] + ctx.path.ant_glob('locales/*.json', excl='locales/index.json'),
+        target=['generated/ui_keys.h', 'generated/ui_tables.h'])
     ctx.load('pebble_sdk')
 
     binaries = []
@@ -32,7 +40,8 @@ def build(ctx):
         ctx.set_group(ctx.env.PLATFORM_NAME)
         app_elf = '{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
         # Ignore stale generated FFI when upgrading an existing Alloy checkout.
-        ctx.pbl_build(source=ctx.path.ant_glob('src/c/**/*.c', excl='src/c/mc.ffi.c'), target=app_elf, bin_type='app')
+        ctx.pbl_build(source=ctx.path.ant_glob('src/c/**/*.c', excl='src/c/mc.ffi.c'), target=app_elf, bin_type='app',
+                      includes=[ctx.path.get_bld().make_node('generated')])
         binaries.append({'platform': platform, 'app_elf': app_elf})
     ctx.env = cached_env
 

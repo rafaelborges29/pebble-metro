@@ -122,24 +122,26 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **22 cases per platform (44 tests)**. Each platform
-independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (88 tests). Recheck after
+The normal matrix has **26 cases per platform (52 tests)**, including four locale
+cases per platform. Each platform independently checks heap headroom, switch
+variation and expected startup count.
+For repeated runs use `npm run e2e -- --repeat-each=2` (104 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The integrated line-first navigation and line-header layout passed **88/88 tests**
-(two complete matrices, four workers) with snapshot updates disabled:
+The integrated line-first navigation, line-header layout and localisation service
+passed **104/104 tests** (two complete matrices, four workers, 6.7 minutes) with
+snapshot updates disabled:
 `npm run e2e -- --repeat-each=2 --workers=4 --update-snapshots=none`.
-All ten integration screenshot changes were visually inspected. The line-colour
-tests now select a line before its filtered stations; reopening in the line-first
-flow explicitly waits for a fresh source update before asserting LIVE. Across
-600 samples in the repeated matrix:
+All 24 new or changed localisation integration screenshots were visually inspected.
+Locale tests now select a line before its filtered stations and verify that the
+origin terminus is excluded. Reopening explicitly waits for a fresh source update
+before asserting LIVE/ATUAL. Across 704 samples in the repeated matrix:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
-| Time 2 / Emery | 62,176–62,256 bytes | 5,680 / 62,256 bytes |
-| Round 2 / Gabbro | 62,088–62,168 bytes | 5,680 / 62,168 bytes |
+| Time 2 / Emery | 60,240–60,320 bytes | 5,680 / 60,320 bytes |
+| Round 2 / Gabbro | 60,112–60,192 bytes | 5,680 / 60,192 bytes |
 
 No unexpected native restart occurred. Recheck against the candidate revision
 rather than treating these measurements as permanent guarantees.
@@ -152,10 +154,15 @@ Supported locally: Linux x86-64, Node 24.21.0, Pebble Tool 5.0.39,
 ```sh
 npm ci
 npx playwright install chromium
+python3 -m unittest discover -s tools
 npm run e2e
 ```
 
 `e2e` typechecks the harness, builds native C and phone JS, then runs Playwright.
+The native build first validates both locale files and generates the constant C
+copy tables. The separate standard-library Python checks exercise duplicate/key
+validation, printf compatibility, text escaping and deterministic output; CI runs
+these before E2E. See [translation instructions](../CONTRIBUTING.md#translations).
 The SDK names the PBW after the checkout directory; the harness installs exactly
 `build/<checkout-name>.pbw`, never an old differently named package.
 
@@ -226,7 +233,8 @@ and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
 `DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
 reproducibility and data provenance. These private diagnostics are not a public
 methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
-The workflow never installs on hardware or publishes. A local pass does
+The workflow allows 20 minutes for setup and the 52-case serial emulator matrix.
+It never installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
 
 During development, the allocation-free C JSON decoder was separately checked
@@ -253,3 +261,43 @@ Remaining hardware acceptance on both watches, particularly physical Round 2:
 real Android WebView/Bluetooth, source variations,
 repeated favourite switching, quick reopen, phone/internet loss/recovery and
 battery use. This version does not use vibration.
+
+## Portuguese and English fallback
+
+`locale.spec.ts` adds four flows per platform: menus, LIVE/SAVED, estimate
+ranges/bounds/zero/empty data, About and removal confirmation under `pt_PT` and
+unsupported `fr_FR`; and the line picker/catalogue-replacement notice in each
+locale. French deliberately expects the existing English baselines. Portuguese
+baselines live in `screenshots/pt-PT/` and `screenshots/gabbro/pt-PT/`. All app
+navigation still uses real buttons. The default English regression suite keeps
+its original firmware locale and baselines.
+
+**SDK limitation:** the SDK 4.33.1 emulator shell disables language settings:
+[`shell/sdk/stubs.c`](https://github.com/coredevices/pebbleos/blob/v4.33.2/src/fw/shell/sdk/stubs.c)
+returns English and an invalid language resource ID. Installing a language pack
+cannot select it there. For the two locale fixtures only, the harness uses the
+SDK's bundled GDB/debug ELF to set `s_system_domain.iso_locale` in the private
+emulator's RAM before installing Metro. It asserts the locale logged by the
+release app's actual `i18n_get_system_locale()` call; no app renderer, translation
+helper, phone language or app binary is substituted. The debugger uses a private
+loopback port and detaches immediately. Normal SDK files and managed emulators
+are untouched. These tests exercise the native API boundary and built-in system
+fonts, **not** the physical watch's language picker or downloaded font packs.
+
+Run `npm run e2e -- --grep 'watch locale'` for this matrix, and add
+`--repeat-each=2` to repeat it. Full hardware language-switch acceptance remains
+necessary on both shapes.
+
+Nine generator checks cover translation validation, explicit locale mappings,
+aliases sharing tables, a configurable fallback, and malformed/missing registry
+entries. They run with both system Python and the Pebble tool's Python. Build
+probes cover clean/no-op builds, adding a mapped translation file, editing it,
+removing/restoring the mapping, and regeneration after deleting either generated
+header. Restoring inputs reproduces identical generated headers and localisation
+object bytes on both targets.
+
+A temporary host C probe compiles the actual `localization.c` with ASan/UBSan. It
+checks locale changes, null/empty/unsupported fallback, known/unknown diagnostics,
+invalid keys, and a third language/alias added through JSON alone. This supplements
+the actual release-PBW emulator flows; it does not replace them or physical-watch
+language/font acceptance.
