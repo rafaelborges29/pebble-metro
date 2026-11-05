@@ -46,10 +46,12 @@ async function withDeferredArrival<T>(metro: Metro, values: number[], action: ()
 
 async function saveFavourite(metro: Metro, { large = false, waitForData = true } = {}) {
   await metro.expectScreen('first-use');
-  await metro.press('select'); // First use goes directly to stations.
+  await metro.press('select'); // First use starts with the line, even with only one.
+  await metro.expectScreen(large ? 'lines-large' : 'lines');
+  await metro.press('select'); // Vermelha.
   await metro.expectScreen(large ? 'stations-large' : 'stations');
   await metro.press('down'); // Aeroporto -> Saldanha in the alphabetical catalogue.
-  await metro.press('select'); // One line: directions open without a line menu.
+  await metro.press('select'); // Keep the chosen line, including at interchanges.
   await metro.expectScreen('directions');
   await metro.press('down'); // São Sebastião -> Aeroporto.
   const before = metro.commands.length;
@@ -66,7 +68,8 @@ async function addStation(metro: Metro, row: number, { waitForData = true, direc
   await metro.press('back'); // Arrivals -> favourites; row zero is selected.
   // The last three rows are Add favourite, Retry data, About (no settings).
   for (let i = 0; i < 3; i++) await metro.press('up');
-  await metro.press('select');
+  await metro.press('select'); // Add favourite -> lines.
+  await metro.press('select'); // Vermelha -> filtered stations.
   for (let i = 0; i < row; i++) await metro.press('down');
   await metro.press('select');
   const station = metro.stations[row].id;
@@ -93,6 +96,10 @@ test('reopen immediately from the watch cache, then receive fresh arrivals', asy
   if (captureAssets) {
     await metro.publish([42, 95, 180], 's');
     await captureStoreScreen(metro, 'seconds');
+    await metro.publish([95, 180, 300], 's');
+    await captureStoreScreen(metro, 'minutes-seconds');
+    await metro.publish([86400], 's');
+    await captureStoreScreen(metro, 'long-countdown');
     await metro.publish([3, 4, 5]);
     await metro.expectScreen('arrivals');
   }
@@ -303,9 +310,11 @@ test.describe('favourite lifecycle', () => {
     const subscriptions = metro.subscriptions.length;
     await metro.press('back');
     for (let i = 0; i < 3; i++) await metro.press('up');
+    await metro.press('select'); // Line picker.
     await metro.press('select'); // Station picker.
     await metro.press('select'); // Aeroporto -> direction picker, but do not save.
     await metro.press('back');
+    await metro.press('back'); // Line picker.
     await metro.press('back'); // Favourites, with Add still highlighted.
     await metro.press('up');
     const before = metro.commands.length;
@@ -359,6 +368,12 @@ test('ranges and bounds remain estimates; Due and empty updates cannot invent ar
   await metro.expectScreen('arrival-upper-bound');
   await metro.publish([330, 510, 690], 's', 'm');
   await metro.expectScreen('arrival-lower-bound');
+  await metro.publish([1440]);
+  await metro.expectScreen('arrival-long-minutes');
+  await metro.publish([86370], 's', 'i');
+  await metro.expectScreen('arrival-long-range');
+  await metro.publish([1440], 'm', 'l');
+  await metro.expectScreen('arrival-long-bound');
   await metro.publish([0], 's');
   await metro.expectScreen('estimated-now');
   await metro.publish([]);
@@ -369,22 +384,89 @@ test('ranges and bounds remain estimates; Due and empty updates cannot invent ar
 
 test.describe('full native data budget', () => {
   test.use({ largeNetwork: true });
-  test('metadata replacement safely resets an open interchange picker', async ({ metro }) => {
+  test('line headers follow selected routes and saved colours, including yellow', async ({ metro }) => {
     await saveFavourite(metro, { large: true });
+    for (const [index, colour] of ['blue', 'green', 'yellow'].entries()) {
+      await metro.press('back');
+      for (let i = 0; i < 3; i++) await metro.press('up');
+      await metro.press('select');
+      for (let i = 0; i <= index; i++) await metro.press('down'); // Choose the coloured line first.
+      await metro.expectScreen(`line-choice-${colour}`);
+      await metro.press('select'); // Line -> its two stations.
+      await metro.press('select'); // First station -> the other terminus.
+      await metro.press('select'); // Save the only direction.
+      await metro.publish([3, 4, 5]);
+      await metro.expectScreen(`header-${colour}`);
+      if (captureAssets && colour === 'yellow') writeFileSync(resolve(root, `docs/assets/issue-5/${metro.platform}-yellow-live.png`), await metro.screenshot());
+      await metro.relaunch();
+      await metro.expectScreen(`header-${colour}-saved`, 'arrivals');
+      if (captureAssets && colour === 'yellow') writeFileSync(resolve(root, `docs/assets/issue-5/${metro.platform}-yellow-saved.png`), await metro.screenshot());
+      await metro.startPhone();
+      await metro.publish([3, 4, 5]);
+      await metro.expectScreen(`header-${colour}`);
+    }
+  });
+  for (const stage of ['line', 'station', 'direction'] as const) {
+    test(`metadata replacement safely resets an open ${stage} picker`, async ({ metro }) => {
+      await saveFavourite(metro, { large: true });
+      await metro.press('back');
+      for (let i = 0; i < 3; i++) await metro.press('up');
+      await metro.press('select');
+      await metro.press('down'); // Azul will be removed while highlighted or drafted.
+      if (stage !== 'line') await metro.press('select');
+      if (stage === 'direction') await metro.press('select');
+      await metro.removeLine('pt-ml-blue');
+      await metro.expectScreen('catalog-updated');
+      await metro.press('select');
+      await metro.expectScreen('favourites');
+      await metro.press('select');
+      await metro.expectScreen('arrivals');
+    });
+  }
+  test('line-first pickers filter interchanges, retain Back positions and exclude the origin terminus', async ({ metro }) => {
+    await metro.expectScreen('first-use');
+    await metro.press('select');
+    await metro.expectScreen('lines-large');
+    await metro.press('down'); // Azul: only synthetic Z41 and Z42, both also on Vermelha.
+    await metro.expectScreen('lines-blue');
+    await metro.press('select');
+    await metro.expectScreen('stations-blue');
+    await metro.press('down');
+    await metro.expectScreen('stations-blue-second');
+    await metro.press('select'); // No second line choice at the interchange.
+    await metro.expectScreen('directions-blue-first'); // Z42 can only head to Z41.
     await metro.press('back');
-    for (let i = 0; i < 3; i++) await metro.press('up');
+    await metro.expectScreen('stations-blue-second');
+    await metro.press('back');
+    await metro.expectScreen('lines-blue');
+    await metro.press('back');
+    await metro.expectScreen('first-use'); // No incomplete draft saved.
+    expect(metro.commands.filter(command => command.type === 'watch').every(command => !command.favorite)).toBe(true);
+    await expectSubscription(metro, null);
+
     await metro.press('select');
-    const station = metro.stations.findIndex(station => station.id === 'pt-ml-z41');
-    expect(station).toBeGreaterThan(0);
-    for (let i = 0; i < station; i++) await metro.press('down');
-    await metro.press('select'); // Z41 has red and blue lines.
-    await metro.press('down'); // Highlight the line that the source will remove.
-    await metro.removeLine('pt-ml-blue');
-    await metro.expectScreen('catalog-updated');
+    await metro.press('down');
     await metro.press('select');
-    await metro.expectScreen('favourites');
+    await metro.expectScreen('stations-blue');
     await metro.press('select');
-    await metro.expectScreen('arrivals');
+    await metro.expectScreen('directions-blue-second'); // Z41 can only head to Z42.
+    await metro.press('down'); // One direction wraps to itself.
+    await metro.expectScreen('directions-blue-second');
+    const favourite = { station: 'pt-ml-z41', line: 'pt-ml-blue', direction: 'pt-ml-z42' };
+    const before = metro.commands.length;
+    await metro.press('select');
+    await expectSelection(metro, favourite, before);
+    await expectSubscription(metro, favourite.station);
+    await metro.publish([3, 4, 5]);
+    await metro.expectScreen('arrivals-blue');
+    await metro.press('back');
+    await metro.expectScreen('favourites-blue');
+    await metro.press('select');
+    await metro.relaunch();
+    await metro.expectScreen('saved-blue', 'arrivals');
+    await metro.startPhone();
+    await metro.publish([3, 4, 5]); // Require fresh route data before asserting LIVE.
+    await metro.expectScreen('arrivals-blue');
   });
   test('16 real-button favourites survive 160 switches, source updates and relaunch without heap growth', async ({ metro }) => {
     test.setTimeout(180_000);

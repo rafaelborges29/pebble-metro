@@ -225,6 +225,7 @@ companion, persistence, expiry, UUID, fonts and layout are unchanged. See
 
 The [SDK internationalization guide](https://developer.repebble.com/guides/tools-and-resources/internationalization/)
 documents `pt_PT` and system-font language support. Text uses the existing Gothic
-system fonts; Bitham remains restricted to numbers. Portuguese accents are checked
+system fonts; numeric countdowns use the LECO/Roboto/Bitham size fallback from
+the arrival layout. Portuguese accents are checked
 in real emulator frames on both targets. Hardware language selection/font packs
 remain a physical-watch acceptance item; see [test limitations](e2e.md).

@@ -12,13 +12,18 @@ Launch with favourites → last viewed arrivals
   Select → Retry live data / Remove favourite
   Back → favourites list
 
-First use → Select → station → line if needed → direction → save
-Favourites list → Add favourite / Retry data / About
+First use → Select → line → station on that line → direction → save
+Favourites list → Add favourite → the same line-first flow
+Favourites list → Retry data / About
 Back at favourites root or empty screen → exit
 ```
 
-Each favourite is a station + line + reachable terminus. Interchanges offer a line
-picker; termini exclude the origin as a destination. Up to 16 favourites persist.
+Each favourite is a station + line + reachable terminus. The line picker uses the
+catalogue names; stations are filtered by that line and stay alphabetical.
+Interchanges keep the chosen line; termini exclude the origin as a destination.
+Back restores the previous picker row, and cancelling saves no draft. A changed
+catalogue clears an open draft/history and asks the user to choose again.
+Up to 16 favourites persist.
 Holding Up/Down repeats. Removal is confirmed and does not rewrite other favourites.
 
 Touch uses the same actions and four-row pages: tap a visible row to activate that
@@ -31,8 +36,11 @@ replacement changes its target. A tap ending on a different row is ignored.
 
 ## Arrivals
 
-- Status strip and watch-local clock.
-- Station, line colour/name and destination; colour is never the only label.
+- Status strip and watch-local clock on the selected line colour, including saved
+  routes. Missing colour falls back to black; SDK contrast selection keeps text
+  legible on all four colours, including yellow.
+- Station and destination, with no separate line-name row on arrivals. The line
+  picker retains textual names so selecting a route does not depend on colour.
 - Next estimate prominently displayed, with two following estimates underneath.
 - Source seconds, approximate minutes (`~`), ranges and bounds retain their meaning.
 - `Due` / `Estimated now` does not assert observed train presence.
@@ -42,11 +50,31 @@ Switching changes an index/subscription, without allocating a menu/object tree.
 Only visible menu rows are drawn. Static menus redraw on changes or the minute
 clock tick, not every second.
 
-Time 2 uses the rectangular layout. Round 2 centers the station/line/direction,
+Time 2 uses the rectangular layout. Round 2 centers the station/direction,
 measures the main ETA and its unit as one centered group, and insets header/footer
 text away from the circular edge. The last of four menu rows is narrower to stay
 inside the bottom curve. Compact round footers keep counts such as 17/19 visible.
 These are layout differences only; estimates, cache and navigation semantics match.
+
+The reclaimed line row gives numeric ETAs the SDK's LECO 60 Bold font on both
+watches. Approximation and bound prefixes retain their Gothic glyphs beside the
+larger number; ranges, Due and missing data use Gothic. The whole value, prefix
+and unit are measured before drawing, falling back to Roboto 49, Bitham 42 and
+Gothic 24 for wide values. No custom font, locale change or invented precision is
+introduced. Header/footer bounds, touch targets and train position are unchanged.
+See the official [system fonts](https://developer.repebble.com/guides/app-resources/system-fonts/)
+and [font subset limitations](https://developer.repebble.com/guides/app-resources/fonts/).
+
+Before/after numeric layout (actual emulator fixtures, not live train observations):
+
+| Target | Before | After |
+| --- | --- | --- |
+| Time 2 | ![Before](assets/issue-5/emery-before.png) | ![After](../assets/appstore/emery_seconds.png) |
+| Round 2 | ![Before](assets/issue-5/gabbro-before.png) | ![After](../assets/appstore/gabbro_seconds.png) |
+
+Fixture data contains information from [UnderLX](https://underlx.com/), made
+available under [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+See [data methods](../DATA_METHODS.md).
 
 ## Data path
 

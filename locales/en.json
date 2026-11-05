@@ -6,7 +6,7 @@
   "notice.save_failed": "Storage unavailable. Favourite was not saved.",
   "notice.catalog_unavailable": "Station data is unavailable. Open the Pebble phone app and retry.",
   "notice.station_unavailable": "Station unavailable. Choose again.",
-  "notice.line_unavailable": "Line unavailable. Choose the station again.",
+  "notice.line_unavailable": "Line unavailable. Choose again.",
   "notice.remove_failed": "Storage unavailable. Favourite was not removed.",
   "arrival.due": "Due",
   "arrival.estimated_now": "Estimated now",

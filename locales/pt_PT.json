@@ -6,7 +6,7 @@
   "notice.save_failed": "Erro de memória. O favorito não foi guardado.",
   "notice.catalog_unavailable": "Estações indisponíveis. Abra a app Pebble no telemóvel e tente de novo.",
   "notice.station_unavailable": "Estação indisponível. Escolha novamente.",
-  "notice.line_unavailable": "Linha indisponível. Escolha novamente a estação.",
+  "notice.line_unavailable": "Linha indisponível. Escolha novamente.",
   "notice.remove_failed": "Erro de memória. O favorito não foi removido.",
   "arrival.due": "Agora",
   "arrival.estimated_now": "Hora estimada",

@@ -351,6 +351,7 @@ static bool receive_catalog(const JsonDoc *doc) {
   bool editing = s_view == STATIONS || s_view == LINES || s_view == DIRECTIONS;
   for (int i = 0; i < s_history_count; i++) if (s_history[i].view == STATIONS || s_history[i].view == LINES || s_history[i].view == DIRECTIONS) editing = true;
   if (changed && editing) {
+    s_draft_station = MAX_STATIONS; s_draft_line = MAX_LINES;
     s_history_count = 0; s_row = 0; s_view = favorite_count() ? FAVORITES : EMPTY;
     notice(UI_NOTICE_CATALOG_UPDATED);
   }
@@ -543,19 +544,15 @@ static void back(void) {
   if (s_history_count) { History h = s_history[--s_history_count]; s_view = h.view; s_row = h.row; draw(); }
   else go(s_favorites[s_selected].version ? ARRIVALS : EMPTY, false);
 }
-static int draft_line_count(void) {
-  if (s_draft_station >= s_station_count) return 0;
-  int count = 0;
-  for (int i = 0; i < s_line_count; i++) if (s_stations[s_draft_station].lines & (1u << i)) count++;
-  return count;
-}
-static int draft_line_at(int row) {
-  if (s_draft_station >= s_station_count || row < 0) return -1;
-  for (int i = 0; i < s_line_count; i++) if ((s_stations[s_draft_station].lines & (1u << i)) && row-- == 0) return i;
+static int draft_station_at(int row) {
+  if (s_draft_line >= s_line_count || row < 0) return -1;
+  // Keep the catalogue's alphabetical order within the chosen line.
+  for (int i = 0; i < s_station_count; i++) if ((s_stations[i].lines & (1u << s_draft_line)) && row-- == 0) return i;
   return -1;
 }
 static int draft_direction_at(int row) {
-  if (s_draft_station >= s_station_count || s_draft_line >= s_line_count || row < 0) return -1;
+  if (s_draft_station >= s_station_count || s_draft_line >= s_line_count || row < 0
+    || !(s_stations[s_draft_station].lines & (1u << s_draft_line))) return -1;
   int targets[2] = { s_lines[s_draft_line].stations[0], s_lines[s_draft_line].stations[s_lines[s_draft_line].count - 1] };
   for (int i = 0; i < 2; i++) if (targets[i] != s_draft_station && row-- == 0) return targets[i];
   return -1;
@@ -563,9 +560,9 @@ static int draft_direction_at(int row) {
 static int row_count(void) {
   switch (s_view) {
     case FAVORITES: return favorite_count() + 3;
-    case STATIONS: return s_station_count;
-    case LINES: return draft_line_count();
-    case DIRECTIONS: return draft_direction_at(1) >= 0 ? 2 : 1;
+    case STATIONS: return s_draft_line < s_line_count ? s_lines[s_draft_line].count : 0;
+    case LINES: return s_line_count;
+    case DIRECTIONS: return draft_direction_at(0) < 0 ? 0 : draft_direction_at(1) >= 0 ? 2 : 1;
     case ACTIONS: case REMOVE: return 2;
     default: return 0;
   }
@@ -606,7 +603,7 @@ static void select(void) {
   int count = row_count();
   if (count && s_row >= count) { s_row = 0; draw(); return; }
   if (s_view == EMPTY) {
-    if (s_station_count) { s_history_count = 0; go(STATIONS, true); }
+    if (s_station_count) { s_history_count = 0; go(LINES, true); }
     else begin_session();
   } else if (s_view == FAVORITES) {
     int count = favorite_count();
@@ -614,19 +611,16 @@ static void select(void) {
     else if (s_row == count) {
       if (count == MAX_FAVORITES) notice(UI_NOTICE_FAVOURITE_LIMIT);
       else if (!s_station_count) notice(UI_NOTICE_CATALOG_UNAVAILABLE);
-      else go(STATIONS, true);
+      else go(LINES, true);
     } else if (s_row == count + 1) { invalidate_arrivals(); begin_session(); }
     else go(ABOUT, true);
-  } else if (s_view == STATIONS) {
-    s_draft_station = s_row;
-    int line = draft_line_at(0);
-    if (line < 0) notice(UI_NOTICE_STATION_UNAVAILABLE);
-    else if (draft_line_count() == 1) { s_draft_line = line; go(DIRECTIONS, true); }
-    else go(LINES, true);
   } else if (s_view == LINES) {
-    int line = draft_line_at(s_row);
-    if (line < 0) notice(UI_NOTICE_LINE_UNAVAILABLE);
-    else { s_draft_line = line; go(DIRECTIONS, true); }
+    if (s_row >= s_line_count) notice(UI_NOTICE_LINE_UNAVAILABLE);
+    else { s_draft_line = s_row; s_draft_station = MAX_STATIONS; go(STATIONS, true); }
+  } else if (s_view == STATIONS) {
+    int station = draft_station_at(s_row);
+    if (station < 0) notice(UI_NOTICE_STATION_UNAVAILABLE);
+    else { s_draft_station = station; go(DIRECTIONS, true); }
   }
   else if (s_view == DIRECTIONS) add_favorite();
   else if (s_view == ACTIONS) {
@@ -777,7 +771,8 @@ static void text(GContext *ctx, const char *value, const char *font, int x, int 
     PBL_IF_ROUND_ELSE(GTextAlignmentCenter, GTextAlignmentLeft), NULL);
 }
 static int text_width(const char *value, const char *font, int height) {
-  return graphics_text_layout_get_content_size(value, fonts_get_system_font(font), GRect(0, 0, PBL_DISPLAY_WIDTH - 48, height),
+  // Measure bounded ETA strings before screen-width wrapping/ellipsis.
+  return graphics_text_layout_get_content_size(value, fonts_get_system_font(font), GRect(0, 0, 1024, height),
     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter).w;
 }
 static void train(GContext *ctx, int x, int y, uint32_t now) {
@@ -822,8 +817,8 @@ static void menu_label(int row, char *title, size_t size, char *detail, size_t d
     int count = favorite_count();
     if (row < count) { Labels labels = labels_for(&s_favorites[favorite_at(row)]); copy_label(title, size, labels.station); copy_label(detail, detail_size, labels.direction); }
     else copy_label(title, size, row == count ? localization_get(UI_MENU_ADD_FAVOURITE) : row == count + 1 ? localization_get(UI_MENU_RETRY_DATA) : localization_get(UI_MENU_ABOUT));
-  } else if (s_view == STATIONS) copy_label(title, size, row < s_station_count ? s_stations[row].name : localization_get(UI_MENU_UNAVAILABLE));
-  else if (s_view == LINES) { int line = draft_line_at(row); copy_label(title, size, line >= 0 ? s_lines[line].name : localization_get(UI_MENU_UNAVAILABLE)); }
+  } else if (s_view == STATIONS) { int station = draft_station_at(row); copy_label(title, size, station >= 0 ? s_stations[station].name : localization_get(UI_MENU_UNAVAILABLE)); }
+  else if (s_view == LINES) copy_label(title, size, row < s_line_count ? s_lines[row].name : localization_get(UI_MENU_UNAVAILABLE));
   else if (s_view == DIRECTIONS) { int direction = draft_direction_at(row); copy_label(title, size, direction >= 0 ? s_stations[direction].name : localization_get(UI_MENU_UNAVAILABLE)); }
   else if (s_view == ACTIONS) copy_label(title, size, row ? localization_get(UI_MENU_REMOVE_FAVOURITE) : localization_get(UI_MENU_RETRY_LIVE));
   else copy_label(title, size, row ? localization_get(UI_MENU_REMOVE_CONFIRM) : localization_get(UI_MENU_KEEP_FAVOURITE));
@@ -839,33 +834,44 @@ static void update_layer(Layer *layer, GContext *ctx) {
   char clock[8], footer[64] = "", value[24], unit[20], buffer[192];
   clock_copy_time_string(clock, sizeof(clock));
   UiKey header = s_view == ARRIVALS ? status(now) : s_view == EMPTY && !s_station_count ? now - s_attempt >= 15 ? UI_STATUS_UNAVAILABLE : UI_STATUS_CONNECTING : UI_NONE;
-  rect(ctx, GColorWhite, 0, 0, width, height); rect(ctx, GColorBlack, 0, 0, width, content.origin.y);
-  text(ctx, header ? localization_get(header) : "METRO LISBOA", FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, GColorWhite);
-  text(ctx, clock, FONT_KEY_GOTHIC_14, round ? 170 : 155, round ? 24 : 3, round ? 40 : 43, 22, GColorWhite);
+  Labels labels = { .color = GColorBlack };
+  if (s_view == ARRIVALS && s_favorites[s_selected].version) labels = labels_for(&s_favorites[s_selected]);
+  GColor header_ink = gcolor_legible_over(labels.color);
+  rect(ctx, GColorWhite, 0, 0, width, height); rect(ctx, labels.color, 0, 0, width, content.origin.y);
+  text(ctx, header ? localization_get(header) : "METRO LISBOA", FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, header_ink);
+  text(ctx, clock, FONT_KEY_GOTHIC_14, round ? 170 : 155, round ? 24 : 3, round ? 40 : 43, 22, header_ink);
   if (s_view == ARRIVALS && s_favorites[s_selected].version) {
-    Labels labels = labels_for(&s_favorites[s_selected]);
     text(ctx, labels.station, strlen(labels.station) > 21 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
-    int line_y = round ? 82 : 59;
-    int line_x = round ? (width - text_width(labels.line, FONT_KEY_GOTHIC_18_BOLD, 25)) / 2 - 9 : 10;
-    rect(ctx, labels.color, line_x, line_y + 6, 4, 14);
-    text(ctx, labels.line, FONT_KEY_GOTHIC_18_BOLD, round ? margin : 19, line_y, round ? content_width : 174, 25, GColorBlack);
     snprintf(buffer, sizeof(buffer), "→ %s", labels.direction);
-    text(ctx, buffer, FONT_KEY_GOTHIC_18, margin, round ? 105 : 82, round ? content_width : 184, 26, GColorBlack);
+    text(ctx, buffer, FONT_KEY_GOTHIC_18, margin, round ? 82 : 59, round ? content_width : 184, 26, GColorBlack);
     const Arrival *arrival = &s_arrivals[s_selected];
     arrival_label(&arrival->predictions[0], now, value, sizeof(value), unit, sizeof(unit));
-    // The number-only Bitham font has no Unicode range dash.
-    bool numeric = value[0] >= '0' && value[0] <= '9' && arrival->predictions[0].type != 'i';
+    // Numeric system fonts lack the approximation, range and bound symbols.
+    char prefix[2] = { value[0] && strchr("~<>", value[0]) ? value[0] : 0, 0 };
+    bool numeric = prefix[0] || (value[0] >= '0' && value[0] <= '9' && arrival->predictions[0].type != 'i');
     bool show_unit = unit[0] && !strchr(value, ':') && strcmp(value, localization_get(UI_ARRIVAL_DUE));
-    const char *primary = value[0] ? value : "--:--";
-    const char *font = numeric ? FONT_KEY_BITHAM_42_BOLD : FONT_KEY_GOTHIC_24_BOLD;
-    int value_x = margin, value_width = round ? content_width : show_unit ? 126 : 182;
-    int unit_x = 142, unit_width = 50;
-    if (round && show_unit) {
-      value_width = text_width(primary, font, 53); unit_width = text_width(unit, FONT_KEY_GOTHIC_18, 34);
-      value_x = (width - value_width - 8 - unit_width) / 2; unit_x = value_x + value_width + 8;
+    const char *primary = value[0] ? value + (prefix[0] ? 1 : 0) : "--:--";
+    int prefix_width = prefix[0] ? text_width(prefix, FONT_KEY_GOTHIC_28_BOLD, 40) + 2 : 0;
+    int unit_width = show_unit ? text_width(unit, FONT_KEY_GOTHIC_18, 34) : 0;
+    int gap = show_unit ? 8 : 0, available = content_width - prefix_width - unit_width - gap;
+    const char *font = numeric ? FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM : FONT_KEY_GOTHIC_28_BOLD;
+    int font_size = numeric ? 60 : 28;
+    if (numeric && text_width(primary, font, 75) > available) {
+      font = FONT_KEY_ROBOTO_BOLD_SUBSET_49; font_size = 49;
     }
-    text(ctx, primary, font, value_x, round ? 130 : 108, value_width, 53, GColorBlack);
-    if (show_unit) text(ctx, unit, FONT_KEY_GOTHIC_18, unit_x, round ? numeric ? 146 : 137 : 124, unit_width, 34, GColorBlack);
+    if (numeric && text_width(primary, font, 75) > available) {
+      font = FONT_KEY_BITHAM_42_BOLD; font_size = 42;
+    }
+    if (text_width(primary, font, 75) > available) {
+      font = FONT_KEY_GOTHIC_24_BOLD; font_size = 24;
+    }
+    int value_width = text_width(primary, font, 75);
+    int value_x = round ? (width - prefix_width - value_width - gap - unit_width) / 2 : margin;
+    if (prefix[0]) text(ctx, prefix, FONT_KEY_GOTHIC_28_BOLD, value_x, round ? 136 : 113, prefix_width, 40, GColorBlack);
+    value_x += prefix_width;
+    int value_y = (round ? 108 : 85) + 60 - font_size;
+    text(ctx, primary, font, value_x, value_y, value_width, font_size + 15, GColorBlack);
+    if (show_unit) text(ctx, unit, FONT_KEY_GOTHIC_18, value_x + value_width + gap, round ? 148 : 125, unit_width, 34, GColorBlack);
     buffer[0] = 0;
     for (int p = 1; p < 3; p++) {
       char next[24], next_unit[20], entry[48];

@@ -40,11 +40,13 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
    phone-clock handshake. This uses the SDK time packet, not a fake app clock.
 5. **Ranges, bounds, zero and empty data:** render ranges and both bounds through
    real MQTT, keeping the range dash visible (the large number-only font lacks it).
-   Render `Due` / `Estimated now`, then an empty update. Relaunch must not resurrect
+   Check maximum-length minutes, ranges and bounds. Render `Due` / `Estimated now`,
+   then an empty update. Relaunch must not resurrect
    its invalidated ETA. Route names remain without implying an available estimate.
-6. **Metadata replacement:** highlight the second line in an interchange picker,
-   remove that line in the REST fixture and refresh through the real companion.
-   The native picker/history resets safely instead of indexing a removed line.
+6. **Metadata replacement (three stages):** highlight or select the second line,
+   remove it while the line, filtered station or direction picker is open, and
+   refresh through the real companion. Each native draft/history resets safely
+   without changing existing favourites.
 7. **About/removal navigation:** inspect the UnderLX provider and ODbL licence
    URLs plus privacy/notices locations without truncation or private repository
    links, then inspect removal confirmation, keep the favourite, and return to
@@ -78,7 +80,7 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 15. **Opposite directions:** publish one whole-station snapshot with distinct
     estimates for both directions. Switching directions retains the correct LIVE
     data without resubscribing; removing one direction leaves the other intact.
-16. **Cancel an unfinished add:** back out of the direction/station pickers while
+16. **Cancel an unfinished add:** back out of the direction/station/line pickers while
     A is loading. Its selection/subscription remains unchanged, no draft is saved,
     and fresh A data still renders correctly.
 17. **Queued invalidation during a switch:** cache A/B, hold a newer A batch, and
@@ -89,6 +91,18 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
     queued empty update with a newer nonempty A snapshot before switching. That
     replacement must reach native C and replace both the older RAM/durable data;
     pruning must not erase the pending invalidation obligation.
+
+19. **Line-first creation:** select Azul from the four-line fixture, verify only
+    its two synthetic interchange stations appear, and keep that line through
+    direction selection. Both termini exclude themselves; a one-item direction
+    picker wraps safely. Back preserves highlighted station/line rows; cancelling
+    first use saves nothing. Save, inspect the favourite and reopen it from cache.
+20. **Line headers:** choose blue, green and yellow lines using their textual
+    picker rows, verify LIVE headers, then relaunch without the phone and verify
+    each saved colour. The ordinary arrivals flows cover red. Explicit store
+    capture also records seconds, `m:ss` and a maximum-length numeric countdown.
+    To refresh the unmasked yellow proof captures in `docs/assets/issue-5/`, run
+    `METRO_CAPTURE_ASSETS=1 npx playwright test --grep 'line headers'` after building.
 
 Only two recent routes are durable; other still-valid snapshots are RAM-only.
 The stress deliberately asserts the uncached third route rather than pretending
@@ -108,22 +122,26 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **22 flows per platform (44 tests)**, including the four
-language flows described below. Each platform
-independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (88 tests). Recheck after
+The normal matrix has **26 cases per platform (52 tests)**, including four locale
+cases per platform. Each platform independently checks heap headroom, switch
+variation and expected startup count.
+For repeated runs use `npm run e2e -- --repeat-each=2` (104 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The pre-localisation two-platform reference run passed **36/36 tests** in about nine minutes,
-including 160-switch stress on each watch. A separate repeated late-data subset
-passed **12/12** (two queued-invalidation cases × three repeats × two watches),
-with snapshot updates disabled. Across 232 samples in the full matrix:
+The integrated line-first navigation, line-header layout and localisation service
+passed **104/104 tests** (two complete matrices, four workers, 6.7 minutes) with
+snapshot updates disabled:
+`npm run e2e -- --repeat-each=2 --workers=4 --update-snapshots=none`.
+All 24 new or changed localisation integration screenshots were visually inspected.
+Locale tests now select a line before its filtered stations and verify that the
+origin terminus is excluded. Reopening explicitly waits for a fresh source update
+before asserting LIVE/ATUAL. Across 704 samples in the repeated matrix:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
-| Time 2 / Emery | 64,064–64,144 bytes | 5,448 / 64,144 bytes |
-| Round 2 / Gabbro | 63,944–64,024 bytes | 5,448 / 64,024 bytes |
+| Time 2 / Emery | 60,240–60,320 bytes | 5,680 / 60,320 bytes |
+| Round 2 / Gabbro | 60,112–60,192 bytes | 5,680 / 60,192 bytes |
 
 No unexpected native restart occurred. Recheck against the candidate revision
 rather than treating these measurements as permanent guarantees.
@@ -169,7 +187,9 @@ failures, but do not replace the actual native PBW flows.
 Time 2 baselines remain in `e2e/screenshots/`; Round 2 baselines are isolated in
 `e2e/screenshots/gabbro/` and are 260×260. Pixel comparison masks only:
 
-- The header clock at that platform's native position.
+- The header clock at that platform's native position, filled with the actual
+  header colour. Frame readiness accepts the four fixture line colours as well
+  as the neutral black header and still rejects launch frames.
 - The platform-specific 30 × 18 train area on loading/saved screens. An unmasked
   cropped assertion separately checks that its frames change.
 
@@ -213,7 +233,8 @@ and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
 `DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
 reproducibility and data provenance. These private diagnostics are not a public
 methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
-The workflow never installs on hardware or publishes. A local pass does
+The workflow allows 20 minutes for setup and the 52-case serial emulator matrix.
+It never installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
 
 During development, the allocation-free C JSON decoder was separately checked
@@ -266,11 +287,6 @@ fonts, **not** the physical watch's language picker or downloaded font packs.
 Run `npm run e2e -- --grep 'watch locale'` for this matrix, and add
 `--repeat-each=2` to repeat it. Full hardware language-switch acceptance remains
 necessary on both shapes.
-
-The localisation service passed **44/44** full-matrix tests (local, four workers,
-4.6 minutes), including heap and expected-restart assertions. English and
-Portuguese screenshots are unchanged. Run with snapshot updates disabled:
-`npm run e2e -- --workers=4 --update-snapshots=none --output=test-results/localization-service --reporter=list`.
 
 Nine generator checks cover translation validation, explicit locale mappings,
 aliases sharing tables, a configurable fallback, and malformed/missing registry

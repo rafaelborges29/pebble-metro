@@ -180,9 +180,9 @@ def run():
                             # Snapshot updates must not capture the system launch animation.
                             top = (130, 2) if round_display else (0, 0)
                             bottom = (130, 225) if round_display else (199, 201)
-                            if image.getpixel(top) not in ((0, 0, 0), (255, 255, 0)) or image.getpixel(bottom) != (255, 255, 255):
+                            if image.getpixel(top) not in ((0, 0, 0), (255, 0, 0), (0, 0, 255), (0, 170, 0), (255, 255, 0)) or image.getpixel(bottom) != (255, 255, 255):
                                 raise RuntimeError("Waiting for a rendered Metro frame")
-                            drawing.rectangle((170, 24, 209, 47) if round_display else (155, 0, 199, 23), fill="black")
+                            drawing.rectangle((170, 24, 209, 47) if round_display else (155, 0, 199, 23), fill=image.getpixel(top))
                         loader_positions = {"empty": (44, 112), "arrivals": (83, 205)} if round_display else {"empty": (10, 85), "arrivals": (10, 182)}
                         loader = params.get("mask_loader")
                         if loader in loader_positions:

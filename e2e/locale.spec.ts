@@ -6,6 +6,8 @@ for (const locale of ['pt_PT', 'fr_FR']) {
     test('native language selection, menus, estimates, saved data and removal', async ({ metro }) => {
       await metro.expectScreen('first-use');
       await metro.press('select');
+      await metro.expectScreen('lines');
+      await metro.press('select'); // Vermelha -> its stations.
       await metro.expectScreen('stations');
       await metro.press('down');
       await metro.press('select');
@@ -18,7 +20,8 @@ for (const locale of ['pt_PT', 'fr_FR']) {
       await metro.relaunch();
       await metro.expectScreen('saved-arrivals', 'arrivals');
       await metro.startPhone();
-      await metro.delivered('arrivals');
+      await metro.publish([3, 4, 5]);
+      await metro.expectScreen('arrivals');
       await metro.press('select');
       await metro.expectScreen('actions');
       await metro.press('down');
@@ -54,12 +57,12 @@ for (const locale of ['pt_PT', 'fr_FR']) {
     test.use({ watchLocale: locale, largeNetwork: true });
     test('line picker and metadata replacement notice', async ({ metro }) => {
       await metro.press('select');
-      const station = metro.stations.findIndex(s => s.id === 'pt-ml-z41');
-      expect(station).toBeGreaterThan(0);
-      for (let i = 0; i < station; i++) await metro.press('down');
+      await metro.expectScreen('locale-lines'); // Four available lines, before choosing a station.
+      await metro.press('down'); // Azul.
       await metro.press('select');
-      await metro.expectScreen('locale-lines');
-      await metro.press('down');
+      await metro.expectScreen('stations-blue'); // Only the two stations on Azul.
+      await metro.press('select');
+      await metro.expectScreen('directions-blue-second'); // The origin terminus is excluded.
       await metro.removeLine('pt-ml-blue');
       await metro.expectScreen('catalog-updated');
     });

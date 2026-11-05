@@ -50,7 +50,7 @@ unchanged. Existing favourites and cached data need no migration.
 | Screen | Buttons |
 | --- | --- |
 | Arrivals | Up/Down: switch favourites · Select: actions · Back: favourites |
-| First use | Select: station → line if needed → direction → save |
+| First use / Add favourite | Select: line → station on that line → direction → save |
 | Lists | Up/Down: choose (hold to repeat) · Select: open · Back: return |
 | Actions | Retry live data or remove the favourite with confirmation |
 | Favourites | Open a route, add another, retry, or view About / data |
