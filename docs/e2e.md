@@ -267,20 +267,21 @@ Run `npm run e2e -- --grep 'watch locale'` for this matrix, and add
 `--repeat-each=2` to repeat it. Full hardware language-switch acceptance remains
 necessary on both shapes.
 
-The semantic-key locale refactor passed the full **88/88 repeated matrix** with
-snapshot updates disabled (local, four workers, 6.4 minutes):
-`npm run e2e -- --repeat-each=2 --workers=4 --update-snapshots=none --output=test-results/repeated --reporter=list`.
-All existing English and Portuguese screenshot baselines are unchanged; the 36
-language images were visually reviewed when introduced. Across 568 samples,
-free heap was 60,832–60,912 bytes on Emery and 60,616–60,696 bytes on Gabbro.
-Switch samples used a constant 5,680 bytes; all expected app-start assertions
-passed (72 starts per platform, no unexpected restarts).
+The localisation service passed **44/44** full-matrix tests (local, four workers,
+4.6 minutes), including heap and expected-restart assertions. English and
+Portuguese screenshots are unchanged. Run with snapshot updates disabled:
+`npm run e2e -- --workers=4 --update-snapshots=none --output=test-results/localization-service --reporter=list`.
 
-The seven generator checks pass with both system Python and the Pebble tool's
-Python. Build probes cover clean/no-op builds, edits to either locale and the
-generator, regeneration after deleting the header, and rejection of a missing
-translation key. Restoring the inputs reproduces identical generated header and
-native main-object bytes on both targets. A temporary host C probe of the actual
-lookup/error helpers, with ASan/UBSan, checks changing locale, null/unsupported
-fallback, retained notice/local-error keys and known/unknown companion diagnostics.
-These are local checks, not hosted-CI or hardware acceptance.
+Nine generator checks cover translation validation, explicit locale mappings,
+aliases sharing tables, a configurable fallback, and malformed/missing registry
+entries. They run with both system Python and the Pebble tool's Python. Build
+probes cover clean/no-op builds, adding a mapped translation file, editing it,
+removing/restoring the mapping, and regeneration after deleting either generated
+header. Restoring inputs reproduces identical generated headers and localisation
+object bytes on both targets.
+
+A temporary host C probe compiles the actual `localization.c` with ASan/UBSan. It
+checks locale changes, null/empty/unsupported fallback, known/unknown diagnostics,
+invalid keys, and a third language/alias added through JSON alone. This supplements
+the actual release-PBW emulator flows; it does not replace them or physical-watch
+language/font acceptance.

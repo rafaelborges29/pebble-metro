@@ -116,11 +116,14 @@ Do not add `"type": "module"` to the root package: the SDK generates a CommonJS
 webpack configuration. A small build-time adapter handles the phone's ESM sources.
 Clean with `pebble clean --sdk 4.33.1` after changing SDK or project type.
 
-UI copy lives in `locales/en.json` and `locales/pt-PT.json`, keyed by meaning
+UI copy lives in `locales/en.json` and `locales/pt_PT.json`, keyed by meaning
 (for example, `menu.favourites`). The Pebble build validates both files and
-generates constant C tables in `build/generated/ui_strings.h` using the build's
-existing Python interpreter and standard library. Clean and incremental builds
-track both locales and the generator; no locale JSON is parsed on the watch.
+generates keys and constant C tables under `build/generated/` using the build's
+existing Python interpreter and standard library. `locales/index.json` maps Pebble
+locale strings to translation files and selects the English fallback. The native
+`localization` module owns selection, lookup and diagnostic translation; screens
+request text by key without language-specific branches. Clean and incremental
+builds track the registry and translations; no locale JSON is parsed on the watch.
 See [translation instructions](CONTRIBUTING.md#translations).
 
 ## Test and install

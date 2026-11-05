@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "json.h"
-#include "ui_strings.h"
+#include "localization.h"
 
 #define MAX_STATIONS 80
 #define MAX_LINES 8
@@ -92,28 +92,8 @@ static void touch_cancel(void) {}
 #endif
 
 // UI only: never translate source labels, protocol values or persisted records.
-// The SDK can change the watch locale while the app is open; do not cache it.
-static const char *ui(UiKey key) {
-  const char *locale = i18n_get_system_locale();
-  return locale && !strcmp(locale, "pt_PT") ? s_ui_pt_pt[key] : s_ui_en[key];
-}
-
-// These diagnostic strings are part of the companion boundary, not UI keys.
-// Unknown diagnostics remain verbatim; translate known ones only when drawing.
 static const char *error_text(void) {
-  if (s_error_key) return ui(s_error_key);
-  static const struct { const char *diagnostic; UiKey key; } errors[] = {
-    { "Feed unavailable", UI_ERROR_FEED_UNAVAILABLE },
-    { "Subscription failed", UI_ERROR_SUBSCRIPTION_FAILED },
-    { "Feed disconnected", UI_ERROR_FEED_DISCONNECTED },
-    { "MQTT connection failed", UI_ERROR_MQTT_CONNECTION },
-    { "MQTT unavailable", UI_ERROR_MQTT_UNAVAILABLE },
-    { "Unsubscribe failed", UI_ERROR_UNSUBSCRIBE_FAILED },
-    { "Station metadata unavailable", UI_ERROR_STATION_METADATA },
-  };
-  for (size_t i = 0; i < ARRAY_LENGTH(errors); i++)
-    if (!strcmp(s_error, errors[i].diagnostic)) return ui(errors[i].key);
-  return s_error;
+  return s_error_key ? localization_get(s_error_key) : localization_diagnostic(s_error);
 }
 
 static uint32_t now_seconds(void) { time_t now = time(NULL); return now > 0 ? (uint32_t)now : 0; }
@@ -813,11 +793,11 @@ static void arrival_label(const Prediction *p, uint32_t now, char *value, size_t
   double elapsed = now - p->received, multiplier = p->units == 'm' ? 60 : 1;
   double seconds = fmax(0, p->type == 't' ? p->value - now : p->value * multiplier - elapsed);
   copy_label(unit, unit_size, "min");
-  if (!seconds && (p->type == 'e' || p->type == 't')) { copy_label(value, size, ui(UI_ARRIVAL_DUE)); copy_label(unit, unit_size, ui(UI_ARRIVAL_ESTIMATED_NOW)); }
+  if (!seconds && (p->type == 'e' || p->type == 't')) { copy_label(value, size, localization_get(UI_ARRIVAL_DUE)); copy_label(unit, unit_size, localization_get(UI_ARRIVAL_ESTIMATED_NOW)); }
   else if (p->type == 'i') snprintf(value, size, "%d–%d", (int)floor(seconds / 60), (int)ceil(fmax(0, p->upper * multiplier - elapsed) / 60));
   else if (p->type == 'l' || p->type == 'm') snprintf(value, size, "%c%d", p->type == 'l' ? '<' : '>', p->type == 'l' ? (int)ceil(seconds / 60) : (int)floor(seconds / 60));
   else if (p->units == 'm') snprintf(value, size, "~%d", (int)ceil(seconds / 60));
-  else if (seconds < 60) { snprintf(value, size, "%d", (int)ceil(seconds)); copy_label(unit, unit_size, ui(UI_ARRIVAL_SECONDS)); }
+  else if (seconds < 60) { snprintf(value, size, "%d", (int)ceil(seconds)); copy_label(unit, unit_size, localization_get(UI_ARRIVAL_SECONDS)); }
   else { int rounded = ceil(seconds); snprintf(value, size, "%d:%02d", rounded / 60, rounded % 60); }
 }
 static UiKey stage(void) {
@@ -841,12 +821,12 @@ static void menu_label(int row, char *title, size_t size, char *detail, size_t d
   if (s_view == FAVORITES) {
     int count = favorite_count();
     if (row < count) { Labels labels = labels_for(&s_favorites[favorite_at(row)]); copy_label(title, size, labels.station); copy_label(detail, detail_size, labels.direction); }
-    else copy_label(title, size, row == count ? ui(UI_MENU_ADD_FAVOURITE) : row == count + 1 ? ui(UI_MENU_RETRY_DATA) : ui(UI_MENU_ABOUT));
-  } else if (s_view == STATIONS) copy_label(title, size, row < s_station_count ? s_stations[row].name : ui(UI_MENU_UNAVAILABLE));
-  else if (s_view == LINES) { int line = draft_line_at(row); copy_label(title, size, line >= 0 ? s_lines[line].name : ui(UI_MENU_UNAVAILABLE)); }
-  else if (s_view == DIRECTIONS) { int direction = draft_direction_at(row); copy_label(title, size, direction >= 0 ? s_stations[direction].name : ui(UI_MENU_UNAVAILABLE)); }
-  else if (s_view == ACTIONS) copy_label(title, size, row ? ui(UI_MENU_REMOVE_FAVOURITE) : ui(UI_MENU_RETRY_LIVE));
-  else copy_label(title, size, row ? ui(UI_MENU_REMOVE_CONFIRM) : ui(UI_MENU_KEEP_FAVOURITE));
+    else copy_label(title, size, row == count ? localization_get(UI_MENU_ADD_FAVOURITE) : row == count + 1 ? localization_get(UI_MENU_RETRY_DATA) : localization_get(UI_MENU_ABOUT));
+  } else if (s_view == STATIONS) copy_label(title, size, row < s_station_count ? s_stations[row].name : localization_get(UI_MENU_UNAVAILABLE));
+  else if (s_view == LINES) { int line = draft_line_at(row); copy_label(title, size, line >= 0 ? s_lines[line].name : localization_get(UI_MENU_UNAVAILABLE)); }
+  else if (s_view == DIRECTIONS) { int direction = draft_direction_at(row); copy_label(title, size, direction >= 0 ? s_stations[direction].name : localization_get(UI_MENU_UNAVAILABLE)); }
+  else if (s_view == ACTIONS) copy_label(title, size, row ? localization_get(UI_MENU_REMOVE_FAVOURITE) : localization_get(UI_MENU_RETRY_LIVE));
+  else copy_label(title, size, row ? localization_get(UI_MENU_REMOVE_CONFIRM) : localization_get(UI_MENU_KEEP_FAVOURITE));
 }
 static void update_layer(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
@@ -860,7 +840,7 @@ static void update_layer(Layer *layer, GContext *ctx) {
   clock_copy_time_string(clock, sizeof(clock));
   UiKey header = s_view == ARRIVALS ? status(now) : s_view == EMPTY && !s_station_count ? now - s_attempt >= 15 ? UI_STATUS_UNAVAILABLE : UI_STATUS_CONNECTING : UI_NONE;
   rect(ctx, GColorWhite, 0, 0, width, height); rect(ctx, GColorBlack, 0, 0, width, content.origin.y);
-  text(ctx, header ? ui(header) : "METRO LISBOA", FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, GColorWhite);
+  text(ctx, header ? localization_get(header) : "METRO LISBOA", FONT_KEY_GOTHIC_14_BOLD, round ? 54 : 8, round ? 24 : 3, round ? 108 : 144, 22, GColorWhite);
   text(ctx, clock, FONT_KEY_GOTHIC_14, round ? 170 : 155, round ? 24 : 3, round ? 40 : 43, 22, GColorWhite);
   if (s_view == ARRIVALS && s_favorites[s_selected].version) {
     Labels labels = labels_for(&s_favorites[s_selected]);
@@ -875,7 +855,7 @@ static void update_layer(Layer *layer, GContext *ctx) {
     arrival_label(&arrival->predictions[0], now, value, sizeof(value), unit, sizeof(unit));
     // The number-only Bitham font has no Unicode range dash.
     bool numeric = value[0] >= '0' && value[0] <= '9' && arrival->predictions[0].type != 'i';
-    bool show_unit = unit[0] && !strchr(value, ':') && strcmp(value, ui(UI_ARRIVAL_DUE));
+    bool show_unit = unit[0] && !strchr(value, ':') && strcmp(value, localization_get(UI_ARRIVAL_DUE));
     const char *primary = value[0] ? value : "--:--";
     const char *font = numeric ? FONT_KEY_BITHAM_42_BOLD : FONT_KEY_GOTHIC_24_BOLD;
     int value_x = margin, value_width = round ? content_width : show_unit ? 126 : 182;
@@ -896,29 +876,29 @@ static void update_layer(Layer *layer, GContext *ctx) {
     }
     bool waiting = !arrival->live && (!arrival->seen || has_predictions(arrival, now)) && !(s_error_key || s_error[0]) && s_source != SOURCE_DISCONNECTED;
     bool loading = waiting && now - s_attempt < 15;
-    if (!buffer[0] && !loading) copy_label(buffer, sizeof(buffer), !strcmp(value, ui(UI_ARRIVAL_DUE)) ? unit : (s_error_key || s_error[0]) ? error_text() : header == UI_STATUS_STALE ? ui(UI_ARRIVAL_WAITING_FRESH) : header == UI_STATUS_NO_ESTIMATE ? ui(UI_ARRIVAL_NO_LIVE_ESTIMATE) : ui(UI_ARRIVAL_WAITING));
+    if (!buffer[0] && !loading) copy_label(buffer, sizeof(buffer), !strcmp(value, localization_get(UI_ARRIVAL_DUE)) ? unit : (s_error_key || s_error[0]) ? error_text() : header == UI_STATUS_STALE ? localization_get(UI_ARRIVAL_WAITING_FRESH) : header == UI_STATUS_NO_ESTIMATE ? localization_get(UI_ARRIVAL_NO_LIVE_ESTIMATE) : localization_get(UI_ARRIVAL_WAITING));
     text(ctx, buffer, FONT_KEY_GOTHIC_18, margin, round ? 178 : 159, content_width, 24, GColorBlack);
     if (loading) {
       train(ctx, round ? 83 : 10, round ? 205 : 182, now);
-      text(ctx, ui(UI_ARRIVAL_UPDATING), FONT_KEY_GOTHIC_14, round ? 119 : 46, round ? 205 : 182, round ? 80 : 146, 20, GColorBlack);
+      text(ctx, localization_get(UI_ARRIVAL_UPDATING), FONT_KEY_GOTHIC_14, round ? 119 : 46, round ? 205 : 182, round ? 80 : 146, 20, GColorBlack);
     }
-    snprintf(footer, sizeof(footer), round ? ui(UI_FOOTER_ACTIONS_ROUND) : ui(UI_FOOTER_ACTIONS), favorite_ordinal() + 1, favorite_count());
+    snprintf(footer, sizeof(footer), round ? localization_get(UI_FOOTER_ACTIONS_ROUND) : localization_get(UI_FOOTER_ACTIONS), favorite_ordinal() + 1, favorite_count());
   } else if (s_view == EMPTY) {
-    text(ctx, ui(UI_EMPTY_TITLE), FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    text(ctx, localization_get(UI_EMPTY_TITLE), FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
     if (!s_station_count && !(s_error_key || s_error[0]) && now - s_attempt < 15) {
       train(ctx, round ? 44 : 10, round ? 112 : 85, now);
-      text(ctx, ui(stage()), FONT_KEY_GOTHIC_14, round ? 80 : 46, round ? 108 : 81, round ? 158 : 146, 30, GColorBlack);
-    } else text(ctx, s_station_count ? ui(UI_EMPTY_DESCRIPTION) : (s_error_key || s_error[0]) ? error_text() : ui(UI_EMPTY_RETRY),
+      text(ctx, localization_get(stage()), FONT_KEY_GOTHIC_14, round ? 80 : 46, round ? 108 : 81, round ? 158 : 146, 30, GColorBlack);
+    } else text(ctx, s_station_count ? localization_get(UI_EMPTY_DESCRIPTION) : (s_error_key || s_error[0]) ? error_text() : localization_get(UI_EMPTY_RETRY),
       FONT_KEY_GOTHIC_18, round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? 124 : 125, GColorBlack);
-    copy_label(footer, sizeof(footer), ui(UI_FOOTER_ADD_RETRY));
+    copy_label(footer, sizeof(footer), localization_get(UI_FOOTER_ADD_RETRY));
   } else if (s_view == NOTICE || s_view == ABOUT) {
-    text(ctx, s_view == ABOUT ? ui(UI_ABOUT_TITLE) : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
-    text(ctx, s_view == ABOUT ? ui(UI_ABOUT_BODY) : ui(s_notice),
+    text(ctx, s_view == ABOUT ? localization_get(UI_ABOUT_TITLE) : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    text(ctx, s_view == ABOUT ? localization_get(UI_ABOUT_BODY) : localization_get(s_notice),
       s_view == ABOUT ? FONT_KEY_GOTHIC_14 : FONT_KEY_GOTHIC_18,
       round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? (s_view == ABOUT ? 136 : 124) : 132, GColorBlack);
-    copy_label(footer, sizeof(footer), ui(UI_FOOTER_BACK));
+    copy_label(footer, sizeof(footer), localization_get(UI_FOOTER_BACK));
   } else {
-    const char *title = s_view == FAVORITES ? ui(UI_MENU_FAVOURITES) : s_view == STATIONS ? ui(UI_MENU_STATION) : s_view == LINES ? ui(UI_MENU_LINE) : s_view == DIRECTIONS ? ui(UI_MENU_DIRECTION) : s_view == ACTIONS ? ui(UI_MENU_ACTIONS) : ui(UI_MENU_REMOVE_TITLE);
+    const char *title = s_view == FAVORITES ? localization_get(UI_MENU_FAVOURITES) : s_view == STATIONS ? localization_get(UI_MENU_STATION) : s_view == LINES ? localization_get(UI_MENU_LINE) : s_view == DIRECTIONS ? localization_get(UI_MENU_DIRECTION) : s_view == ACTIONS ? localization_get(UI_MENU_ACTIONS) : localization_get(UI_MENU_REMOVE_TITLE);
     text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
     int count = row_count(), first = (s_row / MENU_ROWS) * MENU_ROWS;
     for (int i = first; i < count && i < first + MENU_ROWS; i++) {
@@ -933,11 +913,11 @@ static void update_layer(Layer *layer, GContext *ctx) {
       text(ctx, label, FONT_KEY_GOTHIC_18, x, y, span, detail[0] ? 21 : 33, selected ? GColorWhite : GColorBlack);
       if (detail[0]) text(ctx, detail, FONT_KEY_GOTHIC_14, x, y + 17, span, 18, selected ? GColorWhite : GColorBlack);
     }
-    snprintf(footer, sizeof(footer), round ? ui(UI_FOOTER_CHOOSE_ROUND) : ui(UI_FOOTER_CHOOSE), s_row + 1, count);
+    snprintf(footer, sizeof(footer), round ? localization_get(UI_FOOTER_CHOOSE_ROUND) : localization_get(UI_FOOTER_CHOOSE), s_row + 1, count);
   }
   int footer_y = content.origin.y + content.size.h;
   rect(ctx, GColorLightGray, 0, footer_y, width, height - footer_y);
-  text(ctx, s_storage_error ? ui(UI_ERROR_STORAGE) : s_cache_error ? ui(UI_ERROR_CACHE) : footer, FONT_KEY_GOTHIC_14_BOLD,
+  text(ctx, s_storage_error ? localization_get(UI_ERROR_STORAGE) : s_cache_error ? localization_get(UI_ERROR_CACHE) : footer, FONT_KEY_GOTHIC_14_BOLD,
     round ? 62 : 8, round ? 229 : 205, round ? 136 : 190, 23, GColorBlack);
   if (!s_announced) { s_announced = true; APP_LOG(APP_LOG_LEVEL_INFO, "Metro native UI ready"); log_memory("ready"); }
 }

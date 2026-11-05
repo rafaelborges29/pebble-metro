@@ -24,13 +24,12 @@ def configure(ctx):
 
 
 def build(ctx):
-    # Run once before either platform. Waf tracks the script, both locales and
-    # the generated header; no source-tree output or extra Python installation.
+    # Run once before either platform. Track the registry and translation files.
     ctx.add_group('locales')
     ctx.env.LOCALE_PYTHON = [sys.executable]
-    ctx(rule='${LOCALE_PYTHON} ${SRC} ${TGT}',
-        source=['tools/generate_locales.py', 'locales/en.json', 'locales/pt-PT.json'],
-        target='generated/ui_strings.h')
+    ctx(rule='${LOCALE_PYTHON} ${SRC[0].abspath()} ${SRC[1].abspath()} ${TGT}',
+        source=['tools/generate_locales.py', 'locales/index.json'] + ctx.path.ant_glob('locales/*.json', excl='locales/index.json'),
+        target=['generated/ui_keys.h', 'generated/ui_tables.h'])
     ctx.load('pebble_sdk')
 
     binaries = []

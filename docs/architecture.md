@@ -201,20 +201,27 @@ all writes are checked, rather than assuming global watch storage is available.
 
 ## UI language
 
-Flat `locales/en.json` and `locales/pt-PT.json` hold the UI copy under stable
-semantic keys. A dependency-free Python Waf task validates both files and generates
-`build/generated/ui_strings.h` before either native target compiles. Sorted keys
-produce deterministic `UiKey` identifiers and constant English/Portuguese C tables;
-the header is a build product, and locale JSON never runs on the watch.
+Flat `locales/en.json` and `locales/pt_PT.json` hold the UI copy under stable
+semantic keys. `locales/index.json` maps exact Pebble locale strings to these files
+and names the fallback locale. Aliases share one generated table. A dependency-free
+Python Waf task validates the registry, keys and format arguments and generates
+`build/generated/ui_keys.h` plus private `ui_tables.h` before either target compiles.
+The JSON files and generated data are isolated from the UI implementation.
 
-At UI boundaries, `ui(UI_MENU_FAVOURITES)` and other keyed lookups read the SDK
-system locale each time: exact `pt_PT` selects Portuguese, everything else
-(including a null locale) selects English. Notices and local errors retain keys,
-so redraws follow locale changes. Incoming companion diagnostics retain their raw
-text and existing bounds: a separate adapter maps known wire strings to UI keys
-at draw time, with verbatim fallback for unknown errors. Official source labels
-bypass translation. Protocol, companion, persistence, estimate expiry, UUID, fonts
-and layout are unchanged. See [translation instructions](../CONTRIBUTING.md#translations).
+`localization_get(UI_MENU_FAVOURITES)` reads the current SDK locale and looks it up
+in the generated registry. Currently `pt_PT` selects Portuguese, `en`/`en_US`
+select English, and null/empty/unsupported values use the configured English
+fallback. There is no language-specific branching in C. The allocation-free
+`src/c/localization.c` module owns lookup, fallback and known diagnostic mappings;
+`main.c` only requests text by key. Invalid keys return empty text rather than
+indexing outside the table. Each lookup reads the current locale, so retained
+notice/error keys follow language changes on the next redraw.
+
+Incoming companion diagnostics retain their raw text and existing bounds:
+`localization_diagnostic()` maps known wire strings to keys, with verbatim fallback
+for unknown errors. Official source labels bypass translation. Protocol,
+companion, persistence, expiry, UUID, fonts and layout are unchanged. See
+[translation instructions](../CONTRIBUTING.md#translations).
 
 The [SDK internationalization guide](https://developer.repebble.com/guides/tools-and-resources/internationalization/)
 documents `pt_PT` and system-font language support. Text uses the existing Gothic

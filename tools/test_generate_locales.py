@@ -10,10 +10,12 @@ from generate_locales import c_string, generate, printf_args
 class LocaleTests(unittest.TestCase):
     def render(self, en, pt):
         with tempfile.TemporaryDirectory() as directory:
-            paths = [Path(directory) / name for name in ("en.json", "pt-PT.json")]
+            paths = [Path(directory) / name for name in ("en.json", "pt_PT.json")]
             for path, value in zip(paths, (en, pt)):
                 path.write_text(value if isinstance(value, str) else json.dumps(value), encoding="utf-8")
-            return generate(*paths)
+            registry = Path(directory) / "index.json"
+            registry.write_text(json.dumps({"fallback": "en", "locales": {"en": "en.json", "pt_PT": "pt_PT.json"}}))
+            return "\n".join(generate(registry))
 
     def test_deterministic_order_and_copy(self):
         en = {"menu.favourites": 'Favourites', "about.body": 'A "quote"\\\nÉ?'}
@@ -40,9 +42,9 @@ class LocaleTests(unittest.TestCase):
                 self.render(data, data)
 
     def test_identifier_collision(self):
-        data = {"menu.a_b": "A", "menu.a.b": "B"}
-        with self.assertRaisesRegex(ValueError, "collide"):
-            self.render(data, data)
+        for data in ({"menu.a_b": "A", "menu.a.b": "B"}, {"key.count": "Reserved"}):
+            with self.subTest(data=data), self.assertRaisesRegex(ValueError, "collide"):
+                self.render(data, data)
 
     def test_printf_compatibility(self):
         self.render({"footer.choose": "%d/%d 100%%"}, {"footer.choose": "%02d / %i 100%%"})
@@ -56,7 +58,43 @@ class LocaleTests(unittest.TestCase):
 
     def test_repository_locales(self):
         root = Path(__file__).resolve().parent.parent
-        generate(root / "locales/en.json", root / "locales/pt-PT.json")
+        generate(root / "locales/index.json")
+
+    def test_registry_mappings_and_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for filename, text in (("en.json", "English"), ("pt_PT.json", "Português"), ("fr.json", "Français")):
+                (root / filename).write_text(json.dumps({"menu.title": text}), encoding="utf-8")
+            registry = root / "index.json"
+            config = {"fallback": "pt_PT", "locales": {
+                "en": "en.json", "en_US": "en.json", "pt_PT": "pt_PT.json", "fr": "fr.json", "fr_FR": "fr.json"}}
+            registry.write_text(json.dumps(config))
+            keys, tables = generate(registry)
+            self.assertNotIn("English", keys)
+            self.assertEqual(tables.count('= {\n  [UI_NONE]'), 3)  # Aliases share a single table.
+            self.assertIn('{ "fr_FR", s_ui_table_1 }', tables)
+            self.assertIn('s_ui_fallback = s_ui_table_2;', tables)
+            config["locales"] = dict(reversed(list(config["locales"].items())))
+            registry.write_text(json.dumps(config))
+            self.assertEqual((keys, tables), generate(registry))
+
+    def test_invalid_registry(self):
+        configs = [[], {}, {"fallback": "en", "locales": {}},
+                   {"fallback": "en", "locales": {"pt_PT": "pt_PT.json"}},
+                   {"fallback": [], "locales": {"en": "en.json"}},
+                   {"fallback": "en", "locales": {"en": "../en.json"}},
+                   {"fallback": "en", "locales": {"en": "index.json"}},
+                   {"fallback": "pt-PT", "locales": {"pt-PT": "pt_PT.json"}},
+                   '{"fallback":"en","locales":{"en":"en.json","en":"other.json"}}']
+        with tempfile.TemporaryDirectory() as directory:
+            registry = Path(directory) / "index.json"
+            for config in configs:
+                registry.write_text(config if isinstance(config, str) else json.dumps(config))
+                with self.subTest(config=config), self.assertRaises(ValueError):
+                    generate(registry)
+            registry.write_text(json.dumps({"fallback": "en", "locales": {"en": "missing.json"}}))
+            with self.assertRaises(FileNotFoundError):
+                generate(registry)
 
 
 if __name__ == "__main__":

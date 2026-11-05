@@ -28,9 +28,9 @@ The tested versions and Linux system packages are pinned in
 
 ## Translations
 
-Edit the flat UTF-8 objects in `locales/en.json` and `locales/pt-PT.json`.
+Edit the flat UTF-8 objects in `locales/en.json` and `locales/pt_PT.json`.
 Keep the same semantic keys in both files. A key such as `menu.favourites`
-generates `UI_MENU_FAVOURITES`; use `ui(UI_MENU_FAVOURITES)` in C.
+generates `UI_MENU_FAVOURITES`; use `localization_get(UI_MENU_FAVOURITES)` in C.
 Keep keys stable when wording changes. Use lowercase dotted groups and snake_case
 words; keys that would generate the same C identifier are rejected.
 
@@ -41,11 +41,20 @@ In formatted strings, use `%%` for a literal percent. Existing footer formats us
 `%d/%d`. Preserve estimate semantics, deliberate spaces/newlines, short buffer
 limits, and both screen shapes. Official names, complete legal texts and wire
 diagnostics are not translation keys. Known companion errors map to UI keys
-separately in `error_text()`; unknown diagnostics display verbatim.
+inside `localization_diagnostic()`; unknown diagnostics display verbatim.
 
-`npm run build` generates `build/generated/ui_strings.h` before compiling either
-platform. Never edit or commit that header. The generator uses only the Python
-standard library in the existing Pebble build environment. Run
+`locales/index.json` owns locale selection: `en` and `en_US` map to `en.json`,
+`pt_PT` maps to `pt_PT.json`, and `fallback` names the default mapping. To add a
+language, add a complete translation JSON and register its exact Pebble locale
+string here. Multiple locale strings may share one file; the generator emits its
+table only once. Use explicit mappings instead of broad language-prefix matching.
+Missing, empty and unsupported runtime locales use the configured fallback.
+No language-specific changes belong in `main.c`, `localization.c` or the generator.
+
+`npm run build` generates `build/generated/ui_keys.h` and `ui_tables.h` before
+compiling either platform. Only `localization.c` includes the private tables;
+UI code includes `localization.h`. Never edit or commit the generated headers.
+The generator uses only the Python standard library in the existing Pebble build environment. Run
 `python3 -m unittest discover -s tools` for generator validation checks, then the
 normal build and emulator checks. Pixel-preserving copy refactors must pass existing
 English and Portuguese snapshots without updating them.
