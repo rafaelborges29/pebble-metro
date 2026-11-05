@@ -20,28 +20,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24.21.0'
-          cache: npm
-      - uses: astral-sh/setup-uv@v10.3.0
-      - name: Install emulator runtime libraries
+      - uses: ./.github/actions/setup-pebble
+      - name: Validate version metadata, locale generator and release automation
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libsdl2-2.0-0 libglib2.0-0t64 libpixman-1-0 libpng16-16t64 \
-            zlib1g libasound2t64 libpulse0 libsndio7.0
-      - name: Install pinned Pebble tool and SDK
-        run: |
-          uv tool install --python 3.13 --with libpebble2==0.0.31 pebble-tool==5.0.39
-          export PATH="$(uv tool dir --bin):$PATH"
-          echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
-          pebble sdk install 4.33.1
-          pebble sdk activate 4.33.1
-      - name: Validate locale generator
-        run: python3 -m unittest discover -s tools
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
+          python3 tools/release.py check
+          python3 -m unittest discover -s tools
       - name: Build and test Time 2 and Round 2 in real emulators
         run: npm run e2e
       - name: Upload reports and failure diagnostics

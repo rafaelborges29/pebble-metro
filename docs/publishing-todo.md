@@ -79,6 +79,12 @@ implementation.
 
 ## Package and distribute
 
+For new versions of the existing Pebble listing, the [release workflow](releases.md)
+performs the build, tests, package checks, provenance and upload. Running **Create
+release** (or intentionally pushing a valid release tag) authorizes publication
+after checks; no second upload approval is required. The listing/artwork, legal
+review and hardware acceptance items below remain separate manual checks.
+
 - [ ] Confirm display/developer name, unused numeric version, release notes and
   any optional support contact. Do not describe an estimate as observed presence.
 - [ ] Confirm applicable SDK/toolchain redistribution terms. Inspect the emitted
@@ -115,8 +121,9 @@ implementation.
 - [ ] Review the developer agreements and final description, including its full
   privacy policy. Leave website/source URL fields blank unless a deliberately
   approved public destination exists; never use a private repository link.
-- [ ] Obtain explicit approval to upload the exact candidate with **Unlisted**
-  visibility. Unlisted is shareable/installable, not private staging.
+- [ ] For a new listing or visibility change, obtain explicit approval for the
+  intended visibility. Automated updates preserve the existing listing's visibility.
+  Unlisted is shareable/installable, not private staging.
 - [ ] Install from the store link and verify the expected watch/phone build.
   Obtain Round 2 physical feedback during the beta before claiming acceptance.
 - [ ] Obtain separate approval before changing the listing to **Listed**.

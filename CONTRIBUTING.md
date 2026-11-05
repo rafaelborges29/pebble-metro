@@ -12,6 +12,7 @@ model, protocol and storage boundaries.
 npm ci
 npx playwright install chromium
 python3 -m unittest discover -s tools
+python3 tools/release.py check
 npm run typecheck
 npm run check
 npm run e2e
@@ -23,8 +24,21 @@ E2E runs both platform projects. Use `npm run e2e -- --project=gabbro` (or
 
 The emulator harness needs the Pebble tool and its Python `libpebble2` dependency.
 The tested versions and Linux system packages are pinned in
-[CI](.github/workflows/e2e.yml); interpreter overrides are documented in
+[the shared CI setup](.github/actions/setup-pebble/action.yml); interpreter overrides are documented in
 [E2E](docs/e2e.md).
+
+## Versions and releases
+
+Main carries the next `major.minor.0-snapshot` version. Keep `package.json` and both
+root lockfile version fields aligned. The build preserves that development label
+while Pebble's native binary uses numeric major/minor. Do not publish snapshot PBWs.
+
+Use **Actions → Create release** with **minor** or **major** to prepare and publish
+a tested release. This action creates a release branch/tag, publishes the same PBW
+to GitHub and Pebble after checks, then opens the next-snapshot PR. It does not need
+a second approval; merge the next-snapshot PR before the following release.
+See [release setup, verification and recovery](docs/releases.md). The Python test
+suite covers versioning, PBW validation and publication failures without uploading.
 
 ## Translations
 

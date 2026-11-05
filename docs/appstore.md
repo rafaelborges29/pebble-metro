@@ -179,14 +179,21 @@ Favourites, source-precision countdowns, two-route saved cache and tiny-train lo
 Earlier Alloy favourites must be re-added after upgrading; the old store is not erased.
 ```
 
-## Other supported publishing routes
+## Updates and other supported publishing routes
+
+For updates to the existing Metro Lisboa listing, use the
+[Create release GitHub Action](releases.md). It tests one tagged PBW and publishes
+those exact bytes, preserving the current listing and screenshots. Running that
+action is approval to publish when checks pass. Setup, credentials, generated
+notes, retry handling and next-version PRs are documented there.
 
 Pebble officially supports three routes to the same appstore listing:
 
 - **Developer Dashboard:** manual PBW/images upload and the only place to edit an
-  existing listing's text, images, URLs and visibility. Recommended for this beta.
+  existing listing's text, images, URLs and visibility.
 - **`pebble publish`:** build/capture/upload from the CLI, including non-interactive
-  CI uploads. Best considered later for deliberate tagged releases, not every push.
+  CI uploads. It rebuilds, so our release automation uses its existing-app API
+  directly to preserve the verified PBW.
 - **CloudPebble Publish:** uses the latest successful CloudPebble build and that
   signed-in account. Avoid it for the initial local release if it risks submitting
   a different build from the exact PBW tested here.
