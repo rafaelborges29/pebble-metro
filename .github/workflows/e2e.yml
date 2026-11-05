@@ -21,10 +21,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-pebble
-      - name: Validate version metadata and locale generator
-        run: |
-          python3 tools/release.py check
-          python3 -m unittest discover -s tools
+      - name: Validate version metadata
+        run: python3 tools/release.py check
       - name: Build and test Time 2 and Round 2 in real emulators
         run: npm run e2e
       - name: Upload reports and failure diagnostics

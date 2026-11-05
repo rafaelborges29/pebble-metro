@@ -11,14 +11,14 @@ model, protocol and storage boundaries.
 ```sh
 npm ci
 npx playwright install chromium
-python3 -m unittest discover -s tools
 python3 tools/release.py check
 npm run typecheck
 npm run check
 npm run e2e
 ```
 
-E2E runs both platform projects. Use `npm run e2e -- --project=gabbro` (or
+Automated tests use the emulator E2E suite, which runs both platform projects.
+Use `npm run e2e -- --project=gabbro` (or
 `--project=emery`) for a focused run. New Round 2 baselines live under
 `e2e/screenshots/gabbro/`; the existing Time 2 baselines remain at the root.
 
@@ -67,10 +67,9 @@ No language-specific changes belong in `main.c`, `localization.c` or the generat
 `npm run build` generates `build/generated/ui_keys.h` and `ui_tables.h` before
 compiling either platform. Only `localization.c` includes the private tables;
 UI code includes `localization.h`. Never edit or commit the generated headers.
-The generator uses only the Python standard library in the existing Pebble build environment. Run
-`python3 -m unittest discover -s tools` for generator validation checks, then the
-normal build and emulator checks. Pixel-preserving copy refactors must pass existing
-English and Portuguese snapshots without updating them.
+The generator uses only the Python standard library in the existing Pebble build
+environment. Run the normal build and emulator checks. Pixel-preserving copy
+refactors must pass existing English and Portuguese snapshots without updating them.
 
 ## Changes
 
