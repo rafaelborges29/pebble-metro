@@ -40,7 +40,8 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
    phone-clock handshake. This uses the SDK time packet, not a fake app clock.
 5. **Ranges, bounds, zero and empty data:** render ranges and both bounds through
    real MQTT, keeping the range dash visible (the large number-only font lacks it).
-   Render `Due` / `Estimated now`, then an empty update. Relaunch must not resurrect
+   Check maximum-length minutes, ranges and bounds. Render `Due` / `Estimated now`,
+   then an empty update. Relaunch must not resurrect
    its invalidated ETA. Route names remain without implying an available estimate.
 6. **Metadata replacement (three stages):** highlight or select the second line,
    remove it while the line, filtered station or direction picker is open, and
@@ -96,6 +97,12 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
     direction selection. Both termini exclude themselves; a one-item direction
     picker wraps safely. Back preserves highlighted station/line rows; cancelling
     first use saves nothing. Save, inspect the favourite and reopen it from cache.
+20. **Line headers:** choose blue, green and yellow lines using their textual
+    picker rows, verify LIVE headers, then relaunch without the phone and verify
+    each saved colour. The ordinary arrivals flows cover red. Explicit store
+    capture also records seconds, `m:ss` and a maximum-length numeric countdown.
+    To refresh the unmasked yellow proof captures in `docs/assets/issue-5/`, run
+    `METRO_CAPTURE_ASSETS=1 npx playwright test --grep 'line headers'` after building.
 
 Only two recent routes are durable; other still-valid snapshots are RAM-only.
 The stress deliberately asserts the uncached third route rather than pretending
@@ -115,21 +122,24 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **21 cases per platform (42 tests)**. Each platform
+The normal matrix has **22 cases per platform (44 tests)**. Each platform
 independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (84 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (88 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The normal two-platform reference run passed **36/36 tests** in about nine minutes,
-including 160-switch stress on each watch. A separate repeated late-data subset
-passed **12/12** (two queued-invalidation cases × three repeats × two watches),
-with snapshot updates disabled. Across 232 samples in the full matrix:
+The integrated line-first navigation and line-header layout passed **88/88 tests**
+(two complete matrices, four workers) with snapshot updates disabled:
+`npm run e2e -- --repeat-each=2 --workers=4 --update-snapshots=none`.
+All ten integration screenshot changes were visually inspected. The line-colour
+tests now select a line before its filtered stations; reopening in the line-first
+flow explicitly waits for a fresh source update before asserting LIVE. Across
+600 samples in the repeated matrix:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
-| Time 2 / Emery | 64,064–64,144 bytes | 5,448 / 64,144 bytes |
-| Round 2 / Gabbro | 63,944–64,024 bytes | 5,448 / 64,024 bytes |
+| Time 2 / Emery | 62,176–62,256 bytes | 5,680 / 62,256 bytes |
+| Round 2 / Gabbro | 62,088–62,168 bytes | 5,680 / 62,168 bytes |
 
 No unexpected native restart occurred. Recheck against the candidate revision
 rather than treating these measurements as permanent guarantees.
@@ -170,7 +180,9 @@ failures, but do not replace the actual native PBW flows.
 Time 2 baselines remain in `e2e/screenshots/`; Round 2 baselines are isolated in
 `e2e/screenshots/gabbro/` and are 260×260. Pixel comparison masks only:
 
-- The header clock at that platform's native position.
+- The header clock at that platform's native position, filled with the actual
+  header colour. Frame readiness accepts the four fixture line colours as well
+  as the neutral black header and still rejects launch frames.
 - The platform-specific 30 × 18 train area on loading/saved screens. An unmasked
   cropped assertion separately checks that its frames change.
 
