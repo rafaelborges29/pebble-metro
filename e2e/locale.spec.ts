@@ -30,12 +30,7 @@ for (const locale of ['pt_PT', 'fr_FR']) {
       await metro.press('select'); // Keep favourite.
       await metro.press('back');
       await metro.press('back');
-      await metro.expectScreen('favourites'); // Four rows, including the round bottom row.
-      await metro.press('up');
-      await metro.press('select');
-      await metro.expectScreen('about');
-      await metro.press('select');
-      await metro.press('down');
+      await metro.expectScreen('favourites'); // Favourite, Add and Retry only.
       await metro.press('select');
       metro.setAutoArrivals(false);
       await metro.publish([150, 330, 510], 's', 'i');

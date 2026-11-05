@@ -33,7 +33,7 @@ typedef struct { uint32_t serial; Labels labels; } DiskLabels;
 typedef char CacheMustFitPersistence[(sizeof(DiskArrival) <= PERSIST_DATA_MAX_LENGTH) ? 1 : -1];
 typedef char LabelsMustFitPersistence[(sizeof(DiskLabels) <= PERSIST_DATA_MAX_LENGTH) ? 1 : -1];
 
-typedef enum { EMPTY, ARRIVALS, FAVORITES, STATIONS, LINES, DIRECTIONS, ACTIONS, REMOVE, NOTICE, ABOUT } View;
+typedef enum { EMPTY, ARRIVALS, FAVORITES, STATIONS, LINES, DIRECTIONS, ACTIONS, REMOVE, NOTICE } View;
 typedef struct { View view; uint8_t row; } History;
 typedef enum { SOURCE_CONNECTING, SOURCE_CONNECTED, SOURCE_DISCONNECTED } Source;
 typedef enum { SEND_NONE, SEND_HELLO, SEND_WATCH, SEND_CATALOG, SEND_ACK } SendType;
@@ -559,7 +559,7 @@ static int draft_direction_at(int row) {
 }
 static int row_count(void) {
   switch (s_view) {
-    case FAVORITES: return favorite_count() + 3;
+    case FAVORITES: return favorite_count() + 2;
     case STATIONS: return s_draft_line < s_line_count ? s_lines[s_draft_line].count : 0;
     case LINES: return s_line_count;
     case DIRECTIONS: return draft_direction_at(0) < 0 ? 0 : draft_direction_at(1) >= 0 ? 2 : 1;
@@ -599,7 +599,7 @@ static void add_favorite(void) {
 static void select(void) {
   touch_cancel();
   if (s_view == ARRIVALS) { go(ACTIONS, true); return; }
-  if (s_view == NOTICE || s_view == ABOUT) { back(); return; }
+  if (s_view == NOTICE) { back(); return; }
   int count = row_count();
   if (count && s_row >= count) { s_row = 0; draw(); return; }
   if (s_view == EMPTY) {
@@ -612,8 +612,7 @@ static void select(void) {
       if (count == MAX_FAVORITES) notice(UI_NOTICE_FAVOURITE_LIMIT);
       else if (!s_station_count) notice(UI_NOTICE_CATALOG_UNAVAILABLE);
       else go(LINES, true);
-    } else if (s_row == count + 1) { invalidate_arrivals(); begin_session(); }
-    else go(ABOUT, true);
+    } else { invalidate_arrivals(); begin_session(); }
   } else if (s_view == LINES) {
     if (s_row >= s_line_count) notice(UI_NOTICE_LINE_UNAVAILABLE);
     else { s_draft_line = s_row; s_draft_station = MAX_STATIONS; go(STATIONS, true); }
@@ -816,7 +815,7 @@ static void menu_label(int row, char *title, size_t size, char *detail, size_t d
   if (s_view == FAVORITES) {
     int count = favorite_count();
     if (row < count) { Labels labels = labels_for(&s_favorites[favorite_at(row)]); copy_label(title, size, labels.station); copy_label(detail, detail_size, labels.direction); }
-    else copy_label(title, size, row == count ? localization_get(UI_MENU_ADD_FAVOURITE) : row == count + 1 ? localization_get(UI_MENU_RETRY_DATA) : localization_get(UI_MENU_ABOUT));
+    else copy_label(title, size, row == count ? localization_get(UI_MENU_ADD_FAVOURITE) : localization_get(UI_MENU_RETRY_DATA));
   } else if (s_view == STATIONS) { int station = draft_station_at(row); copy_label(title, size, station >= 0 ? s_stations[station].name : localization_get(UI_MENU_UNAVAILABLE)); }
   else if (s_view == LINES) copy_label(title, size, row < s_line_count ? s_lines[row].name : localization_get(UI_MENU_UNAVAILABLE));
   else if (s_view == DIRECTIONS) { int direction = draft_direction_at(row); copy_label(title, size, direction >= 0 ? s_stations[direction].name : localization_get(UI_MENU_UNAVAILABLE)); }
@@ -897,11 +896,10 @@ static void update_layer(Layer *layer, GContext *ctx) {
     } else text(ctx, s_station_count ? localization_get(UI_EMPTY_DESCRIPTION) : (s_error_key || s_error[0]) ? error_text() : localization_get(UI_EMPTY_RETRY),
       FONT_KEY_GOTHIC_18, round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? 124 : 125, GColorBlack);
     copy_label(footer, sizeof(footer), localization_get(UI_FOOTER_ADD_RETRY));
-  } else if (s_view == NOTICE || s_view == ABOUT) {
-    text(ctx, s_view == ABOUT ? localization_get(UI_ABOUT_TITLE) : "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
-    text(ctx, s_view == ABOUT ? localization_get(UI_ABOUT_BODY) : localization_get(s_notice),
-      s_view == ABOUT ? FONT_KEY_GOTHIC_14 : FONT_KEY_GOTHIC_18,
-      round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? (s_view == ABOUT ? 136 : 124) : 132, GColorBlack);
+  } else if (s_view == NOTICE) {
+    text(ctx, "Metro", FONT_KEY_GOTHIC_24_BOLD, margin, title_y, content_width, 31, GColorBlack);
+    text(ctx, localization_get(s_notice), FONT_KEY_GOTHIC_18,
+      round ? 32 : 10, round ? 90 : 65, round ? 196 : 182, round ? 124 : 132, GColorBlack);
     copy_label(footer, sizeof(footer), localization_get(UI_FOOTER_BACK));
   } else {
     const char *title = s_view == FAVORITES ? localization_get(UI_MENU_FAVOURITES) : s_view == STATIONS ? localization_get(UI_MENU_STATION) : s_view == LINES ? localization_get(UI_MENU_LINE) : s_view == DIRECTIONS ? localization_get(UI_MENU_DIRECTION) : s_view == ACTIONS ? localization_get(UI_MENU_ACTIONS) : localization_get(UI_MENU_REMOVE_TITLE);

@@ -47,16 +47,15 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
    remove it while the line, filtered station or direction picker is open, and
    refresh through the real companion. Each native draft/history resets safely
    without changing existing favourites.
-7. **About/removal navigation:** inspect the UnderLX provider and ODbL licence
-   URLs plus privacy/notices locations without truncation or private repository
-   links, then inspect removal confirmation, keep the favourite, and return to
-   arrivals on both screen shapes.
+7. **Menu/removal navigation:** wrap through Retry data as the last favourites
+   row, inspect removal confirmation, keep the favourite, and return to arrivals
+   on both screen shapes.
 8. **Reported-crash regression:** use 50 stations and four lines (4,204 bytes in
    the validated original metadata shape), create all 16 favourites with actual
    buttons, and perform 160 UP/DOWN switches in both directions with new source
    updates, including seconds. Then inspect the two durable recent-route caches,
    relaunch, verify every persisted favourite ID, exercise wraparound and the
-   16-favourite limit. A snapshot at menu position 17/19 checks that two-digit
+   16-favourite limit. A snapshot at menu position 17/18 checks that two-digit
    counts remain visible inside the round footer. This test has a 180-second bound.
 
 9. **Add after LIVE:** keep A's loaded data, add B with source publishing paused,
@@ -129,19 +128,17 @@ For repeated runs use `npm run e2e -- --repeat-each=2` (104 tests). Recheck afte
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The integrated line-first navigation, line-header layout and localisation service
-passed **104/104 tests** (two complete matrices, four workers, 6.7 minutes) with
-snapshot updates disabled:
-`npm run e2e -- --repeat-each=2 --workers=4 --update-snapshots=none`.
-All 24 new or changed localisation integration screenshots were visually inspected.
-Locale tests now select a line before its filtered stations and verify that the
-origin terminus is excluded. Reopening explicitly waits for a fresh source update
-before asserting LIVE/ATUAL. Across 704 samples in the repeated matrix:
+After removing the About screen, the full matrix passed **52/52 tests** (four
+workers, 5.4 minutes) with snapshot updates disabled:
+`npm run e2e -- --workers=4 --update-snapshots=none`.
+All 16 new or changed menu baselines and both refreshed store menu images were
+visually inspected, covering English/Portuguese, zero/one/16 favourites and Retry
+wraparound. Across 352 memory samples:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
-| Time 2 / Emery | 60,240–60,320 bytes | 5,680 / 60,320 bytes |
-| Round 2 / Gabbro | 60,112–60,192 bytes | 5,680 / 60,192 bytes |
+| Time 2 / Emery | 60,752–60,832 bytes | 5,680 / 60,832 bytes |
+| Round 2 / Gabbro | 60,608–60,688 bytes | 5,680 / 60,688 bytes |
 
 No unexpected native restart occurred. Recheck against the candidate revision
 rather than treating these measurements as permanent guarantees.
@@ -265,7 +262,7 @@ battery use. This version does not use vibration.
 ## Portuguese and English fallback
 
 `locale.spec.ts` adds four flows per platform: menus, LIVE/SAVED, estimate
-ranges/bounds/zero/empty data, About and removal confirmation under `pt_PT` and
+ranges/bounds/zero/empty data and removal confirmation under `pt_PT` and
 unsupported `fr_FR`; and the line picker/catalogue-replacement notice in each
 locale. French deliberately expects the existing English baselines. Portuguese
 baselines live in `screenshots/pt-PT/` and `screenshots/gabbro/pt-PT/`. All app

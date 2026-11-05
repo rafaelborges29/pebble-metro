@@ -66,8 +66,8 @@ async function saveFavourite(metro: Metro, { large = false, waitForData = true }
 
 async function addStation(metro: Metro, row: number, { waitForData = true, direction = '' } = {}): Promise<Favourite> {
   await metro.press('back'); // Arrivals -> favourites; row zero is selected.
-  // The last three rows are Add favourite, Retry data, About (no settings).
-  for (let i = 0; i < 3; i++) await metro.press('up');
+  // The last two rows are Add favourite and Retry data.
+  for (let i = 0; i < 2; i++) await metro.press('up');
   await metro.press('select'); // Add favourite -> lines.
   await metro.press('select'); // Vermelha -> filtered stations.
   for (let i = 0; i < row; i++) await metro.press('down');
@@ -123,14 +123,13 @@ test('reopen immediately from the watch cache, then receive fresh arrivals', asy
   }
 });
 
-test('About shows provider/licence URLs and privacy/notices locations; removal confirmation remains navigable', async ({ metro }) => {
+test('favourites wrap through Retry data; removal confirmation remains navigable', async ({ metro }) => {
   await saveFavourite(metro);
   await metro.press('back');
-  await metro.press('up'); // About is the last root row.
-  await metro.press('select');
-  await metro.expectScreen('about');
-  await metro.press('select');
-  await metro.press('down'); // Wrap from About to the favourite.
+  await metro.press('up'); // Retry data is the last root row.
+  await metro.expectScreen('favourites-retry');
+  await metro.press('down'); // Wrap from Retry data to the favourite.
+  await metro.expectScreen('favourites');
   await metro.press('select');
   await metro.press('select');
   await metro.press('down');
@@ -309,7 +308,7 @@ test.describe('favourite lifecycle', () => {
     await saveFavourite(metro, { waitForData: false });
     const subscriptions = metro.subscriptions.length;
     await metro.press('back');
-    for (let i = 0; i < 3; i++) await metro.press('up');
+    for (let i = 0; i < 2; i++) await metro.press('up');
     await metro.press('select'); // Line picker.
     await metro.press('select'); // Station picker.
     await metro.press('select'); // Aeroporto -> direction picker, but do not save.
@@ -388,7 +387,7 @@ test.describe('full native data budget', () => {
     await saveFavourite(metro, { large: true });
     for (const [index, colour] of ['blue', 'green', 'yellow'].entries()) {
       await metro.press('back');
-      for (let i = 0; i < 3; i++) await metro.press('up');
+      for (let i = 0; i < 2; i++) await metro.press('up');
       await metro.press('select');
       for (let i = 0; i <= index; i++) await metro.press('down'); // Choose the coloured line first.
       await metro.expectScreen(`line-choice-${colour}`);
@@ -410,7 +409,7 @@ test.describe('full native data budget', () => {
     test(`metadata replacement safely resets an open ${stage} picker`, async ({ metro }) => {
       await saveFavourite(metro, { large: true });
       await metro.press('back');
-      for (let i = 0; i < 3; i++) await metro.press('up');
+      for (let i = 0; i < 2; i++) await metro.press('up');
       await metro.press('select');
       await metro.press('down'); // Azul will be removed while highlighted or drafted.
       if (stage !== 'line') await metro.press('select');
@@ -521,8 +520,8 @@ test.describe('full native data budget', () => {
     await metro.publish([3, 4, 5]);
     await metro.press('back');
     await metro.expectScreen('full-favourites');
-    for (let i = 0; i < 3; i++) await metro.press('up');
-    await metro.expectScreen('favourites-add-limit'); // Two-digit 17/19 stays visible on Round 2.
+    for (let i = 0; i < 2; i++) await metro.press('up');
+    await metro.expectScreen('favourites-add-limit'); // Two-digit 17/18 stays visible on Round 2.
     await metro.press('select');
     await metro.expectScreen('favourites-limit');
     await metro.press('back');

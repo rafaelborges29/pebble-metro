@@ -56,10 +56,10 @@ layout. Round 2 centers text and measured ETA/unit groups, places the header and
 footer inside the circular safe area, and increases the last menu row's insets.
 Both keep four visible menu rows and the same buttons/model/storage/protocol.
 The loader remains on the existing one-second tick; no round-specific object tree,
-framebuffer or animation timer is allocated by the app. About / data displays the
-provider, ODbL and full provider/licence URLs in a compact font, with long URLs
-wrapped across lines on both shapes. Privacy points to the store description and
-licence copies to the phone bundle; no private repository link is advertised.
+framebuffer or animation timer is allocated by the app. The favourites menu ends
+with Add favourite and Retry data; there is no About screen or on-watch version.
+Attribution and privacy information are supplied in the store description, and
+complete licence copies are embedded in the phone bundle.
 
 ### Touch input
 

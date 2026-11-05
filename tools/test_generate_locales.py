@@ -18,12 +18,12 @@ class LocaleTests(unittest.TestCase):
             return "\n".join(generate(registry))
 
     def test_deterministic_order_and_copy(self):
-        en = {"menu.favourites": 'Favourites', "about.body": 'A "quote"\\\nÉ?'}
-        pt = {"menu.favourites": "Favoritos", "about.body": "Ações"}
+        en = {"menu.favourites": 'Favourites', "notice.body": 'A "quote"\\\nÉ?'}
+        pt = {"menu.favourites": "Favoritos", "notice.body": "Ações"}
         result = self.render(en, pt)
         self.assertEqual(result, self.render(dict(reversed(list(en.items()))), pt))
         self.assertIn("UI_MENU_FAVOURITES", result)
-        self.assertIn(c_string(pt["about.body"]), result)
+        self.assertIn(c_string(pt["notice.body"]), result)
         self.assertEqual(c_string('É"\\\n?0'), '"\\303\\211\\042\\134\\012\\0770"')
 
     def test_duplicate_keys(self):

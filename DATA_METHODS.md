@@ -68,7 +68,7 @@ attribution always suffices for any ODbL application. The assessment concerns th
 publisher's current release,
 not every possible later redistribution of a user's data.
 
-Keep the UnderLX/ODbL attribution and provider/licence URLs in About and the store
+Keep the UnderLX/ODbL attribution and provider/licence URLs in the store
 description, preserve ODbL for data adaptations, supply complete applicable licence
 copies in the PBW, and disclose that screenshot estimates are artificial. Do not
 apply additional restrictions to UnderLX-derived data. Normal publisher/agreement,
