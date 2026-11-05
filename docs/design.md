@@ -12,13 +12,18 @@ Launch with favourites → last viewed arrivals
   Select → Retry live data / Remove favourite
   Back → favourites list
 
-First use → Select → station → line if needed → direction → save
-Favourites list → Add favourite / Retry data / About
+First use → Select → line → station on that line → direction → save
+Favourites list → Add favourite → the same line-first flow
+Favourites list → Retry data / About
 Back at favourites root or empty screen → exit
 ```
 
-Each favourite is a station + line + reachable terminus. Interchanges offer a line
-picker; termini exclude the origin as a destination. Up to 16 favourites persist.
+Each favourite is a station + line + reachable terminus. The line picker uses the
+catalogue names; stations are filtered by that line and stay alphabetical.
+Interchanges keep the chosen line; termini exclude the origin as a destination.
+Back restores the previous picker row, and cancelling saves no draft. A changed
+catalogue clears an open draft/history and asks the user to choose again.
+Up to 16 favourites persist.
 Holding Up/Down repeats. Removal is confirmed and does not rewrite other favourites.
 
 Touch uses the same actions and four-row pages: tap a visible row to activate that

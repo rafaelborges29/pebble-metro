@@ -43,9 +43,10 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
    Check maximum-length minutes, ranges and bounds. Render `Due` / `Estimated now`,
    then an empty update. Relaunch must not resurrect
    its invalidated ETA. Route names remain without implying an available estimate.
-6. **Metadata replacement:** highlight the second line in an interchange picker,
-   remove that line in the REST fixture and refresh through the real companion.
-   The native picker/history resets safely instead of indexing a removed line.
+6. **Metadata replacement (three stages):** highlight or select the second line,
+   remove it while the line, filtered station or direction picker is open, and
+   refresh through the real companion. Each native draft/history resets safely
+   without changing existing favourites.
 7. **About/removal navigation:** inspect the UnderLX provider and ODbL licence
    URLs plus privacy/notices locations without truncation or private repository
    links, then inspect removal confirmation, keep the favourite, and return to
@@ -79,7 +80,7 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 15. **Opposite directions:** publish one whole-station snapshot with distinct
     estimates for both directions. Switching directions retains the correct LIVE
     data without resubscribing; removing one direction leaves the other intact.
-16. **Cancel an unfinished add:** back out of the direction/station pickers while
+16. **Cancel an unfinished add:** back out of the direction/station/line pickers while
     A is loading. Its selection/subscription remains unchanged, no draft is saved,
     and fresh A data still renders correctly.
 17. **Queued invalidation during a switch:** cache A/B, hold a newer A batch, and
@@ -91,7 +92,12 @@ reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
     replacement must reach native C and replace both the older RAM/durable data;
     pruning must not erase the pending invalidation obligation.
 
-19. **Line headers:** choose blue, green and yellow lines using their textual
+19. **Line-first creation:** select Azul from the four-line fixture, verify only
+    its two synthetic interchange stations appear, and keep that line through
+    direction selection. Both termini exclude themselves; a one-item direction
+    picker wraps safely. Back preserves highlighted station/line rows; cancelling
+    first use saves nothing. Save, inspect the favourite and reopen it from cache.
+20. **Line headers:** choose blue, green and yellow lines using their textual
     picker rows, verify LIVE headers, then relaunch without the phone and verify
     each saved colour. The ordinary arrivals flows cover red. Explicit store
     capture also records seconds, `m:ss` and a maximum-length numeric countdown.
@@ -116,23 +122,24 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **19 flows per platform (38 tests)**. Each platform
+The normal matrix has **22 cases per platform (44 tests)**. Each platform
 independently checks heap headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (76 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (88 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-The line-header layout verification passed **38/38 tests** with snapshot updates
-disabled (the two platform runs were executed separately). A repeated subset of
-reopen, ranges/bounds and line-colour flows passed **12/12** (two repeats on both
-watches). Every changed baseline was visually inspected, along with unmasked
-seconds, `m:ss`, 24-hour-bound and yellow LIVE/SAVED captures. Across 262 samples
-in the full matrix:
+The integrated line-first navigation and line-header layout passed **88/88 tests**
+(two complete matrices, four workers) with snapshot updates disabled:
+`npm run e2e -- --repeat-each=2 --workers=4 --update-snapshots=none`.
+All ten integration screenshot changes were visually inspected. The line-colour
+tests now select a line before its filtered stations; reopening in the line-first
+flow explicitly waits for a fresh source update before asserting LIVE. Across
+600 samples in the repeated matrix:
 
 | Target | Free native heap | Switch samples (used / free) |
 | --- | --- | --- |
-| Time 2 / Emery | 62,168–62,248 bytes | 5,680 / 62,248 bytes |
-| Round 2 / Gabbro | 62,072–62,152 bytes | 5,680 / 62,152 bytes |
+| Time 2 / Emery | 62,176–62,256 bytes | 5,680 / 62,256 bytes |
+| Round 2 / Gabbro | 62,088–62,168 bytes | 5,680 / 62,168 bytes |
 
 No unexpected native restart occurred. Recheck against the candidate revision
 rather than treating these measurements as permanent guarantees.

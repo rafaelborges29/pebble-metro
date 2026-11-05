@@ -344,6 +344,7 @@ static bool receive_catalog(const JsonDoc *doc) {
   bool editing = s_view == STATIONS || s_view == LINES || s_view == DIRECTIONS;
   for (int i = 0; i < s_history_count; i++) if (s_history[i].view == STATIONS || s_history[i].view == LINES || s_history[i].view == DIRECTIONS) editing = true;
   if (changed && editing) {
+    s_draft_station = MAX_STATIONS; s_draft_line = MAX_LINES;
     s_history_count = 0; s_row = 0; s_view = favorite_count() ? FAVORITES : EMPTY;
     notice("Station list updated. Please choose again.");
   }
@@ -535,19 +536,15 @@ static void back(void) {
   if (s_history_count) { History h = s_history[--s_history_count]; s_view = h.view; s_row = h.row; draw(); }
   else go(s_favorites[s_selected].version ? ARRIVALS : EMPTY, false);
 }
-static int draft_line_count(void) {
-  if (s_draft_station >= s_station_count) return 0;
-  int count = 0;
-  for (int i = 0; i < s_line_count; i++) if (s_stations[s_draft_station].lines & (1u << i)) count++;
-  return count;
-}
-static int draft_line_at(int row) {
-  if (s_draft_station >= s_station_count || row < 0) return -1;
-  for (int i = 0; i < s_line_count; i++) if ((s_stations[s_draft_station].lines & (1u << i)) && row-- == 0) return i;
+static int draft_station_at(int row) {
+  if (s_draft_line >= s_line_count || row < 0) return -1;
+  // Keep the catalogue's alphabetical order within the chosen line.
+  for (int i = 0; i < s_station_count; i++) if ((s_stations[i].lines & (1u << s_draft_line)) && row-- == 0) return i;
   return -1;
 }
 static int draft_direction_at(int row) {
-  if (s_draft_station >= s_station_count || s_draft_line >= s_line_count || row < 0) return -1;
+  if (s_draft_station >= s_station_count || s_draft_line >= s_line_count || row < 0
+    || !(s_stations[s_draft_station].lines & (1u << s_draft_line))) return -1;
   int targets[2] = { s_lines[s_draft_line].stations[0], s_lines[s_draft_line].stations[s_lines[s_draft_line].count - 1] };
   for (int i = 0; i < 2; i++) if (targets[i] != s_draft_station && row-- == 0) return targets[i];
   return -1;
@@ -555,9 +552,9 @@ static int draft_direction_at(int row) {
 static int row_count(void) {
   switch (s_view) {
     case FAVORITES: return favorite_count() + 3;
-    case STATIONS: return s_station_count;
-    case LINES: return draft_line_count();
-    case DIRECTIONS: return draft_direction_at(1) >= 0 ? 2 : 1;
+    case STATIONS: return s_draft_line < s_line_count ? s_lines[s_draft_line].count : 0;
+    case LINES: return s_line_count;
+    case DIRECTIONS: return draft_direction_at(0) < 0 ? 0 : draft_direction_at(1) >= 0 ? 2 : 1;
     case ACTIONS: case REMOVE: return 2;
     default: return 0;
   }
@@ -598,7 +595,7 @@ static void select(void) {
   int count = row_count();
   if (count && s_row >= count) { s_row = 0; draw(); return; }
   if (s_view == EMPTY) {
-    if (s_station_count) { s_history_count = 0; go(STATIONS, true); }
+    if (s_station_count) { s_history_count = 0; go(LINES, true); }
     else begin_session();
   } else if (s_view == FAVORITES) {
     int count = favorite_count();
@@ -606,19 +603,16 @@ static void select(void) {
     else if (s_row == count) {
       if (count == MAX_FAVORITES) notice("Limit: 16 favourites. Remove one first.");
       else if (!s_station_count) notice("Station data is unavailable. Open the Pebble phone app and retry.");
-      else go(STATIONS, true);
+      else go(LINES, true);
     } else if (s_row == count + 1) { invalidate_arrivals(); begin_session(); }
     else go(ABOUT, true);
-  } else if (s_view == STATIONS) {
-    s_draft_station = s_row;
-    int line = draft_line_at(0);
-    if (line < 0) notice("Station unavailable. Choose again.");
-    else if (draft_line_count() == 1) { s_draft_line = line; go(DIRECTIONS, true); }
-    else go(LINES, true);
   } else if (s_view == LINES) {
-    int line = draft_line_at(s_row);
-    if (line < 0) notice("Line unavailable. Choose the station again.");
-    else { s_draft_line = line; go(DIRECTIONS, true); }
+    if (s_row >= s_line_count) notice("Line unavailable. Choose again.");
+    else { s_draft_line = s_row; s_draft_station = MAX_STATIONS; go(STATIONS, true); }
+  } else if (s_view == STATIONS) {
+    int station = draft_station_at(s_row);
+    if (station < 0) notice("Station unavailable. Choose again.");
+    else { s_draft_station = station; go(DIRECTIONS, true); }
   }
   else if (s_view == DIRECTIONS) add_favorite();
   else if (s_view == ACTIONS) {
@@ -815,8 +809,8 @@ static void menu_label(int row, char *title, size_t size, char *detail, size_t d
     int count = favorite_count();
     if (row < count) { Labels labels = labels_for(&s_favorites[favorite_at(row)]); copy_label(title, size, labels.station); copy_label(detail, detail_size, labels.direction); }
     else copy_label(title, size, row == count ? "+ Add favourite" : row == count + 1 ? "Retry data" : "About / data");
-  } else if (s_view == STATIONS) copy_label(title, size, row < s_station_count ? s_stations[row].name : "Unavailable");
-  else if (s_view == LINES) { int line = draft_line_at(row); copy_label(title, size, line >= 0 ? s_lines[line].name : "Unavailable"); }
+  } else if (s_view == STATIONS) { int station = draft_station_at(row); copy_label(title, size, station >= 0 ? s_stations[station].name : "Unavailable"); }
+  else if (s_view == LINES) copy_label(title, size, row < s_line_count ? s_lines[row].name : "Unavailable");
   else if (s_view == DIRECTIONS) { int direction = draft_direction_at(row); copy_label(title, size, direction >= 0 ? s_stations[direction].name : "Unavailable"); }
   else if (s_view == ACTIONS) copy_label(title, size, row ? "Remove favourite" : "Retry live data");
   else copy_label(title, size, row ? "Remove it" : "Keep favourite");
