@@ -74,7 +74,7 @@ release instead of selecting another listing or upload route.
    valid `vmajor.minor.0` tag also starts this pipeline and authorizes publication.
 3. The exact revision uses the shared pinned toolchain: SDK **4.33.1**, Pebble Tool
    **5.0.39**, libpebble2 **0.0.31**, Python **3.13** for the tool, Node **24.21.0**.
-   It runs Python tests, TypeScript/phone syntax checks and builds once. The existing
+   It runs locale-generator tests, TypeScript/phone syntax checks and builds once. The existing
    emulator suite installs that PBW on both `emery` and `gabbro`, without rebuilding
    or updating snapshots. No physical watch or touch tests are run.
 4. Preflight verifies ZIP integrity and allowed entries, UUID, numeric release
@@ -165,7 +165,6 @@ npm run check
 npx playwright test --update-snapshots=none
 ```
 
-The Python tests use temporary local Git remotes and mocked publishing APIs; they
-never create a real tag/release or upload to the store. The first live publication
+The Python tests cover the translation generator. The first live publication
 requires choosing a real release through the workflow after its setup and merge.
 Rebble publishing remains separate work under #9.

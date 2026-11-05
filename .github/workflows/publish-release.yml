@@ -57,7 +57,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-pebble
-      - run: python3 -m unittest discover -s tools
+      - name: Validate locale generator
+        run: python3 -m unittest discover -s tools
       - run: npm run typecheck
       - name: Reuse the frozen candidate when resuming a draft
         id: restore

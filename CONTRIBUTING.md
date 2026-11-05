@@ -37,8 +37,7 @@ Use **Actions → Create release** with **minor** or **major** to prepare and pu
 a tested release. This action creates a release branch/tag, publishes the same PBW
 to GitHub and Pebble after checks, then opens the next-snapshot PR. It does not need
 a second approval; merge the next-snapshot PR before the following release.
-See [release setup, verification and recovery](docs/releases.md). The Python test
-suite covers versioning, PBW validation and publication failures without uploading.
+See [release setup, verification and recovery](docs/releases.md).
 
 ## Translations
 
