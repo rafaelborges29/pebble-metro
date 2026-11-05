@@ -201,13 +201,20 @@ all writes are checked, rather than assuming global watch storage is available.
 
 ## UI language
 
-A small constant English/pt-PT copy table in `main.c` is applied only at UI
-boundaries. `ui()` reads the SDK system locale, uses Portuguese only for the
-exact documented `pt_PT` value, and otherwise returns the original English.
-Unknown copy also falls back to English. Error/notice strings remain untranslated
-internally so a subsequent redraw can follow a changed system language. Official
-source labels bypass translation. No protocol, companion, storage format, buffer
-capacity, locale override or new dependency is added.
+Flat `locales/en.json` and `locales/pt-PT.json` hold the UI copy under stable
+semantic keys. A dependency-free Python Waf task validates both files and generates
+`build/generated/ui_strings.h` before either native target compiles. Sorted keys
+produce deterministic `UiKey` identifiers and constant English/Portuguese C tables;
+the header is a build product, and locale JSON never runs on the watch.
+
+At UI boundaries, `ui(UI_MENU_FAVOURITES)` and other keyed lookups read the SDK
+system locale each time: exact `pt_PT` selects Portuguese, everything else
+(including a null locale) selects English. Notices and local errors retain keys,
+so redraws follow locale changes. Incoming companion diagnostics retain their raw
+text and existing bounds: a separate adapter maps known wire strings to UI keys
+at draw time, with verbatim fallback for unknown errors. Official source labels
+bypass translation. Protocol, companion, persistence, estimate expiry, UUID, fonts
+and layout are unchanged. See [translation instructions](../CONTRIBUTING.md#translations).
 
 The [SDK internationalization guide](https://developer.repebble.com/guides/tools-and-resources/internationalization/)
 documents `pt_PT` and system-font language support. Text uses the existing Gothic

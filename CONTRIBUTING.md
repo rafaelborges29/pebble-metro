@@ -11,6 +11,7 @@ model, protocol and storage boundaries.
 ```sh
 npm ci
 npx playwright install chromium
+python3 -m unittest discover -s tools
 npm run typecheck
 npm run check
 npm run e2e
@@ -24,6 +25,30 @@ The emulator harness needs the Pebble tool and its Python `libpebble2` dependenc
 The tested versions and Linux system packages are pinned in
 [CI](.github/workflows/e2e.yml); interpreter overrides are documented in
 [E2E](docs/e2e.md).
+
+## Translations
+
+Edit the flat UTF-8 objects in `locales/en.json` and `locales/pt-PT.json`.
+Keep the same semantic keys in both files. A key such as `menu.favourites`
+generates `UI_MENU_FAVOURITES`; use `ui(UI_MENU_FAVOURITES)` in C.
+Keep keys stable when wording changes. Use lowercase dotted groups and snake_case
+words; keys that would generate the same C identifier are rejected.
+
+The build fails on duplicate, missing or extra keys, invalid text and incompatible
+printf arguments. Keep placeholder argument order/types (including length modifiers
+and `*` width/precision arguments); positional formats and `%n` are unsupported.
+In formatted strings, use `%%` for a literal percent. Existing footer formats use
+`%d/%d`. Preserve estimate semantics, deliberate spaces/newlines, short buffer
+limits, and both screen shapes. Official names, complete legal texts and wire
+diagnostics are not translation keys. Known companion errors map to UI keys
+separately in `error_text()`; unknown diagnostics display verbatim.
+
+`npm run build` generates `build/generated/ui_strings.h` before compiling either
+platform. Never edit or commit that header. The generator uses only the Python
+standard library in the existing Pebble build environment. Run
+`python3 -m unittest discover -s tools` for generator validation checks, then the
+normal build and emulator checks. Pixel-preserving copy refactors must pass existing
+English and Portuguese snapshots without updating them.
 
 ## Changes
 

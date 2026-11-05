@@ -136,10 +136,15 @@ Supported locally: Linux x86-64, Node 24.21.0, Pebble Tool 5.0.39,
 ```sh
 npm ci
 npx playwright install chromium
+python3 -m unittest discover -s tools
 npm run e2e
 ```
 
 `e2e` typechecks the harness, builds native C and phone JS, then runs Playwright.
+The native build first validates both locale files and generates the constant C
+copy tables. The separate standard-library Python checks exercise duplicate/key
+validation, printf compatibility, text escaping and deterministic output; CI runs
+these before E2E. See [translation instructions](../CONTRIBUTING.md#translations).
 The SDK names the PBW after the checkout directory; the harness installs exactly
 `build/<checkout-name>.pbw`, never an old differently named package.
 
@@ -262,10 +267,20 @@ Run `npm run e2e -- --grep 'watch locale'` for this matrix, and add
 `--repeat-each=2` to repeat it. Full hardware language-switch acceptance remains
 necessary on both shapes.
 
-The localisation candidate passed the 36 existing regressions and then the full
-**88/88 repeated matrix** with snapshot updates disabled (local, four workers).
-All 36 new images were visually reviewed; existing English images were unchanged.
-Across 568 samples in the repeated run, free heap was 60,296–60,376 bytes on Emery
-and 60,080–60,160 bytes on Gabbro. Switch samples used a constant 5,680 bytes;
-all expected app-start assertions passed (72 starts per platform, no unexpected
-restarts). These are local emulator results, not hosted-CI or hardware acceptance.
+The semantic-key locale refactor passed the full **88/88 repeated matrix** with
+snapshot updates disabled (local, four workers, 6.4 minutes):
+`npm run e2e -- --repeat-each=2 --workers=4 --update-snapshots=none --output=test-results/repeated --reporter=list`.
+All existing English and Portuguese screenshot baselines are unchanged; the 36
+language images were visually reviewed when introduced. Across 568 samples,
+free heap was 60,832–60,912 bytes on Emery and 60,616–60,696 bytes on Gabbro.
+Switch samples used a constant 5,680 bytes; all expected app-start assertions
+passed (72 starts per platform, no unexpected restarts).
+
+The seven generator checks pass with both system Python and the Pebble tool's
+Python. Build probes cover clean/no-op builds, edits to either locale and the
+generator, regeneration after deleting the header, and rejection of a missing
+translation key. Restoring the inputs reproduces identical generated header and
+native main-object bytes on both targets. A temporary host C probe of the actual
+lookup/error helpers, with ASan/UBSan, checks changing locale, null/unsupported
+fallback, retained notice/local-error keys and known/unknown companion diagnostics.
+These are local checks, not hosted-CI or hardware acceptance.
