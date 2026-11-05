@@ -53,12 +53,12 @@ unchanged. Existing favourites and cached data need no migration.
 | First use / Add favourite | Select: line → station on that line → direction → save |
 | Lists | Up/Down: choose (hold to repeat) · Select: open · Back: return |
 | Actions | Retry live data or remove the favourite with confirmation |
-| Favourites | Open a route, add another, retry, or view About / data |
+| Favourites | Open a route, add another, or retry |
 
 Back at the favourites root or empty screen exits the app.
 
 **Touch prototype (firmware 4.33.2+):** tap the actual visible menu row to open it.
-On arrivals, tap the main content to open Actions; on About/notice screens, tap
+On arrivals, tap the main content to open Actions; on notice screens, tap
 content to go back; on first use, tap content to add/retry. Swipe up for the next
 item/favourite, down for the previous, or right for Back. Removal still requires a
 separate tap on **Remove it**. Headers, footers, missing rows and round-screen
@@ -137,7 +137,7 @@ The tests run the actual package and phone bundle with real buttons, AppMessage
 receipts and disposable Emery/Gabbro QEMU storage. Both platforms run the same
 flows with separate native screenshot baselines. REST/MQTT fixtures replace only
 the external data sources. Tests never connect to a physical watch. They cover
-reopen, expiry, phone restart, source replacement, About/removal navigation and
+reopen, expiry, phone restart, source replacement, removal navigation and
 16-favourite/160-switch memory stress.
 See [E2E documentation](docs/e2e.md) and [contributing](CONTRIBUTING.md).
 

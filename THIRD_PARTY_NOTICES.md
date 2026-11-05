@@ -29,10 +29,10 @@ A required offer cannot be replaced by attribution or a private repository link.
 No public application-source archive or available methods offer is promised here.
 Preserve attribution/licence notices with redistributed data and shared screenshots.
 
-The watch's **About / data** shows UnderLX, ODbL, the provider/licence URLs and
-where privacy information and bundled licence copies are supplied. It does not
-link users to the private repository. The README and draft store listing also
-carry attribution. Recheck provider-specific exceptions when adding data. See
+The README and store description carry UnderLX/ODbL attribution and the
+provider/licence URLs. The store description supplies privacy information; the
+phone bundle contains these notices and complete licence copies. The watch has
+no About screen. Recheck provider-specific exceptions when adding data. See
 [DATA_METHODS.md](DATA_METHODS.md) for the assessed scope and reassessment triggers.
 
 This is an independent application, not affiliated with or endorsed by UnderLX or

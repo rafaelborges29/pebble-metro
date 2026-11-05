@@ -14,7 +14,7 @@ Launch with favourites → last viewed arrivals
 
 First use → Select → line → station on that line → direction → save
 Favourites list → Add favourite → the same line-first flow
-Favourites list → Retry data / About
+Favourites list → Retry data
 Back at favourites root or empty screen → exit
 ```
 
@@ -28,7 +28,7 @@ Holding Up/Down repeats. Removal is confirmed and does not rewrite other favouri
 
 Touch uses the same actions and four-row pages: tap a visible row to activate that
 row, swipe up/down for next/previous, and swipe right for Back. Main-content taps
-open Actions on arrivals, add/retry on first use, and return from About/notices.
+open Actions on arrivals, add/retry on first use, and return from notices.
 Removing a favourite requires a fresh contact on the explicit confirmation row;
 there is no swipe-to-delete. Blank rows, headers/footers and round-screen corners
 are excluded. A contact is discarded if buttons/navigation, focus loss or catalogue
@@ -53,7 +53,7 @@ clock tick, not every second.
 Time 2 uses the rectangular layout. Round 2 centers the station/direction,
 measures the main ETA and its unit as one centered group, and insets header/footer
 text away from the circular edge. The last of four menu rows is narrower to stay
-inside the bottom curve. Compact round footers keep counts such as 17/19 visible.
+inside the bottom curve. Compact round footers keep counts such as 17/18 visible.
 These are layout differences only; estimates, cache and navigation semantics match.
 
 The reclaimed line row gives numeric ETAs the SDK's LECO 60 Bold font on both

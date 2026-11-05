@@ -20,8 +20,9 @@ Repository visibility, merges, tags/releases and store uploads are separate acti
 - [x] Embed `LICENSE`, `THIRD_PARTY_NOTICES.md` and complete `LICENSES/*.txt` copies
   in the phone bundle so they accompany store-installed PBWs, not only optional
   download archives. Retain generated upstream copyright headers.
-- [x] Remove the private repository URL from About; retain public UnderLX/ODbL URLs
-  and identify the store description and phone bundle as privacy/notices locations.
+- [x] Keep public UnderLX/ODbL attribution and URLs in the store description;
+  supply privacy there and complete notices/licences in the phone bundle. The
+  watch has no About screen or displayed app version.
 - [x] Draft an inline store privacy policy. The
   [Distribution Agreement §5.3](https://developer.repebble.com/legal/distribution/)
   requires prominent privacy information even though website/source fields are
