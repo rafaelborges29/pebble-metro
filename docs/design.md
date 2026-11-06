@@ -2,7 +2,9 @@
 
 The native app uses one window and drawing layer, fixed-size models and direct
 button navigation plus optional SDK tap/swipe input on Time 2 and Round 2.
-No alerts, vibration, settings or service-status dashboard.
+No alerts, vibration, on-watch settings or service-status dashboard.
+The optional [phone favourites editor](phone-configuration.md) complements this
+watch flow; both use the watch's validated, transactionally saved list.
 
 ## Navigation
 
@@ -24,7 +26,9 @@ Interchanges keep the chosen line; termini exclude the origin as a destination.
 Back restores the previous picker row, and cancelling saves no draft. A changed
 catalogue clears an open draft/history and asks the user to choose again.
 Up to 16 favourites persist.
-Holding Up/Down repeats. Removal is confirmed and does not rewrite other favourites.
+Holding Up/Down repeats. Removal is confirmed and preserves other routes' slots,
+arrival state and original expiry. Favourite mutations commit the entire list through
+the same recoverable bank store, whether initiated on the watch or phone.
 
 Touch uses the same actions and four-row pages: tap a visible row to activate that
 row, swipe up/down for next/previous, and swipe right for Back. Main-content taps

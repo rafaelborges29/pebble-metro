@@ -5,22 +5,19 @@
 #include <string.h>
 #include "json.h"
 #include "localization.h"
+#include "favorites.h"
 
 #define MAX_STATIONS 80
 #define MAX_LINES 8
-#define MAX_FAVORITES 16
 #define CACHE_SLOTS 2
 #define MENU_ROWS 4
-#define KEY_SELECTED 1
-#define KEY_FAVORITE 100
+#define MAX_JSON_TOKENS 1024
 #define KEY_CACHE 200
 #define KEY_LABELS 210
-#define FORMAT 1
 
 // All source/model/transport storage is fixed. Navigation allocates no objects.
 typedef struct { char id[49], name[81]; uint8_t lines; } Station;
 typedef struct { char id[49], name[41]; uint8_t stations[80], count; GColor color; } Line;
-typedef struct { char station[49], line[49], direction[49]; uint8_t version; } Favorite;
 typedef struct {
   double value, upper;
   uint32_t received, expires;
@@ -36,14 +33,21 @@ typedef char LabelsMustFitPersistence[(sizeof(DiskLabels) <= PERSIST_DATA_MAX_LE
 typedef enum { EMPTY, ARRIVALS, FAVORITES, STATIONS, LINES, DIRECTIONS, ACTIONS, REMOVE, NOTICE } View;
 typedef struct { View view; uint8_t row; } History;
 typedef enum { SOURCE_CONNECTING, SOURCE_CONNECTED, SOURCE_DISCONNECTED } Source;
-typedef enum { SEND_NONE, SEND_HELLO, SEND_WATCH, SEND_CATALOG, SEND_ACK } SendType;
+typedef enum { SEND_NONE, SEND_HELLO, SEND_WATCH, SEND_CATALOG, SEND_ACK, SEND_SETTINGS } SendType;
+typedef enum { SETTINGS_READY, SETTINGS_SAVED, SETTINGS_CONFLICT, SETTINGS_INVALID, SETTINGS_STORAGE, SETTINGS_UNKNOWN } SettingsStatus;
+static const char *SETTINGS_STATUS[] = { "ready", "saved", "conflict", "invalid", "storage", "unknown" };
 
 static Window *s_window;
 static Layer *s_layer;
 static Station s_stations[MAX_STATIONS];
 static Line s_lines[MAX_LINES];
 static uint8_t s_station_count, s_line_count;
-static Favorite s_favorites[MAX_FAVORITES];
+static Favorite s_favorites[MAX_FAVORITES], s_settings_draft[MAX_FAVORITES];
+static uint32_t s_revision = 1, s_catalog_id, s_snapshot, s_export_at, s_request_id, s_request_hash;
+static uint32_t s_export_request;
+static uint8_t s_export_part = 4;
+static bool s_export_pending;
+static SettingsStatus s_request_status, s_export_status;
 static Arrival s_arrivals[MAX_FAVORITES];
 static DiskArrival s_disk[CACHE_SLOTS];
 static DiskLabels s_disk_labels[CACHE_SLOTS];
@@ -70,7 +74,9 @@ static uint32_t s_ack_id;
 static uint8_t s_ack_part;
 static uint32_t s_sent_ack_id;
 static uint8_t s_sent_ack_part;
-static JsonToken s_tokens[1024];
+// One fixed-capacity startup allocation keeps the SDK's uint16 virtual image
+// below 64 KiB; no model/parser allocations occur during navigation or decoding.
+static JsonToken *s_tokens;
 static char s_batch[5001], s_chunk[2001];
 static uint32_t s_batch_id, s_last_id, s_progress;
 static uint16_t s_batch_length, s_last_start, s_last_length;
@@ -97,18 +103,14 @@ static const char *error_text(void) {
 }
 
 static uint32_t now_seconds(void) { time_t now = time(NULL); return now > 0 ? (uint32_t)now : 0; }
-static bool id_valid(const char *id, size_t capacity) {
-  const char *end = memchr(id, 0, capacity);
-  if (!end || end == id || (size_t)(end - id) > 48) return false;
-  for (const char *p = id; p < end; p++)
-    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '-' || *p == '_')) return false;
-  return true;
+static void export_settings(uint32_t request, SettingsStatus status) {
+  s_snapshot++; if (!s_snapshot) s_snapshot++;
+  s_export_part = 0; s_export_pending = true;
+  s_export_request = request; s_export_status = status;
 }
-static bool favorite_valid(const Favorite *f) {
-  return f->version == FORMAT && id_valid(f->station, sizeof(f->station)) && id_valid(f->line, sizeof(f->line)) && id_valid(f->direction, sizeof(f->direction));
-}
-static bool favorite_equal(const Favorite *a, const Favorite *b) {
-  return !strcmp(a->station, b->station) && !strcmp(a->line, b->line) && !strcmp(a->direction, b->direction);
+static void favorites_changed(void) {
+  s_revision++; if (!s_revision) s_revision++;
+  export_settings(s_request_id, s_request_status);
 }
 static int favorite_count(void) {
   int count = 0;
@@ -209,13 +211,7 @@ static void invalidate_arrivals(void) {
   invalidate_disk(NULL, true); s_dirty = false;
 }
 static void load_preferences(void) {
-  for (int i = 0; i < MAX_FAVORITES; i++) {
-    Favorite f;
-    if (persist_get_size(KEY_FAVORITE + i) != (int)sizeof(f) || persist_read_data(KEY_FAVORITE + i, &f, sizeof(f)) != (int)sizeof(f) || !favorite_valid(&f)) continue;
-    bool duplicate = false;
-    for (int j = 0; j < i; j++) if (s_favorites[j].version && favorite_equal(&f, &s_favorites[j])) duplicate = true;
-    if (!duplicate) s_favorites[i] = f;
-  }
+  if (!favorites_load(s_favorites)) s_storage_error = true;
   int selected = persist_read_int(KEY_SELECTED);
   s_selected = selected >= 0 && selected < MAX_FAVORITES && s_favorites[selected].version ? selected : 0;
   if (!s_favorites[s_selected].version && favorite_count()) s_selected = favorite_at(0);
@@ -276,7 +272,7 @@ static bool integer(const JsonDoc *doc, int token, double min, double max, doubl
   if (result) *result = value;
   return true;
 }
-static bool read_id(const JsonDoc *doc, int token, char *out) { return json_string(doc, token, out, 49) && id_valid(out, 49); }
+static bool read_id(const JsonDoc *doc, int token, char *out) { return json_string(doc, token, out, 49) && favorite_id_valid(out, 49); }
 static int hex_digit(char c) {
   if (c >= '0' && c <= '9') return c - '0';
   if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -288,7 +284,9 @@ static bool receive_catalog(const JsonDoc *doc) {
   if (stations < 0 || lines < 0 || doc->tokens[stations].type != JSON_ARRAY || doc->tokens[lines].type != JSON_ARRAY) return false;
   int ns = doc->tokens[stations].size, nl = doc->tokens[lines].size;
   bool cached;
-  if (!json_bool(doc, json_get(doc, 0, "cached"), &cached)) return false;
+  double catalog_id;
+  if (!json_bool(doc, json_get(doc, 0, "cached"), &cached)
+    || !integer(doc, json_get(doc, 0, "catalogId"), 1, UINT32_MAX, &catalog_id)) return false;
   if (ns < 1 || ns > MAX_STATIONS || nl < 1 || nl > MAX_LINES) return false;
   bool changed = ns != s_station_count || nl != s_line_count;
   uint8_t masks[MAX_STATIONS] = {0};
@@ -355,6 +353,8 @@ static bool receive_catalog(const JsonDoc *doc) {
     s_history_count = 0; s_row = 0; s_view = favorite_count() ? FAVORITES : EMPTY;
     notice(UI_NOTICE_CATALOG_UPDATED);
   }
+  s_catalog_id = (uint32_t)catalog_id;
+  export_settings(s_request_id, s_request_status);
   s_need_watch = true;
   log_memory("catalog");
   return true;
@@ -409,9 +409,74 @@ static bool observe_generation(const JsonDoc *doc) {
   s_feed_generation = generation; s_generation_known = true;
   return true;
 }
+static bool read_favorite(const JsonDoc *doc, int token, Favorite *favorite) {
+  memset(favorite, 0, sizeof(*favorite)); favorite->version = FORMAT;
+  return token >= 0 && doc->tokens[token].type == JSON_ARRAY && doc->tokens[token].size == 3
+    && read_id(doc, array_at(doc, token, 0), favorite->station)
+    && read_id(doc, array_at(doc, token, 1), favorite->line)
+    && read_id(doc, array_at(doc, token, 2), favorite->direction);
+}
+static bool receive_settings(const JsonDoc *doc, const char *text, size_t length) {
+  double request, revision, catalog;
+  if (!integer(doc, json_get(doc, 0, "request"), 1, UINT32_MAX, &request)) return false;
+  uint32_t fingerprint = 2166136261u;
+  for (size_t i = 0; i < length; i++) fingerprint = (fingerprint ^ (uint8_t)text[i]) * 16777619u;
+  if ((uint32_t)request <= s_request_id) {
+    export_settings((uint32_t)request, (uint32_t)request == s_request_id && fingerprint == s_request_hash ? s_request_status : SETTINGS_INVALID);
+    return true;
+  }
+  s_request_id = (uint32_t)request; s_request_hash = fingerprint; s_request_status = SETTINGS_INVALID;
+  int list = json_get(doc, 0, "favorites");
+  if (!integer(doc, json_get(doc, 0, "revision"), 1, UINT32_MAX, &revision)
+    || !integer(doc, json_get(doc, 0, "catalog"), 1, UINT32_MAX, &catalog)
+    || list < 0 || doc->tokens[list].type != JSON_ARRAY || doc->tokens[list].size > MAX_FAVORITES) goto result;
+  if ((uint32_t)revision != s_revision || (uint32_t)catalog != s_catalog_id) { s_request_status = SETTINGS_CONFLICT; goto result; }
+  bool retained[MAX_FAVORITES] = {false};
+  for (int i = 0; i < doc->tokens[list].size; i++) {
+    Favorite favorite, previous; bool existing = false;
+    if (!read_favorite(doc, array_at(doc, list, i), &favorite)) goto result;
+    for (int j = 0; j < i; j++) {
+      read_favorite(doc, array_at(doc, list, j), &previous);
+      if (favorite_equal(&favorite, &previous)) goto result;
+    }
+    for (int j = 0; j < MAX_FAVORITES; j++) if (s_favorites[j].version && favorite_equal(&favorite, &s_favorites[j])) { existing = true; retained[j] = true; }
+    if (!existing && !favorite_in_network(&favorite)) goto result;
+  }
+  memset(s_settings_draft, 0, sizeof(s_settings_draft));
+  for (int i = 0; i < MAX_FAVORITES; i++) if (retained[i]) s_settings_draft[i] = s_favorites[i];
+  for (int i = 0; i < doc->tokens[list].size; i++) {
+    Favorite favorite; bool existing = false;
+    read_favorite(doc, array_at(doc, list, i), &favorite);
+    for (int j = 0; j < MAX_FAVORITES; j++) if (s_settings_draft[j].version && favorite_equal(&favorite, &s_settings_draft[j])) existing = true;
+    if (!existing) for (int j = 0; j < MAX_FAVORITES; j++) if (!s_settings_draft[j].version) { s_settings_draft[j] = favorite; break; }
+  }
+  FavoriteSave saved = favorites_save(s_settings_draft);
+  if (saved != FAVORITES_SAVED) { s_storage_error = true; s_request_status = saved == FAVORITES_UNKNOWN ? SETTINGS_UNKNOWN : SETTINGS_STORAGE; goto result; }
+  for (int i = 0; i < MAX_FAVORITES; i++) if (!retained[i]) {
+    if (s_favorites[i].version) invalidate_disk(&s_favorites[i], false);
+    memset(&s_arrivals[i], 0, sizeof(Arrival));
+  }
+  bool selected_retained = retained[s_selected];
+  memcpy(s_favorites, s_settings_draft, sizeof(s_favorites));
+  if (!selected_retained) {
+    s_selected = favorite_count() ? favorite_at(0) : 0;
+    s_arrivals[s_selected].live = false; s_dirty = false;
+  }
+  s_storage_error = false; save_selection(); s_need_watch = true; favorites_changed();
+  s_request_status = SETTINGS_SAVED;
+  s_history_count = 0; s_row = 0; s_view = favorite_count() ? ARRIVALS : EMPTY;
+result:
+  export_settings(s_request_id, s_request_status);
+  touch_cancel();
+  if (s_request_status == SETTINGS_SAVED) notice(UI_NOTICE_SETTINGS_SAVED);
+  else if (s_request_status == SETTINGS_CONFLICT) notice(UI_NOTICE_SETTINGS_CONFLICT);
+  else if (s_request_status == SETTINGS_UNKNOWN) notice(UI_NOTICE_SETTINGS_UNKNOWN);
+  else notice(UI_NOTICE_SETTINGS_FAILED);
+  return true;
+}
 static bool logical_message(const char *text, size_t length) {
   JsonDoc doc;
-  if (!json_parse(&doc, text, length, s_tokens, ARRAY_LENGTH(s_tokens)) || doc.tokens[0].type != JSON_OBJECT) return false;
+  if (!json_parse(&doc, text, length, s_tokens, MAX_JSON_TOKENS) || doc.tokens[0].type != JSON_OBJECT) return false;
   int type = json_get(&doc, 0, "type");
   if (s_ready && (json_equal(&doc, type, "connection") || json_equal(&doc, type, "arrivals")) && !observe_generation(&doc)) return false;
   if (json_equal(&doc, type, "hello")) {
@@ -420,7 +485,18 @@ static bool logical_message(const char *text, size_t length) {
     s_offset = s_hello_at - (int64_t)at; s_ready = true; s_need_watch = true;
     if (!s_station_count) s_need_catalog = true;
   } else if (!s_ready) return false;
-  else if (json_equal(&doc, type, "catalog")) {
+  else if (json_equal(&doc, type, "settings-get")) {
+    export_settings(s_request_id, s_request_status);
+  } else if (json_equal(&doc, type, "settings-receipt")) {
+    double snapshot, part;
+    if (!integer(&doc, json_get(&doc, 0, "snapshot"), 1, UINT32_MAX, &snapshot)
+      || !integer(&doc, json_get(&doc, 0, "part"), 0, 3, &part)) return false;
+    if ((uint32_t)snapshot == s_snapshot && (int)part == s_export_part) {
+      s_export_part++; s_export_pending = s_export_part < 4;
+    }
+  } else if (json_equal(&doc, type, "settings-save")) {
+    if (!receive_settings(&doc, text, length)) return false;
+  } else if (json_equal(&doc, type, "catalog")) {
     if (!receive_catalog(&doc)) { s_error_key = UI_ERROR_INVALID_STATION_DATA; return false; }
   } else if (json_equal(&doc, type, "arrivals")) {
     if (!receive_arrivals(&doc)) return false;
@@ -445,7 +521,7 @@ static void receive_packet(DictionaryIterator *iterator, void *context) {
   if (raw[tuple->length - 1] != 0 || memchr(raw, 0, tuple->length - 1)) return;
   JsonDoc doc;
   double v, id, part, total;
-  if (!json_parse(&doc, raw, tuple->length - 1, s_tokens, ARRAY_LENGTH(s_tokens))) return;
+  if (!json_parse(&doc, raw, tuple->length - 1, s_tokens, MAX_JSON_TOKENS)) return;
   if (s_tokens[0].type == JSON_OBJECT && !s_tokens[0].size) { // PKJS startup wake.
     if (s_ready) invalidate_arrivals();
     begin_session(); send_next(); draw(); return;
@@ -484,7 +560,7 @@ static void receive_packet(DictionaryIterator *iterator, void *context) {
 }
 static void send_next(void) {
   if (s_outbox_busy) return;
-  SendType type = s_ack_pending ? SEND_ACK : s_need_hello ? SEND_HELLO : s_need_watch && s_ready ? SEND_WATCH : s_need_catalog && s_ready ? SEND_CATALOG : SEND_NONE;
+  SendType type = s_ack_pending ? SEND_ACK : s_need_hello ? SEND_HELLO : s_need_watch && s_ready ? SEND_WATCH : s_need_catalog && s_ready ? SEND_CATALOG : s_export_pending && s_ready ? SEND_SETTINGS : SEND_NONE;
   if (type == SEND_NONE) return;
   int length = snprintf(s_outgoing, sizeof(s_outgoing), "{\"v\":1,\"session\":\"%s\",", s_session);
   if (type == SEND_ACK) length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "\"type\":\"ack\",\"id\":%lu,\"part\":%u}", (unsigned long)s_ack_id, s_ack_part);
@@ -492,7 +568,21 @@ static void send_next(void) {
     s_hello_at = (int64_t)now_seconds() * 1000; s_last_hello = now_seconds();
     length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "\"type\":\"hello\",\"now\":%lu000}", (unsigned long)(s_hello_at / 1000));
   } else if (type == SEND_CATALOG) length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "\"type\":\"catalog\"}");
-  else {
+  else if (type == SEND_SETTINGS) {
+    const char *locale = i18n_get_system_locale();
+    length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length,
+      "\"type\":\"settings-state\",\"snapshot\":%lu,\"revision\":%lu,\"catalog\":%lu,\"part\":%u,\"request\":%lu,\"status\":\"%s\",\"writable\":%s,\"language\":\"%s\",\"favorites\":[",
+      (unsigned long)s_snapshot, (unsigned long)s_revision, (unsigned long)s_catalog_id, s_export_part,
+      (unsigned long)s_export_request, SETTINGS_STATUS[s_export_status], favorites_writable() ? "true" : "false",
+      locale && !strcmp(locale, "pt_PT") ? "pt" : "en");
+    for (int i = 0; i < 4; i++) {
+      const Favorite *f = &s_favorites[s_export_part * 4 + i];
+      length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "%s", i ? "," : "");
+      if (f->version) length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "[\"%s\",\"%s\",\"%s\"]", f->station, f->line, f->direction);
+      else length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "null");
+    }
+    length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "]}");
+  } else {
     const Favorite *f = &s_favorites[s_selected];
     if (f->version) length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "\"type\":\"watch\",\"favorite\":{\"station\":\"%s\",\"line\":\"%s\",\"direction\":\"%s\"}}", f->station, f->line, f->direction);
     else length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "\"type\":\"watch\",\"favorite\":null}");
@@ -508,6 +598,7 @@ static void send_next(void) {
     else if (type == SEND_HELLO) s_need_hello = false;
     else if (type == SEND_WATCH) s_need_watch = false;
     else if (type == SEND_CATALOG) s_need_catalog = false;
+    else if (type == SEND_SETTINGS) { s_export_pending = false; s_export_at = now_seconds(); }
   }
 }
 static void outbox_sent(DictionaryIterator *iterator, void *context) {
@@ -521,6 +612,7 @@ static void outbox_failed(DictionaryIterator *iterator, AppMessageResult reason,
     else if (s_sending == SEND_HELLO) s_need_hello = true;
     else if (s_sending == SEND_WATCH) s_need_watch = true;
     else if (s_sending == SEND_CATALOG) s_need_catalog = true;
+    else if (s_sending == SEND_SETTINGS) s_export_pending = s_export_part < 4;
   }
   s_sending = SEND_NONE; s_outbox_busy = false;
 }
@@ -528,6 +620,7 @@ static void begin_session(void) {
   snprintf(s_session, sizeof(s_session), "%lx-%lx-%lx", (unsigned long)now_seconds(), (unsigned long)rand(), (unsigned long)++s_session_counter);
   s_ready = false; s_generation_known = false; s_source = SOURCE_CONNECTING; s_need_hello = true; s_need_watch = false; s_need_catalog = false;
   s_ack_pending = false; s_next_part = 0; s_last_id = 0; s_error[0] = 0; s_error_key = UI_NONE; s_attempt = now_seconds();
+  s_export_part = 4; s_export_pending = false; s_request_id = 0; s_request_hash = 0; s_request_status = SETTINGS_READY; s_catalog_id = 0;
   for (int i = 0; i < MAX_FAVORITES; i++) { s_arrivals[i].live = false; s_arrivals[i].source_at = 0; }
   send_next(); draw();
 }
@@ -591,8 +684,11 @@ static void add_favorite(void) {
   if (slot < 0) {
     for (int i = 0; i < MAX_FAVORITES; i++) if (!s_favorites[i].version) { slot = i; break; }
     if (slot < 0) { notice(UI_NOTICE_FAVOURITE_LIMIT); return; }
-    if (persist_write_data(KEY_FAVORITE + slot, &favorite, sizeof(favorite)) != (int)sizeof(favorite)) { s_storage_error = true; notice(UI_NOTICE_SAVE_FAILED); return; }
-    s_favorites[slot] = favorite; memset(&s_arrivals[slot], 0, sizeof(Arrival));
+    memcpy(s_settings_draft, s_favorites, sizeof(s_favorites)); s_settings_draft[slot] = favorite;
+    FavoriteSave saved = favorites_save(s_settings_draft);
+    if (saved != FAVORITES_SAVED) { s_storage_error = true; notice(saved == FAVORITES_UNKNOWN ? UI_NOTICE_SETTINGS_UNKNOWN : UI_NOTICE_SAVE_FAILED); return; }
+    s_storage_error = false; s_favorites[slot] = favorite; memset(&s_arrivals[slot], 0, sizeof(Arrival));
+    favorites_changed();
   }
   s_history_count = 0; go(ARRIVALS, false); select_favorite(slot);
 }
@@ -628,14 +724,17 @@ static void select(void) {
   } else if (s_view == REMOVE) {
     if (!s_row) back();
     else {
-      int result = persist_delete(KEY_FAVORITE + s_selected);
-      if (result < 0 && result != E_DOES_NOT_EXIST) { s_storage_error = true; notice(UI_NOTICE_REMOVE_FAILED); return; }
+      memcpy(s_settings_draft, s_favorites, sizeof(s_favorites)); memset(&s_settings_draft[s_selected], 0, sizeof(Favorite));
+      FavoriteSave saved = favorites_save(s_settings_draft);
+      if (saved != FAVORITES_SAVED) { s_storage_error = true; notice(saved == FAVORITES_UNKNOWN ? UI_NOTICE_SETTINGS_UNKNOWN : UI_NOTICE_REMOVE_FAILED); return; }
+      s_storage_error = false;
       char previous_station[sizeof(s_favorites[s_selected].station)];
       memcpy(previous_station, s_favorites[s_selected].station, sizeof(previous_station));
       invalidate_disk(&s_favorites[s_selected], false); memset(&s_favorites[s_selected], 0, sizeof(Favorite)); memset(&s_arrivals[s_selected], 0, sizeof(Arrival));
       s_selected = favorite_count() ? favorite_at(0) : 0;
       // A different station needs a fresh update before its retained data is LIVE.
       if (strcmp(previous_station, s_favorites[s_selected].station)) s_arrivals[s_selected].live = false;
+      favorites_changed();
       save_selection(); s_history_count = 0; go(FAVORITES, false); s_need_watch = true; send_next();
     }
   }
@@ -933,6 +1032,7 @@ static void tick(struct tm *time, TimeUnits changed) {
   s_last_now = now;
   if (!s_ready && now - s_last_hello >= 10) s_need_hello = true;
   if (s_ready && now - s_last_sync >= 15) { s_need_watch = true; if (!s_station_count) s_need_catalog = true; s_last_sync = now; }
+  if (s_ready && s_export_part < 4 && now - s_export_at >= 2) s_export_pending = true;
   persist_cache(false); send_next();
   if (s_view == ARRIVALS || (s_view == EMPTY && !s_station_count) || time->tm_sec == 0) draw();
 }
@@ -952,6 +1052,8 @@ static void focus_changed(bool focused) {
 static void init(void) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Metro locale=%s", i18n_get_system_locale());
   srand(now_seconds() ^ ((uint32_t)time_ms(NULL, NULL) << 16));
+  s_tokens = malloc(MAX_JSON_TOKENS * sizeof(JsonToken));
+  if (!s_tokens) { APP_LOG(APP_LOG_LEVEL_ERROR, "Metro parser storage unavailable"); return; }
   load_preferences(); s_view = favorite_count() ? ARRIVALS : EMPTY; s_last_now = s_attempt = now_seconds();
   APP_LOG(APP_LOG_LEVEL_INFO, "Metro persistence limit=%lu", (unsigned long)persist_get_max_size());
   s_window = window_create();
@@ -980,5 +1082,6 @@ static void deinit(void) {
   persist_cache(true); tick_timer_service_unsubscribe(); connection_service_unsubscribe(); app_focus_service_unsubscribe(); app_message_deregister_callbacks();
   if (s_layer) layer_destroy(s_layer);
   if (s_window) window_destroy(s_window);
+  free(s_tokens); s_tokens = NULL;
 }
 int main(void) { init(); if (s_window && s_layer) app_event_loop(); deinit(); return 0; }

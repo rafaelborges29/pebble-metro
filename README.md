@@ -29,8 +29,12 @@ No alerts, vibration, line-status pages, GPS, watch-side JavaScript runtime,
 background worker, custom Android app or custom backend. The paired phone needs
 the Pebble mobile app and internet access. See [privacy](PRIVACY.md).
 
-A [phone favourites editor](docs/phone-configuration.md) is proposed for review,
-not implemented; the on-watch picker remains the supported configuration flow.
+**Phone favourites editor:** open Metro Lisboa's **Settings** in the Pebble Android
+app to add/remove routes using line → station → direction. The editor is bundled
+with the app: no website or separate Android app is needed. Keep Metro running on
+the connected watch, choose **Send to watch**, then check its confirmation. Cancel
+leaves the saved list unchanged. The on-watch picker remains available.
+See [sync, recovery and upgrade details](docs/phone-configuration.md).
 
 ## Language
 
@@ -39,14 +43,15 @@ English for every other locale (including unsupported languages). This follows
 [`i18n_get_system_locale()`](https://developer.repebble.com/docs/c/Foundation/Internationalization/),
 not the phone/browser language. Choose Portuguese in the watch's system language
 settings; availability depends on firmware/mobile-app language support. There is
-no Metro language setting or phone configuration page. Changes appear on the next
-redraw (a button press, arrival tick or minute tick).
+no Metro language preference. The phone favourites editor also uses the watch's
+language. Watch changes appear on the next redraw (a button press, arrival tick or
+minute tick); reopen Settings to change an already-open editor's language.
 
 Portuguese uses **ATUAL / GUARDADO** for **LIVE / SAVED**, and **Agora / Hora
 estimada** for **Due / Estimated now**: these remain estimates, never an assertion
 that a train is present. `~`, ranges/bounds, minutes and source seconds (`seg`)
 retain their meanings. Official place/line names and complete legal texts are
-unchanged. Existing favourites and cached data need no migration.
+unchanged. Changing language does not alter favourites or cached data.
 
 ## Controls
 

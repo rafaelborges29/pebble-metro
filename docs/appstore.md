@@ -116,8 +116,11 @@ Plain-text description draft:
 Lisbon Metro arrival estimates on your Pebble Time 2 or Pebble Round 2.
 Privacy: no GPS, app-specific account, app analytics or advertising. Full policy below.
 
-Save up to 16 station, line and direction favourites. See the next three estimates,
-with second-by-second countdowns when the source supplies seconds. Minute-only
+Save up to 16 station, line and direction favourites on the watch or in Metro
+Lisboa's Settings in the Pebble Android app. Phone editing requires the connected
+watch; its bundled editor needs no separate website or account. Check the watch
+for save confirmation. See the next three estimates, with second-by-second
+countdowns when the source supplies seconds. Minute-only
 estimates stay approximate rather than inventing precision.
 
 Reopen quickly with saved estimates for two recent routes, clearly marked SAVED.
@@ -146,11 +149,18 @@ the phone's public IP address, selected station topic and a generated MQTT
 connection identifier. The app does not upload the full favourites list.
 
 The watch stores up to 16 favourites, the selected route, and two recent routes'
-estimates, original timestamps and labels. The phone stores validated station/line
-metadata locally; selected-station data is transient in the running companion.
+estimates, original timestamps and labels. The current and previous favourites
+lists are retained locally for interrupted-save recovery; removed choices can remain
+in the previous copy until overwritten, and legacy cleanup is best effort. This
+is not secure erasure. The phone stores validated station/line metadata locally;
+the selected station, full favourites snapshot and editing draft are transient
+in the companion/settings page, not a durable phone favourites mirror.
+The settings page is bundled and opened locally without external assets or hosting.
+Its data/close URLs stay inside the mobile app, whose diagnostics/device can still
+inspect them. The full list is not sent to UnderLX or a developer-operated service.
 Closing the app retains saved favourites/cache, but does not renew estimate expiry.
-Removing a favourite deletes its native preference and attempts to delete its saved
-estimates; storage errors are reported. Use platform app-data controls deliberately
+Removing a favourite removes it from the current list and attempts to delete its
+saved estimates; storage errors are reported. Use platform app-data controls deliberately
 to clear stored data: clearing app/phone data is destructive. Older Alloy storage
 is separate and is not erased by the native upgrade.
 

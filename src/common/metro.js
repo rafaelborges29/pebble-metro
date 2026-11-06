@@ -69,6 +69,20 @@ export function parseFavorites(raw, network) {
     return result;
   } catch (_) { return []; }
 }
+// Strict replacement validation: never filter or truncate a user's whole-list save.
+export function validateFavorites(items, network, baseline) {
+  if (!Array.isArray(items) || items.length > 16) throw new Error("Invalid favourites");
+  var seen = [];
+  return items.map(function (f) {
+    if (!Array.isArray(f) || f.length !== 3 || !f.every(id)) throw new Error("Invalid route");
+    var key = f.join("/");
+    if (seen.indexOf(key) !== -1) throw new Error("Duplicate route");
+    seen.push(key);
+    var existing = baseline.some(function (b) { return b && b.join("/") === key; });
+    if (!existing && directions(network, f[0], f[1]).indexOf(f[2]) === -1) throw new Error("Unavailable route");
+    return f.slice();
+  });
+}
 function validValue(p, received) {
   if (!id(p.direction) || !number(p.order) || p.order % 1 || p.order < 1 || p.order > 3 ||
       (p.units !== "s" && p.units !== "m") || ["e", "t", "l", "m", "i"].indexOf(p.type) === -1 || !number(p.value)) return false;

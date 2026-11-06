@@ -28,6 +28,9 @@
     "projectType": "native",
     "sdkVersion": "3",
     "enableMultiJS": true,
+    "capabilities": [
+      "configurable"
+    ],
     "targetPlatforms": [
       "emery",
       "gabbro"
