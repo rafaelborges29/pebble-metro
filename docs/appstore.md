@@ -185,7 +185,7 @@ For updates to the existing Metro Lisboa listing, use the
 [Create release GitHub Action](releases.md). It tests one tagged PBW and publishes
 those exact bytes, preserving the current listing and screenshots. Running that
 action is approval to publish when checks pass. Setup, credentials, generated
-notes, retry handling and next-version PRs are documented there.
+notes, retry handling and automatic version bumps on main are documented there.
 
 Pebble officially supports three routes to the same appstore listing:
 
