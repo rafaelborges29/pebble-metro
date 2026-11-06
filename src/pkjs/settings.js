@@ -7,7 +7,11 @@ var STATUSES = ["ready", "saved", "conflict", "invalid", "storage", "unknown"];
 
 // The page has no bridge/storage/network of its own. Only the companion talks to the watch.
 export function createSettings(options) {
-  var pebble = options.Pebble, timers = options.timers;
+  var pebble = options.Pebble, timers = options.timers, registry = options.localeRegistry;
+  function pageLanguage(locale) {
+    var file = registry.locales[locale] || registry.locales[registry.fallback];
+    return file === "pt_PT.json" ? "pt" : "en";
+  }
   var session = null, network = null, catalog = 0, assembly = null, state = null, edit = null;
   var request = 0, pending = null, pendingTimer = null, openingTimer = null, opening = 0, lastStatus = "ready", closed = false;
   function send(message, key) { return session && options.send(message, "settings:" + key); }
@@ -76,18 +80,18 @@ export function createSettings(options) {
     receive: function (message) {
       if (!uint(message.snapshot, 1) || !uint(message.revision, 1) || !uint(message.catalog, 0) || !uint(message.part, 0) || message.part > 3
         || !uint(message.request, 0) || STATUSES.indexOf(message.status) === -1 || typeof message.writable !== "boolean"
-        || ["en", "pt"].indexOf(message.language) === -1 || !Array.isArray(message.favorites) || message.favorites.length !== 4
+        || typeof message.locale !== "string" || !/^[a-zA-Z0-9_-]{0,15}$/.test(message.locale) || !Array.isArray(message.favorites) || message.favorites.length !== 4
         || !message.favorites.every(function (f) { return f === null || route(f); })) return;
       if (assembly && message.snapshot < assembly.snapshot) return;
       if (!assembly || assembly.snapshot !== message.snapshot) assembly = { snapshot: message.snapshot, revision: message.revision,
-        catalog: message.catalog, request: message.request, status: message.status, writable: message.writable, language: message.language, parts: [] };
-      if (["revision", "catalog", "request", "status", "writable", "language"].some(function (key) { return assembly[key] !== message[key]; })) return;
+        catalog: message.catalog, request: message.request, status: message.status, writable: message.writable, locale: message.locale, parts: [] };
+      if (["revision", "catalog", "request", "status", "writable", "locale"].some(function (key) { return assembly[key] !== message[key]; })) return;
       if (assembly.parts[message.part] && JSON.stringify(assembly.parts[message.part]) !== JSON.stringify(message.favorites)) return;
       assembly.parts[message.part] = message.favorites;
       if (assembly.parts.filter(Boolean).length === 4) {
         var slots = [].concat.apply([], assembly.parts), keys = [];
         if (!slots.every(function (f) { if (!f) return true; var key = f.join("/"); if (keys.indexOf(key) !== -1) return false; keys.push(key); return true; })) return;
-        state = { snapshot: assembly.snapshot, revision: assembly.revision, catalog: assembly.catalog, slots: slots, writable: assembly.writable, language: assembly.language };
+        state = { snapshot: assembly.snapshot, revision: assembly.revision, catalog: assembly.catalog, slots: slots, writable: assembly.writable, language: pageLanguage(assembly.locale) };
         if (pending === assembly.request) {
           pending = null; lastStatus = assembly.status;
           if (pendingTimer) timers.clearTimeout(pendingTimer);

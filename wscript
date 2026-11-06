@@ -70,6 +70,7 @@ def build(ctx):
                                          'src/pkjs/**/*.cjs',
                                          'src/pkjs/**/*.json',
                                          'src/common/**/*.js',
+                                         'locales/index.json',
                                          'LICENSE',
                                          'THIRD_PARTY_NOTICES.md',
                                          'LICENSES/*.txt']),

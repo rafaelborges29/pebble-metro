@@ -570,11 +570,12 @@ static void send_next(void) {
   } else if (type == SEND_CATALOG) length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "\"type\":\"catalog\"}");
   else if (type == SEND_SETTINGS) {
     const char *locale = i18n_get_system_locale();
+    if (!locale || strlen(locale) > 15 || strspn(locale, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != strlen(locale)) locale = "";
     length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length,
-      "\"type\":\"settings-state\",\"snapshot\":%lu,\"revision\":%lu,\"catalog\":%lu,\"part\":%u,\"request\":%lu,\"status\":\"%s\",\"writable\":%s,\"language\":\"%s\",\"favorites\":[",
+      "\"type\":\"settings-state\",\"snapshot\":%lu,\"revision\":%lu,\"catalog\":%lu,\"part\":%u,\"request\":%lu,\"status\":\"%s\",\"writable\":%s,\"locale\":\"%s\",\"favorites\":[",
       (unsigned long)s_snapshot, (unsigned long)s_revision, (unsigned long)s_catalog_id, s_export_part,
       (unsigned long)s_export_request, SETTINGS_STATUS[s_export_status], favorites_writable() ? "true" : "false",
-      locale && !strcmp(locale, "pt_PT") ? "pt" : "en");
+      locale);
     for (int i = 0; i < 4; i++) {
       const Favorite *f = &s_favorites[s_export_part * 4 + i];
       length += snprintf(s_outgoing + length, sizeof(s_outgoing) - length, "%s", i ? "," : "");

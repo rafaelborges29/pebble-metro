@@ -56,8 +56,10 @@ with maximum uint32 fields is 2,582 bytes.
 
 Watch-to-phone `settings-state` exports have four stop-and-wait parts, each with
 four fixed slots (triples or nulls). Every part carries the same snapshot ID,
-revision, catalogue ID, last request/result, writable flag and language. The
-largest frame with 48-byte IDs/session and maximum uint32 fields is 874 bytes,
+revision, catalogue ID, last request/result, writable flag and bounded watch locale.
+The companion resolves the locale through the existing registry; C contains no
+language-specific branch. The largest frame with 48-byte IDs/session, a 15-byte
+locale and maximum uint32 fields is 885 bytes,
 within the existing 1,000-byte command bound. Matching application receipts
 advance the export; missing receipts retry on the existing tick. Partial,
 inconsistent or duplicate-slot snapshots never become a page baseline.
