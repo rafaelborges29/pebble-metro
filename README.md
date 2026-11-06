@@ -94,7 +94,7 @@ or erasing app data is not a migration step.
 
 Install the [Pebble tools](https://developer.repebble.com/sdk/), SDK **4.33.1**,
 and Node **24.21.0**. The pinned tool versions and Linux CI setup are in
-[the workflow](.github/workflows/e2e.yml).
+[the shared CI setup](.github/actions/setup-pebble/action.yml).
 
 ```sh
 pebble sdk install 4.33.1
@@ -157,7 +157,7 @@ the app with the same UUID; read the migration note above before upgrading.
 - [UI and cache flow](docs/design.md)
 - [Appstore publishing and listing draft](docs/appstore.md)
 - [Artwork and screenshots](assets/README.md)
-- [Release checklist](docs/publishing-todo.md)
+- [GitHub Actions releases, versioning and recovery](docs/releases.md)
 - [Privacy](PRIVACY.md)
 - [UnderLX data attribution and transformation methods](DATA_METHODS.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md) and [licence texts](LICENSES/)

@@ -20,7 +20,25 @@ def configure(ctx):
     change after calling ctx.load('pebble_sdk') and make sure to set the correct environment first.
     Universal configuration: add your change prior to calling ctx.load('pebble_sdk').
     """
-    ctx.load('pebble_sdk')
+    # SDK 4.33.1 rejects prerelease labels even though its native generator reads
+    # only major/minor. Adapt its validator for our one development suffix, keeping
+    # package files and the emitted PBW label intact. Never modify the installed SDK.
+    from waflib import Context
+    sys.path.insert(0, ctx.path.abspath())
+    from tools.release_package import version_parts
+    sdk = Context.load_tool('pebble_sdk')
+    validate = sdk._validate_version
+
+    def validate_development_version(conf, version):
+        version_parts(version, snapshot=True)
+        validate(conf, version.removesuffix('-snapshot'))
+        return version
+
+    sdk._validate_version = validate_development_version
+    try:
+        ctx.load('pebble_sdk')
+    finally:
+        sdk._validate_version = validate
 
 
 def build(ctx):

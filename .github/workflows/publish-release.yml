@@ -1,0 +1,134 @@
+name: Publish release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish or resume
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: metro-release
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.source.outputs.tag }}
+      commit: ${{ steps.source.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate tag and trusted release source using main's validator
+        id: source
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: python3 tools/release.py validate "$RELEASE_TAG"
+
+  verify:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    # GitHub requires push access to list/read draft releases for candidate reuse.
+    # This job runs only the validated main-derived source, never PR source.
+    permissions:
+      contents: write
+    env:
+      CI: 'true'
+      RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+    outputs:
+      artifact: ${{ steps.candidate.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-pebble
+      - run: npm run typecheck
+      - name: Reuse the frozen candidate when resuming a draft
+        id: restore
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/release.py restore "$RELEASE_TAG"
+      - name: Build once
+        if: steps.restore.outputs.restored != 'true'
+        run: npm run check
+      - name: Verify and freeze the candidate
+        run: python3 tools/release.py package "$RELEASE_TAG"
+      - name: Test that exact PBW on both watch targets
+        run: npx playwright test --update-snapshots=none
+      - name: Check that testing did not alter the PBW
+        run: python3 tools/release.py package "$RELEASE_TAG"
+      - uses: actions/upload-artifact@v7
+        id: candidate
+        with:
+          name: release-candidate
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Keep failure diagnostics private and separate from release assets
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-test-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  publish:
+    needs: [resolve, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact }}
+          path: dist
+          merge-multiple: true
+      - name: Publish the verified bytes to Pebble, then GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          PEBBLE_FIREBASE_API_KEY: ${{ vars.PEBBLE_FIREBASE_API_KEY }}
+          PEBBLE_FIREBASE_REFRESH_TOKEN: ${{ secrets.PEBBLE_FIREBASE_REFRESH_TOKEN }}
+        run: python3 tools/release.py publish "$RELEASE_TAG"
+
+  next-development:
+    needs: [resolve, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Prepare the next snapshot through the normal PR process
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: python3 tools/release.py advance "$RELEASE_TAG"

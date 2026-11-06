@@ -1,0 +1,38 @@
+name: Create release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: Release type (minor promotes the planned snapshot)
+        type: choice
+        options: [minor, major]
+        default: minor
+        required: true
+
+permissions:
+  contents: read
+
+# Shared with Publish release; a dispatch waits until preparation finishes.
+concurrency:
+  group: metro-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Prepare branch, tag and draft; dispatch verified publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: python3 tools/release.py prepare "$RELEASE_TYPE"

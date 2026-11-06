@@ -151,15 +151,12 @@ Supported locally: Linux x86-64, Node 24.21.0, Pebble Tool 5.0.39,
 ```sh
 npm ci
 npx playwright install chromium
-python3 -m unittest discover -s tools
 npm run e2e
 ```
 
 `e2e` typechecks the harness, builds native C and phone JS, then runs Playwright.
 The native build first validates both locale files and generates the constant C
-copy tables. The separate standard-library Python checks exercise duplicate/key
-validation, printf compatibility, text escaping and deterministic output; CI runs
-these before E2E. See [translation instructions](../CONTRIBUTING.md#translations).
+copy tables. See [translation instructions](../CONTRIBUTING.md#translations).
 The SDK names the PBW after the checkout directory; the harness installs exactly
 `build/<checkout-name>.pbw`, never an old differently named package.
 

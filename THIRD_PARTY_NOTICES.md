@@ -93,5 +93,5 @@ repository link or an optional download ZIP is not the licence-copy delivery pat
 
 The current client/data assessment is recorded above; packaging alone would not
 settle access obligations for a changed data-distribution model. See the
-[release checklist](docs/publishing-todo.md) for the remaining submission checks.
+[publishing guide](docs/appstore.md) for submission requirements.
 Re-audit the emitted bundle and SDK/toolchain terms when changing dependencies or SDKs.

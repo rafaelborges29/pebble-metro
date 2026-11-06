@@ -11,20 +11,33 @@ model, protocol and storage boundaries.
 ```sh
 npm ci
 npx playwright install chromium
-python3 -m unittest discover -s tools
+python3 tools/release.py check
 npm run typecheck
 npm run check
 npm run e2e
 ```
 
-E2E runs both platform projects. Use `npm run e2e -- --project=gabbro` (or
+Automated tests use the emulator E2E suite, which runs both platform projects.
+Use `npm run e2e -- --project=gabbro` (or
 `--project=emery`) for a focused run. New Round 2 baselines live under
 `e2e/screenshots/gabbro/`; the existing Time 2 baselines remain at the root.
 
 The emulator harness needs the Pebble tool and its Python `libpebble2` dependency.
 The tested versions and Linux system packages are pinned in
-[CI](.github/workflows/e2e.yml); interpreter overrides are documented in
+[the shared CI setup](.github/actions/setup-pebble/action.yml); interpreter overrides are documented in
 [E2E](docs/e2e.md).
+
+## Versions and releases
+
+Main carries the next `major.minor.0-snapshot` version. Keep `package.json` and both
+root lockfile version fields aligned. The build preserves that development label
+while Pebble's native binary uses numeric major/minor. Do not publish snapshot PBWs.
+
+Use **Actions → Create release** with **minor** or **major** to prepare and publish
+a tested release. This action creates a release branch/tag, publishes the same PBW
+to GitHub and Pebble after checks, then opens the next-snapshot PR. It does not need
+a second approval; merge the next-snapshot PR before the following release.
+See [release setup, verification and recovery](docs/releases.md).
 
 ## Translations
 
@@ -54,10 +67,9 @@ No language-specific changes belong in `main.c`, `localization.c` or the generat
 `npm run build` generates `build/generated/ui_keys.h` and `ui_tables.h` before
 compiling either platform. Only `localization.c` includes the private tables;
 UI code includes `localization.h`. Never edit or commit the generated headers.
-The generator uses only the Python standard library in the existing Pebble build environment. Run
-`python3 -m unittest discover -s tools` for generator validation checks, then the
-normal build and emulator checks. Pixel-preserving copy refactors must pass existing
-English and Portuguese snapshots without updating them.
+The generator uses only the Python standard library in the existing Pebble build
+environment. Run the normal build and emulator checks. Pixel-preserving copy
+refactors must pass existing English and Portuguese snapshots without updating them.
 
 ## Changes
 

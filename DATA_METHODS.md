@@ -135,4 +135,4 @@ notice with publicly shared screenshots, including the store listing:
 > emulator screenshots are artificial examples, not live observations.
 
 See [asset provenance](assets/README.md) and the
-[release checklist](docs/publishing-todo.md) for distribution checks.
+[publishing guide](docs/appstore.md) for distribution requirements.

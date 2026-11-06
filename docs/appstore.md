@@ -6,8 +6,8 @@ Keep the Git repository/history and application source **private**. This guide
 prepares a binary-only store release; it does not authorize source publication or
 an upload. The [case-specific UnderLX assessment](../DATA_METHODS.md) identifies no
 additional public data/methods download or permission email prerequisite for this
-release. Retain its attribution/licensing conditions and complete the remaining
-[submission checks](publishing-todo.md) before an approved Unlisted upload.
+release. Retain its attribution/licensing conditions and review the submission
+requirements below before an approved Unlisted upload.
 
 Use the [Pebble Developer Dashboard](https://developer.repebble.com/dashboard)
 for the first release, with visibility explicitly set to **Unlisted**. It lets you
@@ -24,8 +24,8 @@ phone JavaScript and a source map; keeping GitHub private does not conceal them.
 2. Build the chosen revision with SDK 4.33.1. Record its version, UUID and PBW
    SHA-256 privately; preserve the UUID on updates. Use an unused numeric version
    such as `0.2.0`, not a `-beta` suffix. Retain each distributed version.
-3. Complete the [release checklist](publishing-todo.md), including physical-watch
-   checks and applicable SDK/toolchain terms. Standard builds embed complete
+3. Complete physical-watch checks and review applicable SDK/toolchain terms.
+   Standard builds embed complete
    licence/notices copies in the phone bundle, so store-installed PBWs carry them.
    Confirm the candidate still matches the recorded UnderLX client/screenshot
    assessment and preserve its notices. No blanket permission email or public
@@ -179,14 +179,21 @@ Favourites, source-precision countdowns, two-route saved cache and tiny-train lo
 Earlier Alloy favourites must be re-added after upgrading; the old store is not erased.
 ```
 
-## Other supported publishing routes
+## Updates and other supported publishing routes
+
+For updates to the existing Metro Lisboa listing, use the
+[Create release GitHub Action](releases.md). It tests one tagged PBW and publishes
+those exact bytes, preserving the current listing and screenshots. Running that
+action is approval to publish when checks pass. Setup, credentials, generated
+notes, retry handling and next-version PRs are documented there.
 
 Pebble officially supports three routes to the same appstore listing:
 
 - **Developer Dashboard:** manual PBW/images upload and the only place to edit an
-  existing listing's text, images, URLs and visibility. Recommended for this beta.
+  existing listing's text, images, URLs and visibility.
 - **`pebble publish`:** build/capture/upload from the CLI, including non-interactive
-  CI uploads. Best considered later for deliberate tagged releases, not every push.
+  CI uploads. It rebuilds, so our release automation uses its existing-app API
+  directly to preserve the verified PBW.
 - **CloudPebble Publish:** uses the latest successful CloudPebble build and that
   signed-in account. Avoid it for the initial local release if it risks submitting
   a different build from the exact PBW tested here.
