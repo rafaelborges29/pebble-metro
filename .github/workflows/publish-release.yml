@@ -120,14 +120,13 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
-      pull-requests: write
       actions: write
     steps:
       - uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
-      - name: Prepare the next snapshot through the normal PR process
+      - name: Bump main directly to the next snapshot
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.resolve.outputs.tag }}

@@ -249,33 +249,16 @@ def advance(tag):
     current = metadata()
     if version_parts(current, snapshot=True) >= version_parts(wanted, snapshot=True):
         print("main already has the next development version")
-        return
-    branch = "chore/next-" + wanted.removesuffix("-snapshot")
-    pulls = api("GET", f"pulls?state=open&head=rafaelborges29:{branch}&base=main")
-    if pulls:
-        pull = pulls[0]
     else:
-        if git("ls-remote", "origin", f"refs/heads/{branch}"):
-            # A previous run may have pushed successfully before PR creation failed.
-            git("fetch", "origin", f"refs/heads/{branch}")
-            commit = git("rev-parse", "FETCH_HEAD")
-            parents = git("rev-list", "--parents", "-n", "1", commit).split()[1:]
-            require(len(parents) == 1 and ancestor(parents[0], "origin/main"), "Unexpected next-version branch ancestry")
-            require(set(git("diff", "--name-only", parents[0], commit).splitlines()) == {"package.json", "package-lock.json"}
-                    and version_only(source_json(parents[0], "package.json"), source_json(parents[0], "package-lock.json"),
-                                     source_json(commit, "package.json"), source_json(commit, "package-lock.json"), wanted),
-                    "Existing next-version branch contains unexpected changes")
-        else:
-            git("switch", "-c", branch)
-            set_version(Path("."), wanted)
-            git("add", "package.json", "package-lock.json")
-            git(*BOT, "commit", "-m", f"Start {wanted} development")
-            git("push", "origin", f"HEAD:refs/heads/{branch}")
-        pull = api("POST", "pulls", {"title": f"Start {wanted} development", "head": branch, "base": "main",
-                                     "body": f"Advance development after {tag}. Only package and lock versions change. Merge before preparing the next release."})
-    # GITHUB_TOKEN-created PRs also need an explicit CI dispatch.
-    api("POST", "actions/workflows/e2e.yml/dispatches", {"ref": branch})
-    print(pull["html_url"])
+        set_version(Path("."), wanted)
+        git("add", "package.json", "package-lock.json")
+        git(*BOT, "commit", "-m", f"Start {wanted} development")
+        # A concurrent main update rejects this ordinary push; retry on fresh main.
+        git("push", "origin", "HEAD:refs/heads/main")
+        print(f"Advanced main to {wanted}")
+    # GITHUB_TOKEN pushes need explicit CI. Also dispatch when retrying after a
+    # successful push whose original CI dispatch failed.
+    api("POST", "actions/workflows/e2e.yml/dispatches", {"ref": "main"})
 
 
 def main():

@@ -35,8 +35,9 @@ while Pebble's native binary uses numeric major/minor. Do not publish snapshot P
 
 Use **Actions → Create release** with **minor** or **major** to prepare and publish
 a tested release. This action creates a release branch/tag, publishes the same PBW
-to GitHub and Pebble after checks, then opens the next-snapshot PR. It does not need
-a second approval; merge the next-snapshot PR before the following release.
+to GitHub and Pebble after checks, then immediately commits the next snapshot
+directly to main and starts its emulator CI. No version-bump PR or second approval
+is required.
 See [release setup, verification and recovery](docs/releases.md).
 
 ## Translations
