@@ -29,6 +29,9 @@ No alerts, vibration, line-status pages, GPS, watch-side JavaScript runtime,
 background worker, custom Android app or custom backend. The paired phone needs
 the Pebble mobile app and internet access. See [privacy](PRIVACY.md).
 
+A [phone favourites editor](docs/phone-configuration.md) is proposed for review,
+not implemented; the on-watch picker remains the supported configuration flow.
+
 ## Language
 
 The watch's system locale selects the UI: **Portuguese (Portugal)** for `pt_PT`,
