@@ -157,7 +157,6 @@ the app with the same UUID; read the migration note above before upgrading.
 - [UI and cache flow](docs/design.md)
 - [Appstore publishing and listing draft](docs/appstore.md)
 - [Artwork and screenshots](assets/README.md)
-- [Release checklist](docs/publishing-todo.md)
 - [GitHub Actions releases, versioning and recovery](docs/releases.md)
 - [Privacy](PRIVACY.md)
 - [UnderLX data attribution and transformation methods](DATA_METHODS.md)

@@ -6,8 +6,8 @@ Keep the Git repository/history and application source **private**. This guide
 prepares a binary-only store release; it does not authorize source publication or
 an upload. The [case-specific UnderLX assessment](../DATA_METHODS.md) identifies no
 additional public data/methods download or permission email prerequisite for this
-release. Retain its attribution/licensing conditions and complete the remaining
-[submission checks](publishing-todo.md) before an approved Unlisted upload.
+release. Retain its attribution/licensing conditions and review the submission
+requirements below before an approved Unlisted upload.
 
 Use the [Pebble Developer Dashboard](https://developer.repebble.com/dashboard)
 for the first release, with visibility explicitly set to **Unlisted**. It lets you
@@ -24,8 +24,8 @@ phone JavaScript and a source map; keeping GitHub private does not conceal them.
 2. Build the chosen revision with SDK 4.33.1. Record its version, UUID and PBW
    SHA-256 privately; preserve the UUID on updates. Use an unused numeric version
    such as `0.2.0`, not a `-beta` suffix. Retain each distributed version.
-3. Complete the [release checklist](publishing-todo.md), including physical-watch
-   checks and applicable SDK/toolchain terms. Standard builds embed complete
+3. Complete physical-watch checks and review applicable SDK/toolchain terms.
+   Standard builds embed complete
    licence/notices copies in the phone bundle, so store-installed PBWs carry them.
    Confirm the candidate still matches the recorded UnderLX client/screenshot
    assessment and preserve its notices. No blanket permission email or public

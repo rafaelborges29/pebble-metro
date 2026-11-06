@@ -124,4 +124,4 @@ Uninstalling or erasing data is not a migration shortcut.
 
 Emulator navigation/cache tests and heap headroom are required but do not replace
 physical repeated-switch, reconnect, reopen and battery testing. See
-[E2E](e2e.md) and the [release checklist](publishing-todo.md).
+[E2E](e2e.md) and the [publishing guide](appstore.md).
