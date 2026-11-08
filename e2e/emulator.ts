@@ -117,10 +117,10 @@ function emulator(testInfo: TestInfo) {
       }).pipe(Effect.andThen(Effect.promise(() => exited)), Effect.timeout('2 seconds'))),
     );
     const timings = JSON.stringify({ bootMs, lifetimeMs: performance.now() - started, rpc }, null, 2);
-    writeFileSync(testInfo.outputPath('emulator-timings.json'), timings);
-    yield* Effect.promise(() => testInfo.attach('emulator timings', { body: timings, contentType: 'application/json' }));
     writeFileSync(testInfo.outputPath('emulator.log'), output);
+    writeFileSync(testInfo.outputPath('emulator-timings.json'), timings);
     yield* Effect.promise(() => testInfo.attach('emulator log', { body: output, contentType: 'text/plain' }));
+    yield* Effect.promise(() => testInfo.attach('emulator timings', { body: timings, contentType: 'application/json' }));
   }).pipe(Effect.orDie);
   return {
     platform,

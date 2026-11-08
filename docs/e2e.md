@@ -284,8 +284,8 @@ methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
 Normal PR/main runs and release verification use the same Playwright config:
 four workers on CI, one locally unless overridden with `--workers`. Files run
 concurrently, but tests inside each file remain sequential; `fullyParallel` is
-not enabled by default. Retries remain disabled and snapshots are never updated. Each test still owns
-fresh flash, its browser context and per-test output directory. Normal CI never
+not enabled by default. Retries remain disabled and snapshots are never updated.
+Each test still owns fresh flash, its browser context and per-test output directory. Normal CI never
 installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
 
@@ -311,8 +311,42 @@ not firmware/application readiness; the existing draw and receipt waits remain.
 RPC totals can overlap and must not be summed into a test's wall time. JUnit and
 HTML reports retain per-test/platform durations, logs and failure traces.
 
-Four file-level workers passed all 98 cases in 7.0 minutes of test execution.
-The test-level parallel benchmark also passed but took 6.9 minutes, with higher
+Measured on 2026-11-08, all using `ubuntu-24.04` with **2 vCPUs / 7.75 GiB RAM**.
+The before revision `4b795ce` adds measurement only; `f9f019a` adds inherited
+sockets/headless-only setup, and `e03589f` selects the four-worker CI default.
+Production code, all 98 test identities and screenshot baselines are identical.
+Times below are rounded to seconds; whole-job time excludes queueing.
+
+| Configuration / hosted run | Setup | Typecheck + build | Tests | Report upload | Whole job | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| [Before: 1 worker](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529218535) | 1m11s | 7s | 20m54s | 2s | **22m22s** | 98 passed |
+| [2 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529367222) | 1m11s | 5s | 10m45s | 3s | 12m12s | 98 passed |
+| [4 workers, files](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529369378) | 59s | 5s | 7m00s | 2s | **8m13s** | 98 passed |
+| [4 workers, fully parallel](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529517026) | 1m08s | 6s | 6m55s | 2s | 8m20s | 98 passed |
+| [4 workers, files: confirmation](https://github.com/rafaelborges29/pebble-metro/actions/runs/42530501498) | 1m11s | 6s | 6m53s | 2s | **8m18s** | 98 passed |
+| [4 workers, files: repeat-each=2](https://github.com/rafaelborges29/pebble-metro/actions/runs/42530499386) | 1m11s | 4s | 13m27s | 3s | 14m58s | **196 passed** |
+
+| Configuration | CPU model | CPU busy mean / peak | Peak non-cache RAM | Median bridge startup |
+| --- | --- | --- | --- | --- |
+| Before: 1 worker | EPYC 7763 | 26.9% / 79% | 1.31 GiB | 1.917s |
+| 2 workers | EPYC 9V74 | 48.0% / 99% | 1.81 GiB | 1.756s |
+| 4 workers, files | EPYC 9V45 | 66.7% / 100% | 2.66 GiB | 2.207s |
+| 4 workers, fully parallel | EPYC 9V74 | 85.6% / 100% | 2.74 GiB | 2.718s |
+| 4 workers, files: confirmation | EPYC 9V45 | 65.7% / 100% | 2.63 GiB | 2.184s |
+| 4 workers, files: repeat | Xeon 6975P-C | 70.8% / 100% | 2.73 GiB | 2.208s |
+
+Resource figures are whole-runner, one-second samples, not continuous maxima or
+aggregate child RSS. Non-cache RAM is approximately total minus free/buffers/cache;
+CPU summaries exclude `vmstat`'s first (since-boot) row. Hosted CPU models vary
+within this runner class, so these are not identical-hardware microbenchmarks.
+
+The chosen setting reduces full-job wall time and runner-minutes by about **63%**
+without larger runners or duplicate setup jobs. The under-eight-minute target was
+**not quite reached**: normal confirmations took 8m13s–8m18s for today's 98 cases,
+not the issue's historical 52. No external download outlier occurred; setup still
+varied from 59–71 seconds, so do not credit all setup differences to `--only-shell`.
+
+Fully parallel execution was only a few seconds faster in testing, with higher
 CPU pressure and slower individual starts/screenshots. Keep file-level scheduling
 rather than adding parallel mode or splitting specs for this negligible gain.
 Each stress case still uses 430 real button presses, including the 160 switches;
@@ -322,6 +356,15 @@ screenshot tolerances are relaxed. Production timeout/recovery cases also retain
 their real waits. Setup downloads only Chromium's required headless shell, not
 the unused full browser. No SDK/browser cache or extra CI job is added without
 measured need; warm restores would not address the dominant serial bottleneck.
+The confirmation/repeat runs also checked that testing left PBW bytes unchanged.
+Across all runs, stress samples retained at least 53,772 bytes free on Gabbro and
+53,908 on Emery, zero sampled steady-state heap variation and exactly two expected
+starts per stress case. No tests were skipped or retried. Four concurrent local
+locale cases additionally exercised both platforms' inherited debugger listeners; four
+SIGTERM probes verified QEMU exit and private-flash removal. These checks do not
+replace the physical-watch acceptance below.
+
+### Other probes and limits
 
 During development, the allocation-free C JSON decoder was separately checked
 using one-off host probes with C99 warnings,
@@ -365,8 +408,8 @@ cannot select it there. For the two locale fixtures only, the harness uses the
 SDK's bundled GDB/debug ELF to set `s_system_domain.iso_locale` in the private
 emulator's RAM before installing Metro. It asserts the locale logged by the
 release app's actual `i18n_get_system_locale()` call; no app renderer, translation
-helper, phone language or app binary is substituted. The debugger uses an inherited private
-loopback listener and detaches immediately. Normal SDK files and managed emulators
+helper, phone language or app binary is substituted. The debugger uses an inherited
+private loopback listener and detaches immediately. Normal SDK files and managed emulators
 are untouched. These tests exercise the native API boundary and built-in system
 fonts, **not** the physical watch's language picker or downloaded font packs.
 
