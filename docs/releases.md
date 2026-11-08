@@ -81,6 +81,8 @@ release instead of selecting another listing or upload route.
 4. Preflight verifies ZIP integrity and allowed entries, UUID, numeric release
    version, native header versions/UUIDs, both target manifests/binaries/resources,
    phone bundle, complete bundled licence notices, and the 4.4 MB size ceiling.
+   It also requires `manifestVersion: 2` and permission declarations exactly matching
+   `package.json`, rejecting stripped, legacy or unexpectedly broadened metadata.
    Publication also checks the account's current upload size limit.
 5. An immutable Actions artifact carries the candidate between jobs. Its PBW,
    checksum and provenance are frozen in the GitHub draft before any store upload.

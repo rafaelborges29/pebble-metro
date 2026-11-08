@@ -39,6 +39,7 @@ export interface Metro {
   deferNextArrival(): { wait(): Promise<void>; release(): void };
   removeLine(id: string): Promise<void>;
   setAutoArrivals(enabled: boolean): void;
+  setInternetAllowed(allowed: boolean): void;
   openSettings(): Promise<Page>;
   readonly settingsCloses: number;
   favorites(): Promise<Favourite[]>;
@@ -74,17 +75,19 @@ const stations = [
 const lines = [{ network: 'pt-ml', id: 'pt-ml-red', name: 'Vermelha', color: 'ff0000',
   stations: ['pt-ml-ss', 'pt-ml-sa', 'pt-ml-ap'] }];
 
-export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLocale: string; hostileLabels: boolean; liveSettings: boolean }>({
+export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLocale: string; hostileLabels: boolean; liveSettings: boolean; internetAllowed: boolean }>({
   largeNetwork: [false, { option: true }],
   hostileLabels: [false, { option: true }],
   liveSettings: [true, { option: true }],
+  internetAllowed: [true, { option: true }],
   watchLocale: ['en_US', { option: true }],
-  metro: async ({ page, largeNetwork, watchLocale, hostileLabels, liveSettings }, use, testInfo) => {
+  metro: async ({ page, largeNetwork, watchLocale, hostileLabels, liveSettings, internetAllowed }, use, testInfo) => {
     await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
       const device = yield* acquireEmulator(testInfo);
       yield* device.ready;
       yield* Effect.tryPromise({ catch: cause => cause, try: async () => {
         const commands: WatchCommand[] = [], subscriptions: string[] = [], errors: string[] = [];
+        let networkAllowed = internetAllowed;
         const extraStations = largeNetwork ? Array.from({ length: 47 }, (_, i) => ({ network: 'pt-ml',
           id: 'pt-ml-z' + i, name: 'Z station ' + i, lines: ['pt-ml-red'] })) : [];
         const catalogue = [...stations.map(station => ({ ...station, lines: [...station.lines] })), ...extraStations];
@@ -181,6 +184,8 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             const data: Record<string, unknown> = { '/v1/stations': catalogue, '/v1/lines': routes };
             if (url.origin === 'https://api.underlx.com' && !url.search && route.request().method() === 'GET'
                 && Object.hasOwn(data, url.pathname)) {
+              // Android's native network gate answers denied HTTP requests with 403.
+              if (!networkAllowed) return route.fulfill({ status: 403, body: 'Forbidden', headers: { 'access-control-allow-origin': '*' } });
               return route.fulfill({ json: data[url.pathname], headers: {
                 'access-control-allow-origin': '*', 'access-control-expose-headers': 'Date, Age',
                 date: new Date().toUTCString(), age: '0',
@@ -195,6 +200,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
               socket.close();
               return;
             }
+            if (!networkAllowed) { socket.close(); return; }
             const parser = mqtt.parser();
             const send = (packet: mqtt.Packet) => socket.send(mqtt.generate(packet));
             parser.on('error', (error: Error) => errors.push(error.message));
@@ -291,6 +297,10 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             await page.evaluate(() => window.phoneEvent('ready', {}));
             phoneReady = true;
             for (const payload of inbox.splice(0)) dispatch(payload);
+            if (!networkAllowed) {
+              await expect.poll(() => phoneLog.some(line => line.includes('UnderLX HTTP 403'))).toBe(true);
+              return;
+            }
             await delivered('catalog');
             for (const record of sent.values()) if (record.message?.type === 'catalog')
               expect(record.message).toEqual(expectedCatalog);
@@ -316,6 +326,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             expectScreen, delivered, startPhone,
             async screenshot() { return Buffer.from(await Effect.runPromise(device.request('screenshot', {})), 'base64'); },
             setAutoArrivals(enabled) { autoArrivals = enabled; },
+            setInternetAllowed(allowed) { networkAllowed = allowed; },
             pauseSettings(paused) { settingsPaused = paused; },
             async alterNextSave(patch) { await page.evaluate(value => { window.settingsPatch = value; }, patch); },
             async favorites() {

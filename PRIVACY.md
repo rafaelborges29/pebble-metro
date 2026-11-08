@@ -47,6 +47,12 @@ Live editing requires the Pebble app's Plugins / permissions preview, which also
 enables that platform's permission system. Metro adds no plugin and does not
 request access to unrelated plugins, files, contacts or location. The existing
 UnderLX network connections remain subject to the mobile app's permissions.
+The version-2 manifest declares only required Internet access to `api.underlx.com`
+(catalogue) and `perturbacoes.pt` (live arrivals); Pebble's domain grants also cover
+subdomains. It declares no location, files, contacts, notifications or timeline
+permission. Approvals/revocations are managed by Pebble, not a Metro permission
+screen. Updating from the legacy manifest replaces its implicit grants with these
+explicit requests; refusing access does not erase favourites or renew cached ETAs.
 
 Removing a favourite removes it from the current list and attempts to delete its
 saved arrival data. Storage errors are reported. Closing does not erase saved
