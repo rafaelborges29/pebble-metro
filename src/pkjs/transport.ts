@@ -1,13 +1,22 @@
+import type { WatchMessage } from '../common/types.js';
+import type { CompanionPebble, Timers, Timer } from './platform.js';
+
+interface Batch {
+  session: string; id: number; part: number; total: number; parts: string[];
+  key: string; attempts: number; invalidates: boolean; received?: boolean;
+}
+
 // One AppMessage in flight; wait for the watch's application receipt before
 // advancing. Partial or unconsumed batches must never renew an arrival estimate.
-export function createTransport(pebble, timers, onInvalidationLoss) {
-  var session = null, sequence = 0, queue = [], active = null, busy = false, retry, closed = false;
+export function createTransport(pebble: CompanionPebble, timers: Timers, onInvalidationLoss: () => void) {
+  var session: string | null = null, sequence = 0, queue: Batch[] = [], active: Batch | null | undefined = null;
+  var busy = false, retry: Timer | null | undefined, closed = false;
   function clearRetry() { if (retry) timers.clearTimeout(retry); retry = null; }
   function wake() {
     if (busy || session || closed) return;
     busy = true;
     var called = false;
-    function done(ok) {
+    function done(ok: boolean) {
       if (called) return;
       called = true; busy = false;
       if (!ok && !session && !closed) retry = timers.setTimeout(function () { retry = null; wake(); }, 1000);
@@ -16,19 +25,19 @@ export function createTransport(pebble, timers, onInvalidationLoss) {
     try { pebble.sendAppMessage({ DATA: '{}' }, function () { done(true); }, function () { done(false); }); }
     catch (_) { done(false); }
   }
-  function advance(batch) {
+  function advance(batch: Batch) {
     clearRetry(); batch.part++; batch.attempts = 0; batch.received = false;
     if (batch.part === batch.total) active = null;
     pump();
   }
-  function failed(batch) {
+  function failed(batch: Batch) {
     batch.attempts++;
     var discarded = batch.attempts >= 3 && batch.key !== 'hello';
     if (discarded) active = null;
     retry = timers.setTimeout(function () { retry = null; pump(); }, Math.min(5000, 250 * Math.pow(2, Math.min(batch.attempts, 5))));
     if (discarded && batch.invalidates) onInvalidationLoss();
   }
-  function receipt(id, part) {
+  function receipt(id: number, part: number) {
     if (!active || active.id !== id || active.part !== part) return;
     active.received = true;
     if (!busy) advance(active);
@@ -42,7 +51,7 @@ export function createTransport(pebble, timers, onInvalidationLoss) {
       text: batch.parts[part] };
     busy = true;
     var called = false;
-    function done(ok) {
+    function done(ok: boolean) {
       if (called) return;
       called = true; busy = false;
       if (active !== batch || session !== batch.session) { pump(); return; }
@@ -57,11 +66,11 @@ export function createTransport(pebble, timers, onInvalidationLoss) {
   return {
     wake: wake,
     receipt: receipt,
-    reset: function (nextSession) {
+    reset: function (nextSession: string | null) {
       session = nextSession; queue = []; active = null; clearRetry();
       // Keep busy until any old-session send callback releases the wire.
     },
-    send: function (message, key) {
+    send: function (message: WatchMessage, key?: string) {
       if (!session) return false;
       var text;
       // Bound the watch's transient UTF-8 JSON allocations, not just characters.
@@ -69,7 +78,7 @@ export function createTransport(pebble, timers, onInvalidationLoss) {
         text = JSON.stringify(message);
         if (!text || text.length > 5000 || encodeURIComponent(text).replace(/%[A-F\d]{2}/gi, 'x').length > 5000) return false;
       } catch (_) { return false; }
-      var parts = [], start = 0;
+      var parts: string[] = [], start = 0;
       while (start < text.length) {
         var end = Math.min(start + 500, text.length), code = text.charCodeAt(end - 1);
         if (end < text.length && code >= 0xD800 && code <= 0xDBFF) end--;
@@ -84,19 +93,19 @@ export function createTransport(pebble, timers, onInvalidationLoss) {
         return false;
       });
       // Configuration saves/receipts must not be silently evicted by feed traffic.
-      var discarded = null;
+      var discarded: Batch | null = null;
       if (queue.length >= 8) {
         var victim = -1;
-        for (var i = 0; i < queue.length; i++) if (queue[i].key !== 'hello' && queue[i].key.indexOf('settings:') !== 0) { victim = i; break; }
+        for (var i = 0; i < queue.length; i++) if (queue[i]!.key !== 'hello' && queue[i]!.key.indexOf('settings:') !== 0) { victim = i; break; }
         if (victim < 0) return false;
-        discarded = queue.splice(victim, 1)[0];
+        discarded = queue.splice(victim, 1)[0]!;
       }
       queue.push({ session: session, id: ++sequence, part: 0, total: parts.length, parts: parts, key: key, attempts: 0, invalidates: invalidates });
       // Publish the generation barrier AFTER every older queued snapshot.
       if (discarded && discarded.invalidates) onInvalidationLoss();
       pump(); return true;
     },
-    setStations: function (stations) {
+    setStations: function (stations: string[]) {
       queue = queue.filter(function (batch) { return batch.invalidates || batch.key.indexOf('arrivals:') !== 0 || stations.indexOf(batch.key.slice(9)) !== -1; });
     },
     close: function () { closed = true; this.reset(null); }

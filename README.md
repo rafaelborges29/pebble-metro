@@ -121,14 +121,18 @@ The SDK names the package after the checkout directory:
 `build/<checkout-directory-name>.pbw`. For a clone named `pebble-metro`, this is
 `build/pebble-metro.pbw`.
 
-- `npm run build` — native watch app and bundled phone JavaScript.
-- `npm run check` — phone entry syntax and production build.
-- `npm run typecheck` — TypeScript emulator harness checks.
+- `npm run build` — type-check/compile phone TypeScript, build C and bundle JavaScript.
+- `npm run check` — SDK bootstrap syntax and production build.
+- `npm run typecheck` — strict phone/shared TypeScript and emulator harness checks.
 - `npm run e2e` — typecheck, build and real-emulator tests.
 - `npm run assets:screenshots` — explicitly recapture unmasked store screenshots.
 
 Do not add `"type": "module"` to the root package: the SDK generates a CommonJS
-webpack configuration. A small build-time adapter handles the phone's ESM sources.
+webpack configuration. The root `tsconfig.json` compiles strict phone/shared TypeScript
+to ES2015/CommonJS under `build/phone/` before SDK webpack runs. A tiny
+`src/pkjs/bootstrap.cjs` loads the compiled entry and bundled notices; the custom
+ESM adapter is no longer needed. Direct `pebble build --sdk 4.33.1` also performs
+this compile/type check. Generated JavaScript is ignored, not edited or committed.
 Clean with `pebble clean --sdk 4.33.1` after changing SDK or project type.
 
 UI copy lives in `locales/en.json` and `locales/pt_PT.json`, keyed by meaning

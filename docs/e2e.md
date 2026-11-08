@@ -205,7 +205,11 @@ npx playwright show-report
 ```
 
 Do not add `"type": "module"` to the root package: the SDK webpack configuration
-is CommonJS. The configuration spec also requires a system C compiler (`cc`) for
+is CommonJS. `npm run typecheck` checks strict phone/shared application sources
+(root `tsconfig.json`) as well as the harness (`e2e/tsconfig.json`); the SDK build
+then compiles the phone sources to `build/phone/` before bundling. Emulator/browser
+tests execute the extracted PBW JavaScript, not an alternate TypeScript test build.
+The configuration spec also requires a system C compiler (`cc`) for
 its production-store fault probe. Host probes complement, never replace, the
 actual native PBW flows.
 

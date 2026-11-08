@@ -10,10 +10,10 @@
   "description": "Small native Lisbon Metro arrivals app for Pebble Time 2 and Pebble Round 2.",
   "scripts": {
     "build": "pebble build --sdk 4.33.1",
-    "typecheck": "tsc --project e2e/tsconfig.json",
+    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project e2e/tsconfig.json",
     "e2e": "npm run typecheck && npm run check && playwright test",
     "assets:screenshots": "npm run typecheck && npm run check && METRO_CAPTURE_ASSETS=1 playwright test --grep 'reopen immediately' --output=test-results/store-capture --reporter=list",
-    "check": "node --check src/pkjs/index.js && npm run build"
+    "check": "node --check src/pkjs/bootstrap.cjs && npm run build"
   },
   "keywords": [
     "pebble-app"

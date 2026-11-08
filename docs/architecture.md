@@ -2,7 +2,8 @@
 
 Targets: Pebble Time 2 (`emery`, 200×228) and Pebble Round 2 (`gabbro`, 260×260),
 Android Pebble app, SDK 4.33.1. The original Time Round (`chalk`) is not targeted.
-The watch is native C. Only the phone companion is JavaScript.
+The watch is native C. The phone companion, editor and shared validation are strict
+TypeScript, compiled to JavaScript for PebbleKit JS.
 
 ```text
 Time 2 / Round 2: one native window + drawing layer, fixed-size model and persistence
@@ -21,6 +22,23 @@ or watch-side JS runtime. No GPS or private Metro credentials. A self-contained
 [phone favourites editor](phone-configuration.md) uses the Pebble app's standard
 configuration WebView plus its live local message bridge (Plugins / permissions
 preview required). There is no hosted page, additional plugin or new network provider.
+
+## Phone compilation and types
+
+The root `tsconfig.json` is discoverable by editors and checks production
+phone/shared sources independently of the E2E harness: strict null/unknown handling, indexed access and optional properties,
+without ambient Node globals. SDK builds compile ES2015/CommonJS into
+`build/phone/` before webpack 1 runs, with tracked TS/JSON/config/lockfile inputs
+and declared generated outputs. Type errors stop the build before packaging.
+`src/pkjs/bootstrap.cjs` preserves SDK CommonJS compatibility and bundled notices;
+there is no custom ESM loader, new dependency or TypeScript runtime in the PBW.
+
+`src/common/types.ts` describes catalogues, favourites, prediction variants and
+watch/settings messages. `src/pkjs/platform.ts` describes the injected bridge,
+MQTT, storage, request and timer edges. External JSON remains `unknown` until
+runtime validation; compile-time contracts do not replace either phone or native
+validation. The page's serialized client imports types only: no runtime imports,
+module captures or compiler helpers may enter that self-contained function.
 
 ## Native memory design
 

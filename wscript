@@ -48,6 +48,18 @@ def build(ctx):
     ctx(rule='${LOCALE_PYTHON} ${SRC[0].abspath()} ${SRC[1].abspath()} ${TGT}',
         source=['tools/generate_locales.py', 'locales/index.json'] + ctx.path.ant_glob('locales/*.json', excl='locales/index.json'),
         target=['generated/ui_keys.h', 'generated/ui_tables.h'])
+    # Compile the phone/shared application before SDK webpack 1 bundles it.
+    # Declare every generated file so clean and incremental builds use fresh JS.
+    ctx.add_group('phone')
+    phone_sources = ctx.path.ant_glob(['src/pkjs/**/*.ts', 'src/common/**/*.ts'])
+    phone_json = ctx.path.ant_glob(['src/pkjs/**/*.json', 'locales/index.json'])
+    phone_outputs = [ctx.path.get_bld().make_node('phone/' + source.path_from(ctx.path).replace('.ts', '.js'))
+                     for source in phone_sources if not source.name.endswith('.d.ts')]
+    phone_outputs += [ctx.path.get_bld().make_node('phone/' + source.path_from(ctx.path)) for source in phone_json]
+    ctx.env.PHONE_TSC = [ctx.path.find_node('node_modules/.bin/tsc').abspath()]
+    ctx(rule='${PHONE_TSC} --project ${SRC[0].abspath()}',
+        source=['tsconfig.json', 'package.json', 'package-lock.json'] + phone_sources + phone_json,
+        target=phone_outputs)
     ctx.load('pebble_sdk')
 
     binaries = []
@@ -66,12 +78,8 @@ def build(ctx):
     ctx.set_group('bundle')
     # Track the licence files read by the build-time phone notices loader.
     ctx.pbl_bundle(binaries=binaries,
-                   js=ctx.path.ant_glob(['src/pkjs/**/*.js',
-                                         'src/pkjs/**/*.cjs',
-                                         'src/pkjs/**/*.json',
-                                         'src/common/**/*.js',
-                                         'locales/index.json',
+                   js=phone_outputs + ctx.path.ant_glob(['src/pkjs/**/*.cjs',
                                          'LICENSE',
                                          'THIRD_PARTY_NOTICES.md',
                                          'LICENSES/*.txt']),
-                   js_entry_file='src/pkjs/index.js')
+                   js_entry_file='src/pkjs/bootstrap.cjs')

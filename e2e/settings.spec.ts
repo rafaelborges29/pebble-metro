@@ -18,7 +18,7 @@ test('phone copy uses complete matching keyed translation tables', async () => {
   for (const dictionary of [english, portuguese]) for (const [key, value] of Object.entries(dictionary)) {
     expect(key).toMatch(/^[a-z]+(?:\.[a-z]+)*$/); expect(typeof value).toBe('string'); expect(value.trim()).not.toBe(''); expect(() => encodeURIComponent(value)).not.toThrow();
   }
-  const page = readFileSync(`${root}/src/pkjs/settings-page.js`, 'utf8');
+  const page = readFileSync(`${root}/src/pkjs/settings-page.ts`, 'utf8');
   for (const match of page.matchAll(/\b(?:t|button|select)\("([a-z.]+)"(?=[,)])/g)) expect(english[match[1]]).toBeTruthy();
   for (const status of ['connecting', 'ready', 'saving', 'saved', 'duplicate', 'conflict', 'invalid', 'storage', 'unknown', 'unavailable', 'expired', 'busy', 'bridge'])
     expect(english[`status.${status}`]).toBeTruthy();
@@ -174,6 +174,27 @@ test.describe('live bridge unavailable', () => {
     expect(await metro.favorites()).toEqual([]); expect(metro.settingsCloses).toBe(0);
     await config.getByRole('button', { name: 'Done', exact: true }).click(); expect(metro.settingsCloses).toBe(1);
   });
+});
+
+test('primitive and invalid-status bridge replies remain recoverable without replaying saves', async ({ metro }) => {
+  await metro.favorites(); const config = await metro.openSettings();
+  await expect(config.getByRole('button', { name: 'Add favourite', exact: true })).toBeEnabled();
+  const before = metro.commands.length;
+  for (const reply of [true, 'unexpected reply', 42, {}, { status: 42 }, null, []]) {
+    await config.evaluate(reply => {
+      // This realm has the settings API, not the companion Window declaration.
+      const bridge = window.Pebble as unknown as { sendMessage(target: string, data: unknown): Promise<unknown> };
+      const send = bridge.sendMessage;
+      bridge.sendMessage = () => { bridge.sendMessage = send; return Promise.resolve(reply); };
+    }, reply);
+    await config.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(config.getByRole('status')).toHaveText('Save result unknown. Refresh to check the watch before retrying.');
+    await expect(config.getByRole('button', { name: 'Add favourite', exact: true })).toBeDisabled();
+  }
+  await config.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(config.getByRole('button', { name: 'Add favourite', exact: true })).toBeEnabled();
+  expect(metro.commands.slice(before).some(command => command.type === 'settings-save')).toBe(false);
+  expect(await metro.favorites()).toEqual([]); expect(metro.settingsCloses).toBe(0);
 });
 
 test('a phone runtime restart expires an open page instead of replaying it', async ({ metro }) => {

@@ -1,33 +1,41 @@
-import { parseNetwork, parseFavorites } from "../common/metro.js";
+import { parseNetwork, parseFavorites, object } from "../common/metro.js";
 import { createTransport } from "./transport.js";
 import { openFeed } from "./feed.js";
 import { createSettings } from "./settings.js";
+import type { Network, Connection, WatchMessage, LocaleRegistry, PhoneLocales } from '../common/types.js';
+import type { CompanionPebble, Timers, Timer, Storage, JsonRequester, JsonCallback, MqttClient, AppMessageEvent } from './platform.js';
+
+interface CompanionOptions {
+  Pebble: CompanionPebble; timers: Timers; now(): number; storage: Storage | null;
+  localeRegistry: LocaleRegistry; phoneLocales: PhoneLocales;
+  request: JsonRequester; createClient(url: string): MqttClient;
+}
 
 var CACHE_KEY = "metro.network.v1";
-function bytes(s) { return encodeURIComponent(s).replace(/%[A-F\d]{2}/gi, "x").length; }
-function cachedNetwork(value) {
-  var data = JSON.parse(value);
-  if (!data || !Array.isArray(data.stations) || !Array.isArray(data.lines)) throw new Error("Invalid cache");
-  return parseNetwork(data.stations.map(function (s) { return { network: "pt-ml", id: s.id, name: s.name, lines: s.lines }; }),
-    data.lines.map(function (l) { return { network: "pt-ml", id: l.id, name: l.name, color: typeof l.color === "string" && /^#[\da-f]{6}$/i.test(l.color) ? l.color.slice(1) : "", stations: l.stations }; }));
+function bytes(s: string) { return encodeURIComponent(s).replace(/%[A-F\d]{2}/gi, "x").length; }
+function cachedNetwork(value: string): Network {
+  var data: unknown = JSON.parse(value);
+  if (!object(data) || !Array.isArray(data.stations) || !Array.isArray(data.lines)) throw new Error("Invalid cache");
+  return parseNetwork(data.stations.map(function (s: unknown) { if (!object(s)) throw new Error("Invalid cache"); return { network: "pt-ml", id: s.id, name: s.name, lines: s.lines }; }),
+    data.lines.map(function (l: unknown) { if (!object(l)) throw new Error("Invalid cache"); return { network: "pt-ml", id: l.id, name: l.name, color: typeof l.color === "string" && /^#[\da-f]{6}$/i.test(l.color) ? l.color.slice(1) : "", stations: l.stations }; }));
 }
 
 // Platform edges are supplied by the Android bridge.
-export function createCompanion(options) {
+export function createCompanion(options: CompanionOptions) {
   var pebble = options.Pebble, timers = options.timers, now = options.now;
   var transport = createTransport(pebble, timers, function () {
     // Queue eviction or exhausted retries lost a required station invalidation.
     feedGeneration = (feedGeneration + 1) >>> 0;
     send(connection, "invalidation");
-  }), network = null, cached = false;
-  var session = null, favorite = null, stations = [], feed = null;
-  var metadataBusy = false, metadataRetry = null, closed = false;
-  var metadataGeneration = 0, cancels = [];
-  var connection = { type: "connection", status: "disconnected" };
-  var feedGeneration = 0, announcedConnection = null, catalogId = 0;
+  }), network: Network | null = null, cached = false;
+  var session: string | null = null, favorite: unknown = null, stations: string[] = [], feed: ReturnType<typeof openFeed> | null = null;
+  var metadataBusy = false, metadataRetry: Timer | null = null, closed = false;
+  var metadataGeneration = 0, cancels: (() => void)[] = [];
+  var connection: Connection = { type: "connection", status: "disconnected" };
+  var feedGeneration = 0, announcedConnection: Connection['status'] | null = null, catalogId = 0;
   var settings = createSettings({ Pebble: pebble, timers: timers, localeRegistry: options.localeRegistry, phoneLocales: options.phoneLocales,
     send: function (message, key) { return transport.send(message, key); } });
-  function send(message, key) {
+  function send(message: WatchMessage, key?: string) {
     if (!session || closed) return;
     if (message.type === "connection") {
       if ((message.status === "disconnected" && announcedConnection !== "disconnected") ||
@@ -44,13 +52,13 @@ export function createCompanion(options) {
     var ids = network.stations.map(function (s) { return s.id; });
     settings.catalog(network, catalogId);
     send({ type: "catalog", cached: cached, catalogId: catalogId,
-      stations: network.stations.map(function (s) {
-        var mask = network.lines.reduce(function (value, line, index) {
+      stations: network.stations.map(function (s): [string, string, number] {
+        var mask = network!.lines.reduce(function (value, line, index) {
           return s.lines.indexOf(line.id) === -1 ? value : value | (1 << index);
         }, 0);
         return [s.id, s.name, mask];
       }),
-      lines: network.lines.map(function (l) {
+      lines: network.lines.map(function (l): [string, string, string, number[]] {
         return [l.id, l.name, l.color, l.stations.map(function (station) { return ids.indexOf(station); })];
       })
     });
@@ -85,10 +93,10 @@ export function createCompanion(options) {
     if (metadataRetry) timers.clearTimeout(metadataRetry);
     metadataRetry = null;
     metadataBusy = true;
-    var generation = ++metadataGeneration, stationData, lineData, count = 0, failed = false;
-    function result(kind, error, data) {
+    var generation = ++metadataGeneration, stationData: unknown, lineData: unknown, count = 0, failed = false;
+    function result(kind: string, error: unknown, data: unknown) {
       if (closed || generation !== metadataGeneration) return;
-      if (error) { failed = true; console.log("UnderLX " + kind + ": " + error.message); }
+      if (error) { failed = true; console.log("UnderLX " + kind + ": " + (object(error) ? error.message : undefined)); }
       if (kind === "stations") stationData = data; else lineData = data;
       count++;
       if (count !== 2) return;
@@ -100,7 +108,7 @@ export function createCompanion(options) {
           catalogId = (catalogId + 1) >>> 0 || 1;
           cached = false;
           if (options.storage) { try { options.storage.setItem(CACHE_KEY, JSON.stringify(parsed)); } catch (_) {} }
-        } catch (error) { failed = true; console.log("UnderLX metadata: " + error.message); }
+        } catch (error) { failed = true; console.log("UnderLX metadata: " + (object(error) ? error.message : undefined)); }
       }
       if (failed && network) cached = true;
       if (failed && !network) send({ type: "connection", status: "disconnected", error: "Station metadata unavailable" });
@@ -111,9 +119,9 @@ export function createCompanion(options) {
     }
     ["stations", "lines"].forEach(function (path) { request(path, function (error, data) { result(path, error, data); }); });
   }
-  function request(path, callback) {
-    var cancel, complete = false;
-    function done(error, data) {
+  function request(path: string, callback: JsonCallback) {
+    var cancel: (() => void) | void = undefined, complete = false;
+    function done(error: unknown, data?: unknown) {
       if (complete) return;
       complete = true;
       if (cancel) cancels = cancels.filter(function (c) { return c !== cancel; });
@@ -130,14 +138,14 @@ export function createCompanion(options) {
     } });
     feed.setStations(stations);
   }
-  function receive(event) {
+  function receive(event: AppMessageEvent) {
     if (closed) return;
-    var command;
+    var command: unknown;
     try {
       var raw = event.payload && event.payload.DATA;
       if (typeof raw !== "string" || raw.length > 1000 || bytes(raw) > 1000) return;
       command = JSON.parse(raw);
-      if (!command || command.v !== 1 || typeof command.session !== "string" || !/^[a-zA-Z0-9_-]{1,48}$/.test(command.session)) return;
+      if (!object(command) || command.v !== 1 || typeof command.session !== "string" || !/^[a-zA-Z0-9_-]{1,48}$/.test(command.session)) return;
     } catch (_) { return; }
     if (command.type === "hello") {
       if (typeof command.now !== "number" || !isFinite(command.now) || command.now < 0) return;
@@ -150,7 +158,7 @@ export function createCompanion(options) {
       selection();
       catalog();
       startFeed();
-      feed.refresh();
+      feed!.refresh(); // startFeed() establishes the client before this point.
       send(connection);
       loadMetadata();
       return;
