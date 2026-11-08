@@ -1,0 +1,67 @@
+name: Test one watch target
+description: Run the existing emulator suite with isolated reports and resource measurements
+inputs:
+  platform:
+    description: Playwright watch project (emery or gabbro)
+    required: true
+  workers:
+    description: Optional override of the shared Playwright worker default
+    default: ''
+  repeat:
+    description: Complete suite repetitions, not retries
+    default: '1'
+  fully-parallel:
+    description: Schedule independent tests within specs concurrently
+    default: 'true'
+  artifact-prefix:
+    description: Private diagnostics artifact prefix
+    default: emulator-e2e
+runs:
+  using: composite
+  steps:
+    - name: Record runner resources
+      shell: bash
+      run: |
+        mkdir -p e2e-metrics
+        { uname -a; lscpu; free -k; } | tee e2e-metrics/runner.txt
+    - name: Test the selected target without rebuilding
+      shell: bash
+      env:
+        CI: 'true'
+        E2E_PROJECT: ${{ inputs.platform }}
+        E2E_WORKERS: ${{ inputs.workers }}
+        E2E_REPEAT: ${{ inputs.repeat }}
+        E2E_FULLY_PARALLEL: ${{ inputs.fully-parallel }}
+        PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.platform }}.zip
+        PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/junit.xml
+      run: |
+        case "$E2E_PROJECT" in emery|gabbro) ;; *) echo 'Unsupported watch target' >&2; exit 1 ;; esac
+        vmstat --wide --timestamp 1 > e2e-metrics/vmstat.txt &
+        sampler=$!
+        trap 'kill "$sampler"; wait "$sampler" || true' EXIT
+        args=(--project="$E2E_PROJECT" --repeat-each="$E2E_REPEAT" --update-snapshots=none --reporter=list,blob,junit)
+        if [[ -n "$E2E_WORKERS" ]]; then args+=(--workers="$E2E_WORKERS"); fi
+        if [[ "$E2E_FULLY_PARALLEL" == true ]]; then args+=(--fully-parallel); fi
+        sha256sum build/*.pbw > e2e-metrics/pbw.sha256
+        /usr/bin/time -v -o e2e-metrics/playwright-time.txt npx playwright test "${args[@]}"
+        sha256sum --check e2e-metrics/pbw.sha256
+    - name: Upload platform reports and diagnostics
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-prefix }}-${{ inputs.platform }}
+        path: |
+          blob-report/
+          test-results/
+          e2e-metrics/
+          LICENSE
+          THIRD_PARTY_NOTICES.md
+          DATA_METHODS.md
+          LICENSES/
+          src/
+          locales/
+          tools/
+          wscript
+          e2e/
+        if-no-files-found: error
+        retention-days: 7
