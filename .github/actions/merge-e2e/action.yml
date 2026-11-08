@@ -4,9 +4,6 @@ inputs:
   artifact-prefix:
     description: Prefix of the two platform diagnostics artifacts
     default: emulator-e2e
-  report-name:
-    description: Private merged report artifact name
-    default: emulator-e2e
 runs:
   using: composite
   steps:
@@ -35,7 +32,7 @@ runs:
       if: always()
       uses: actions/upload-artifact@v7
       with:
-        name: ${{ inputs.report-name }}
+        name: ${{ inputs.artifact-prefix }}
         path: |
           playwright-report/
           test-results/

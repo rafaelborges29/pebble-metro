@@ -10,7 +10,7 @@ on:
         description: Workers per watch runner (benchmark 2/3/4)
         type: choice
         options: ['2', '3', '4']
-        default: '4'
+        default: '3'
       repeat:
         description: Complete suite repetitions (retries remain disabled)
         type: choice
@@ -28,7 +28,7 @@ jobs:
   test:
     name: Watch (${{ matrix.platform }})
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ inputs.repeat == '2' && 45 || 25 }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:

@@ -127,7 +127,6 @@ jobs:
       - uses: ./.github/actions/merge-e2e
         with:
           artifact-prefix: release-test-diagnostics
-          report-name: release-test-diagnostics
       - name: Require both watch jobs to pass
         if: always()
         env:

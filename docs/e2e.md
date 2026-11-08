@@ -284,7 +284,8 @@ methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
 Normal PR/main runs and release verification use one `ubuntu-24.04` runner per
 watch target, sharing `.github/actions/test-emulator`. Each job selects exactly
 one Playwright project and uses test-level parallel scheduling (`--fully-parallel`)
-with the shared CI worker default. Local runs still default to one worker and
+with three workers per target, the shared CI default. Local runs still default
+to one worker and
 sequential tests within each file; pass `--workers` / `--fully-parallel` explicitly
 to reproduce a CI target. Retries remain disabled and snapshots are never updated.
 Each test still owns fresh flash, its browser context and per-test output directory.
@@ -304,8 +305,8 @@ Use **Actions → Emulator E2E → Run workflow** to benchmark `workers` (2/3/4 
 target), `repeat` (1/2), and `fully_parallel` scheduling on `ubuntu-24.04`:
 
 ```sh
-gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=1 -f fully_parallel=true
-gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=2 -f fully_parallel=true
+gh workflow run e2e.yml --ref <branch> -f workers=3 -f repeat=1 -f fully_parallel=true
+gh workflow run e2e.yml --ref <branch> -f workers=3 -f repeat=2 -f fully_parallel=true
 ```
 
 The workflow separates setup, typecheck, native/phone build, testing and artifact
@@ -414,12 +415,29 @@ and runner-minutes sum all three jobs, so splitting is not a free speedup.
 | [Normal PR, 4 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533920706) | Not yet added | **5m17s** | 98 passed |
 | [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534850485) | Cold miss/save | 6m45s | 98 passed |
 | [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534856192) | Cold miss/save | 6m53s | 98 passed |
+| [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535418474) | Warm hit | **5m15s** | 98 passed |
+| [4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535420304) | Warm hit | 6m24s | 98 passed |
+| [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535543763) | Warm hit | **5m45s** | 98 passed |
+
+Choose **three workers per target**: it reaches the goal without the higher
+contention/memory of four. In the warm three-worker sample, test execution took
+3m45s / 3m55s on Emery/Gabbro, setup took 51s / 40s and the report job took 18s;
+combined job durations cost about 10.05 runner-minutes. CPU busy averaged
+54.7% / 59.7%, with peak non-cache RAM 2,258 / 2,331 MiB. Both runners were
+EPYC 9V45. By comparison, the warm four-worker samples used about 2.6–2.9 GiB
+per runner and could average nearly 90% CPU busy on slower EPYC 7763 hosts.
+The initial two-worker sample cost 15.77 runner-minutes; four-worker samples
+ranged 9.92–12.57. These are observed runner-minutes, not billing-rounded totals.
+
+SDK warm-hit setup was 40–55s rather than the cold 66–74s in these consolidated
+setup samples. Both exact-key restores and cached SDK/venv execution passed;
+there was no fresh SDK install on a hit. CPU models and download speeds still
+vary, so not all wall-time differences are caused by caching or worker count.
 
 Sub-six-minute PR feedback is possible, but the slower cold/hosted runs must not
-be hidden or described as a guaranteed sub-six SLA. Warm-cache confirmations and
-the full repeated suite are required before crediting the SDK cache or choosing
-the final worker setting. Button delays and all production timeout cases remain
-unchanged.
+be hidden or described as a guaranteed sub-six SLA. The selected setting's final
+PR check and repeated-suite evidence are linked in the PR; rerun after source or
+toolchain changes. Button delays and all production timeout cases remain unchanged.
 
 One-off local integration probes verified both successful and intentionally failed
 blob merges: both projects and the failure survive into HTML/JUnit. The explicit

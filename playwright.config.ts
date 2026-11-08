@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 15_000 },
   // Per-target CI worker benchmarks are recorded in docs/e2e.md.
-  workers: process.env.CI ? 4 : 1,
+  workers: process.env.CI ? 3 : 1,
   retries: 0,
   forbidOnly: !!process.env.CI,
   updateSnapshots: 'none',

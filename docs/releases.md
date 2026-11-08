@@ -78,7 +78,7 @@ release instead of selecting another listing or upload route.
    (compiling the phone to SDK-compatible JavaScript). This build-only job skips
    Chromium. Two independent Ubuntu jobs download the **same immutable candidate**
    and install it on `emery` / `gabbro`, without rebuilding or updating snapshots.
-   Each uses the shared CI worker default and test-level scheduling, with fresh
+   Each uses the shared three-worker CI default and test-level scheduling, with fresh
    watch/browser storage per test and retries disabled. Both jobs validate the
    candidate's source provenance/hash before and after testing; a changed PBW is
    rejected. Both targets finish even if one fails. Their blob reports merge into
