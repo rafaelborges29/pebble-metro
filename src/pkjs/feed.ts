@@ -1,13 +1,15 @@
 import { parsePredictions } from "../common/metro.js";
+import type { FeedEvent, Prediction } from '../common/types.js';
+import type { MqttClient, Timers, Timer } from './platform.js';
 
 export var BROKER = "wss://perturbacoes.pt/websocket/";
-function topic(station) { return "json/vehicleeta/pt-ml/" + station + "/all"; }
+function topic(station: string) { return "json/vehicleeta/pt-ml/" + station + "/all"; }
 
 // Paho owns MQTT framing/keepalive only; this layer owns bounded reconnects.
-export function openFeed(options) {
-  var timers = options.timers, client = null, connected = false, closed = false;
-  var stations = [], retry = null, delay = 1000;
-  function emit(event) { if (!closed) options.onEvent(event); }
+export function openFeed(options: { timers: Timers; now(): number; createClient(url: string): MqttClient; onEvent(event: FeedEvent): void }) {
+  var timers = options.timers, client: MqttClient | null = null, connected = false, closed = false;
+  var stations: string[] = [], retry: Timer | null = null, delay = 1000;
+  function emit(event: FeedEvent) { if (!closed) options.onEvent(event); }
   function discardClient() {
     var old = client;
     client = null;
@@ -17,7 +19,7 @@ export function openFeed(options) {
     old.onMessageArrived = function () {};
     try { old.disconnect(); } catch (_) {}
   }
-  function lost(error) {
+  function lost(error: string) {
     if (closed || retry) return;
     discardClient();
     emit({ type: "connection", status: "disconnected", error: error || "Feed unavailable" });
@@ -25,9 +27,9 @@ export function openFeed(options) {
     retry = timers.setTimeout(function () { retry = null; connect(); }, delay);
     delay = Math.min(30000, delay * 2);
   }
-  function subscribe(ids) {
+  function subscribe(ids: string[]) {
     ids.forEach(function (station) {
-      var current = client;
+      var current = client!; // Called only for the current connected client.
       try {
         current.subscribe(topic(station), { qos: 0, timeout: 10,
           onFailure: function () { if (client === current) lost("Subscription failed"); } });
@@ -37,7 +39,7 @@ export function openFeed(options) {
   function connect() {
     if (closed || client) return;
     emit({ type: "connection", status: "connecting" });
-    var current;
+    var current: MqttClient;
     try {
       current = options.createClient(BROKER);
       client = current;
@@ -46,7 +48,7 @@ export function openFeed(options) {
         if (client !== current || !connected) return;
         var station = stations.filter(function (s) { return message.destinationName === topic(s); })[0];
         if (!station) return;
-        var received = options.now(), predictions = [];
+        var received = options.now(), predictions: Prediction[] = [];
         try {
           if (message.payloadBytes.byteLength > 65536) throw new Error("Arrival message too large");
           var payload = message.payloadString;
@@ -71,7 +73,7 @@ export function openFeed(options) {
   }
   connect();
   return {
-    setStations: function (ids) {
+    setStations: function (ids: string[]) {
       var next = ids.filter(function (id, i) { return ids.indexOf(id) === i; }).slice(0, 2);
       var previous = stations;
       stations = next;

@@ -1,19 +1,24 @@
-// Serialized into a self-contained data: page. Copy comes from keyed JSON files.
-function settingsClient(model) {
-  function t(key) { return model.strings[key] || key; }
-  function node(tag, text, parent, className) {
+import type { SettingsModel, SettingsView, SettingsReply, FeedbackStatus, FavoriteTriple, Network, PageRequest } from '../common/types.js';
+import type { SettingsBridge, Timer } from './platform.js';
+
+// Serialized into a self-contained data: page. Keep runtime imports/helpers out
+// of this function: types are erased before its source is embedded in the page.
+function settingsClient(model: SettingsModel) {
+  function t(key: string) { return model.strings[key] || key; }
+  function node<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, parent?: Node, className?: string): HTMLElementTagNameMap[K] {
     var element = document.createElement(tag);
     if (text !== undefined) element.textContent = text;
     if (className) element.className = className;
     if (parent) parent.appendChild(element);
     return element;
   }
-  var main = document.querySelector("main"), busy = false, ready = false, editable = false, known = false;
-  var network = { stations: [], lines: [] }, favorites = [], bridge = null, bridgeTimer = null, bridgeWait = 0;
+  var main = document.querySelector("main")!, busy = false, ready = false, editable = false, known = false;
+  var network: Network = { stations: [], lines: [] }, favorites: FavoriteTriple[] = [];
+  var bridge: SettingsBridge | null = null, bridgeTimer: Timer | null = null, bridgeWait = 0;
   var header = node("header", undefined, main);
   var heading = node("div", undefined, header);
   node("p", "METRO LISBOA", heading, "eyebrow"); node("h1", t("title"), heading);
-  function button(key, parent, action, className) {
+  function button(key: string, parent: Node, action: () => void, className?: string) {
     var element = node("button", t(key), parent, className); element.type = "button";
     element.addEventListener("click", action); return element;
   }
@@ -23,34 +28,34 @@ function settingsClient(model) {
   }, "quiet");
   node("p", t("description"), main, "description");
   var status = node("p", "", main, "status"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
-  function feedback(code) { status.textContent = t("status." + code); status.dataset.state = code; }
+  function feedback(code: FeedbackStatus) { status.textContent = t("status." + code); status.dataset.state = code; }
   feedback("connecting");
   var picker = node("fieldset", undefined, main, "picker");
   node("legend", t("add.title"), picker);
   var fields = node("div", undefined, picker, "fields");
-  function select(key, id) {
+  function select(key: string, id: string) {
     var wrapper = node("div", undefined, fields);
     var label = node("label", t(key), wrapper); label.htmlFor = id;
     var input = node("select", undefined, wrapper); input.id = id; return input;
   }
   var line = select("field.line", "line"), station = select("field.station", "station"), direction = select("field.direction", "direction");
-  function name(id, items) {
+  function name(id: string, items: { id: string; name: string }[]) {
     var found = items.filter(function (item) { return item.id === id; })[0];
     return found ? found.name : id;
   }
   function route() { return network.lines.filter(function (item) { return item.id === line.value; })[0]; }
-  function options(input, items, preferred) {
+  function options(input: HTMLSelectElement, items: { id: string; name: string }[], preferred?: string) {
     input.textContent = "";
     items.forEach(function (item) { var option = node("option", item.name, input); option.value = item.id; });
-    if (items.some(function (item) { return item.id === preferred; })) input.value = preferred;
+    if (preferred !== undefined && items.some(function (item) { return item.id === preferred; })) input.value = preferred;
   }
-  function directions(preferred) {
+  function directions(preferred?: string) {
     var selected = route();
-    options(direction, selected ? [selected.stations[0], selected.stations[selected.stations.length - 1]]
+    options(direction, selected ? [selected.stations[0]!, selected.stations[selected.stations.length - 1]!]
       .filter(function (id) { return id !== station.value; })
       .map(function (id) { return { id: id, name: name(id, network.stations) }; }) : [], preferred);
   }
-  function stations(preferred, destination) {
+  function stations(preferred?: string, destination?: string) {
     var selected = route();
     options(station, network.stations.filter(function (item) { return selected && selected.stations.indexOf(item.id) !== -1; }), preferred);
     directions(destination);
@@ -59,7 +64,7 @@ function settingsClient(model) {
   station.addEventListener("change", function () { directions(); });
   var add = button("add.action", picker, function () {
     if (busy || !editable || !ready || favorites.length >= 16 || !line.value || !station.value || !direction.value) return;
-    var favorite = [station.value, line.value, direction.value];
+    var favorite: FavoriteTriple = [station.value, line.value, direction.value];
     if (favorites.some(function (f) { return f.join("/") === favorite.join("/"); })) { feedback("duplicate"); return; }
     save(favorites.concat([favorite]));
   }, "primary");
@@ -78,7 +83,7 @@ function settingsClient(model) {
     list.querySelectorAll("button").forEach(function (button) { button.disabled = busy || !ready || !editable; });
     main.setAttribute("aria-busy", busy ? "true" : "false");
   }
-  function render(view) {
+  function render(view?: SettingsView | null) {
     if (view) {
       var selectedLine = line.value, selectedStation = station.value, selectedDirection = direction.value;
       network = view.network; favorites = view.favorites; editable = view.editable; known = true;
@@ -108,33 +113,32 @@ function settingsClient(model) {
     empty.textContent = t(known ? "list.empty" : "list.waiting");
     controls();
   }
-  function request(type, items) {
-    busy = true; controls(); feedback(type === "settings-save" ? "saving" : "connecting");
-    var message = { v: 1, type: type, edit: model.edit };
-    if (items) message.favorites = items;
+  function request(message: PageRequest) {
+    busy = true; controls(); feedback(message.type === "settings-save" ? "saving" : "connecting");
     var finished = false;
-    function finish(reply) {
+    function finish(reply: SettingsReply | { status: 'bridge'; view: null } | { error: string } | null | undefined) {
       if (finished) return; finished = true; clearTimeout(timeout);
       busy = false;
-      if (!reply || typeof reply.status !== "string" || !model.strings["status." + reply.status]) reply = { status: "unknown" };
+      if (!reply || typeof reply !== "object" || !("status" in reply) || typeof reply.status !== "string" || !model.strings["status." + reply.status]) reply = { status: "unknown", view: null };
       if (!reply.view) editable = false;
       render(reply.view);
       feedback(reply.view && !reply.view.editable && reply.status === "ready" ? "storage" : reply.status);
     }
     // Bound a missing native reply too; do not retry an uncertain mutation.
-    var timeout = setTimeout(function () { finish({ status: "unknown" }); }, 20000);
-    try { bridge.sendMessage("pkjs", message).then(finish, function () { finish({ status: "expired" }); }); }
-    catch (_) { finish({ status: "bridge" }); }
+    var timeout = setTimeout(function () { finish({ status: "unknown", view: null }); }, 20000);
+    try { bridge!.sendMessage("pkjs", message).then(finish, function () { finish({ status: "expired", view: null }); }); }
+    catch (_) { finish({ status: "bridge", view: null }); }
   }
-  function read() { if (!busy && ready) request("settings-read"); }
-  function save(items) { if (!busy && ready && editable) request("settings-save", items); }
+  function read() { if (!busy && ready) request({ v: 1, type: 'settings-read', edit: model.edit }); }
+  function save(items: FavoriteTriple[]) { if (!busy && ready && editable) request({ v: 1, type: 'settings-save', edit: model.edit, favorites: items }); }
   render(model.view);
   function findBridge() {
-    if (window.Pebble && typeof window.Pebble.sendMessage === "function" && typeof window.Pebble.addEventListener === "function") {
-      bridge = window.Pebble;
+    var candidate = (window as Window & { Pebble?: SettingsBridge }).Pebble;
+    if (candidate && typeof candidate.sendMessage === "function" && typeof candidate.addEventListener === "function") {
+      bridge = candidate;
       bridge.addEventListener("ready", function (event) {
         if (event.target !== "pkjs" || ready) return;
-        ready = true; clearTimeout(bridgeTimer); controls(); read();
+        ready = true; clearTimeout(bridgeTimer as Timer | undefined); controls(); read();
       });
       bridgeTimer = setTimeout(function () { if (!ready) feedback("bridge"); }, 5000);
     } else if (bridgeWait < 5000) { bridgeWait += 100; bridgeTimer = setTimeout(findBridge, 100); }
@@ -142,7 +146,7 @@ function settingsClient(model) {
   }
   findBridge();
 }
-export function settingsPage(model) {
+export function settingsPage(model: SettingsModel) {
   var json = JSON.stringify(model).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
   var css = [
     ':root{color-scheme:light dark;--page:#f5f6f8;--surface:#fff;--ink:#192027;--muted:#5f6872;--border:#cfd5dc;--card-border:#dce1e6;--subtle:#e7ebef;--status:#e9edf2;--success:#e4f2e9;--success-ink:#225d3c;--warning:#fff0d3;--warning-ink:#704b0d;--error:#fae8e6;--error-ink:#862d24;--danger:#9a3027;--focus:#176bd4;--primary:#192027;--primary-ink:#fff;--line:#727b85}',

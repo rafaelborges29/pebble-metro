@@ -74,7 +74,8 @@ release instead of selecting another listing or upload route.
    valid `vmajor.minor.0` tag also starts this pipeline and authorizes publication.
 3. The exact revision uses the shared pinned toolchain: SDK **4.33.1**, Pebble Tool
    **5.0.39**, libpebble2 **0.0.31**, Python **3.13** for the tool, Node **24.21.0**.
-   It runs TypeScript/phone syntax checks and builds once. The existing
+   It checks production phone/shared TypeScript and the harness, then builds once
+   (compiling the phone to SDK-compatible JavaScript). The existing
    emulator suite installs that PBW on both `emery` and `gabbro`, without rebuilding
    or updating snapshots. No physical watch or touch tests are run.
 4. Preflight verifies ZIP integrity and allowed entries, UUID, numeric release

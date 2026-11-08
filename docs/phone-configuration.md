@@ -47,7 +47,7 @@ The local live bridge is installed by the mobile app's WebView while preview is 
 including for this generated page. Waiting for a fresh opening snapshot is bounded
 at five seconds, below the inspected mobile app's ten-second URL timeout.
 
-[`settings-page.js`](../src/pkjs/settings-page.js) creates native labelled selects,
+[`settings-page.ts`](../src/pkjs/settings-page.ts) creates native labelled selects,
 compact route cards, a prominent Add action and an accessible live status region.
 Its HTML/CSS/JS is self-contained, has a restrictive CSP and no external assets,
 forms, network requests or arbitrary return targets. Labels are inserted as text;
@@ -72,7 +72,7 @@ The tables stay in PKJS rather than consuming native watch RAM. See
 ## Live saves, conflicts and failures
 
 The page waits for the mobile bridge's `ready` event for target `pkjs`, then calls
-`Pebble.sendMessage("pkjs", {v:1,type,edit,...})`. [`settings.js`](../src/pkjs/settings.js)
+`Pebble.sendMessage("pkjs", {v:1,type,edit,...})`. [`settings.ts`](../src/pkjs/settings.ts)
 handles the PKJS `configmessage` event and replies through its `respond` callback:
 
 - `settings-read` requests a new complete watch snapshot, with a five-second limit.

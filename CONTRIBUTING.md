@@ -17,6 +17,14 @@ npm run check
 npm run e2e
 ```
 
+Phone/shared application sources are TypeScript under `src/pkjs/` and
+`src/common/`. `npm run typecheck` checks these and the harness separately;
+`npm run build` and direct SDK builds also compile/check production sources before
+bundling. Do not edit generated `build/phone/` JavaScript or add root
+`"type": "module"`. Keep runtime validation at every JSON boundary. The settings
+client is serialized into its HTML page: type-only imports are safe, runtime
+imports/captures and downlevel compiler helpers are not.
+
 Automated tests use the emulator E2E suite, which runs both platform projects.
 Use `npm run e2e -- --project=gabbro` (or
 `--project=emery`) for a focused run. New Round 2 baselines live under
