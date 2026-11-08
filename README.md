@@ -35,7 +35,9 @@ Lisboa's **Settings**. Choose line → station → direction and tap **Add favou
 Add and confirmed Remove save immediately while the page stays open. Save/error
 feedback stays on the phone, with no watch popup. Keep Metro running on the
 connected watch. The editor is bundled: no website, separate plugin or Android
-app is needed. The on-watch picker remains available without the preview feature.
+app is needed. The page automatically follows the WebView's light/dark preference
+from the Pebble app, including native controls, with no separate theme toggle.
+The on-watch picker remains available without the preview feature.
 See [sync, recovery and upgrade details](docs/phone-configuration.md).
 
 ## Language

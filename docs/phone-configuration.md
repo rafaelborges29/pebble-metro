@@ -54,6 +54,15 @@ forms, network requests or arbitrary return targets. Labels are inserted as text
 embedded JSON escapes script terminators and Unicode separators. Generated data
 URIs remain capped at 150,000 characters. Done uses a close URL with no favourites.
 
+Appearance uses native CSS `prefers-color-scheme` and shared light/dark colour
+variables, with `color-scheme: light dark` for native controls. It follows the
+preference exposed by the Pebble app's WebView, not a stored Metro setting. A
+reported preference change restyles the open page without reload, new messages or
+lost selections. Missing dark-mode support falls back to light. On mobile builds
+that only refresh their WebView theme when opening, reopen Settings after changing
+the app theme. Tests emulate the reported preference; they do not prove a particular
+Android/WebView build's theme propagation.
+
 Phone-only copy uses flat semantic keys in [`src/pkjs/locales/en.json`](../src/pkjs/locales/en.json)
 and [`pt_PT.json`](../src/pkjs/locales/pt_PT.json), selected through the same root
 locale registry as the watch. There are no inline English/Portuguese copy pairs.
@@ -132,7 +141,9 @@ contract: `ready`, `sendMessage` promises and PKJS `configmessage` responses.
 It checks live saves without closure, quiet arrival/action/picker screens, stale
 removal confirmation, keyed copy, unavailable preview, timeout/refresh recovery,
 conflicts, malformed inputs, restart, hostile labels, 16-route/empty lists and cache
-expiry. All original navigation/cache/heap/screenshot coverage remains. The host
+expiry. Light/dark cases cover initial preferences, live switching without reload
+or writes, and at least 4.5:1 text contrast for content, controls and status colours.
+All original navigation/cache/heap/screenshot coverage remains. The host
 production-store probe still injects 54 migration and 51 save failure boundaries.
 See [E2E](e2e.md). No touch tests, Android WebView/native bridge acceptance or
 physical-flash power-loss guarantee is implied by this contract simulation.

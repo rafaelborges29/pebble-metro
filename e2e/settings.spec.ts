@@ -57,6 +57,61 @@ test('Add saves immediately without closing, duplicates do not write, Done does 
   await metro.startPhone(); expect(await metro.favorites()).toEqual([metro.favourite]);
 });
 
+for (const initial of ['light', 'dark'] as const) {
+  test.describe(`phone appearance ${initial}`, () => {
+    test.use({ colorScheme: initial });
+    test('follows live light/dark preference without reloading or saving and keeps text readable', async ({ metro }, testInfo) => {
+      await metro.favorites(); const config = await metro.openSettings();
+      await config.setViewportSize({ width: 390, height: 844 });
+      expect(await config.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(initial === 'dark');
+      await add(config, 'pt-ml-sa');
+      const url = config.url();
+      const revision = metro.commands.filter(command => command.type === 'settings-state').at(-1)?.revision;
+      function luminance(color: string) {
+        const channels = color.match(/[\d.]+/g)!.slice(0, 3).map(value => {
+          const channel = Number(value) / 255;
+          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        });
+        return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+      }
+      async function check(scheme: 'light' | 'dark') {
+        const selection = await config.locator('select').evaluateAll(inputs => inputs.map(input => (input as HTMLSelectElement).value));
+        await config.emulateMedia({ colorScheme: scheme });
+        await expect(config.locator('body')).toHaveCSS('background-color', scheme === 'dark' ? 'rgb(17, 20, 24)' : 'rgb(245, 246, 248)');
+        await expect(config.locator('html')).toHaveCSS('color-scheme', 'light dark');
+        const pairs = await config.evaluate(() => [
+          ['body', 'body'], ['.description', 'body'], ['.eyebrow', 'body'], ['.attribution', 'body'],
+          ['.primary', '.primary'], ['select', 'select'], ['.count', '.count'], ['.status', '.status'],
+          ['.line-name', '.route'], ['.destination', '.route'], ['.remove', '.route'],
+        ].map(([text, background]) => ({ text, color: getComputedStyle(document.querySelector(text)!).color,
+          background: getComputedStyle(document.querySelector(background)!).backgroundColor })));
+        for (const pair of pairs) {
+          const a = luminance(pair.color), b = luminance(pair.background);
+          expect((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05), `${pair.text} text contrast in ${scheme}`).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(config.url()).toBe(url); expect(metro.settingsCloses).toBe(0);
+        expect(await config.locator('select').evaluateAll(inputs => inputs.map(input => (input as HTMLSelectElement).value))).toEqual(selection);
+        await expect(config.getByText('1 / 16', { exact: true })).toBeVisible();
+      }
+      for (const scheme of [initial, initial === 'light' ? 'dark' : 'light', initial] as const) await check(scheme);
+      expect(metro.commands.filter(command => command.type === 'settings-state').at(-1)?.revision).toBe(revision);
+      for (const scheme of ['light', 'dark'] as const) {
+        await check(scheme);
+        await config.screenshot({ path: testInfo.outputPath(`settings-${scheme}.png`), fullPage: true });
+      }
+      await choose(config, 'pt-ml-sa'); await config.getByRole('button', { name: 'Add favourite', exact: true }).click();
+      await expect(config.getByRole('status')).toHaveText('That favourite already exists.');
+      await check('light'); await check('dark');
+      await choose(config, 'pt-ml-ap', 'pt-ml-ss');
+      await metro.alterNextSave({ favorites: [['pt-ml-ap', 'pt-ml-red', 'pt-ml-ap']] });
+      await config.getByRole('button', { name: 'Add favourite', exact: true }).click();
+      await expect(config.getByRole('status')).toHaveText('Invalid changes were not saved.');
+      await check('dark'); await check('light');
+      expect(await metro.favorites()).toEqual([metro.favourite]);
+    });
+  });
+}
+
 test('phone saves and failures leave watch actions and picker screens quiet', async ({ metro }) => {
   await metro.favorites(); const config = await metro.openSettings(); await add(config, 'pt-ml-sa');
   await metro.publish([3, 4, 5]); await metro.press('select'); await metro.expectScreen('actions');
