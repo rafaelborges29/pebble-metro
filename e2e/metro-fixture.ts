@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 import { Effect } from 'effect';
 import { writeFileSync } from 'node:fs';
 import mqtt from 'mqtt-packet';
@@ -6,7 +6,8 @@ import { acquireEmulator, root, type Button, type Loader, type MemorySample, typ
 
 export type Favourite = { station: string; line: string; direction: string };
 type PhoneData = { DATA: string };
-type WatchCommand = { type: string; session: string; id?: number; part?: number; favorite?: Favourite | null };
+type WatchCommand = { type: string; session: string; id?: number; part?: number; favorite?: Favourite | null;
+  snapshot?: number; revision?: number; catalog?: number; request?: number; status?: string; favorites?: (string[] | null)[] };
 type Envelope = { v: number; session: string; id: number; part: number; total: number; text: string };
 type SourcePrediction = { direction: string; order: number; value: number; units: Units; type: PredictionType };
 type Message = { type: string; station?: string; predictions?: SourcePrediction[]; lines?: unknown[] };
@@ -38,16 +39,24 @@ export interface Metro {
   deferNextArrival(): { wait(): Promise<void>; release(): void };
   removeLine(id: string): Promise<void>;
   setAutoArrivals(enabled: boolean): void;
+  openSettings(): Promise<Page>;
+  readonly settingsCloses: number;
+  favorites(): Promise<Favourite[]>;
+  alterNextSave(patch: Record<string, unknown>): Promise<void>;
+  pauseSettings(paused: boolean): void;
 }
 declare global {
   interface Window {
     sendToWatch(data: PhoneData): Promise<void>;
     observeArrival(raw: string): Promise<void>;
     phoneEvent(name: string, event: unknown): void;
+    settingsPatch?: Record<string, unknown>;
     Pebble: {
       addEventListener(name: string, callback: Listener): void;
       removeEventListener(name: string, callback: Listener): void;
       sendAppMessage(data: PhoneData, success?: Listener, failure?: Listener): void;
+      openURL(url: string): void;
+      sendConfigMessage(message: unknown): void;
     };
   }
 }
@@ -65,10 +74,12 @@ const stations = [
 const lines = [{ network: 'pt-ml', id: 'pt-ml-red', name: 'Vermelha', color: 'ff0000',
   stations: ['pt-ml-ss', 'pt-ml-sa', 'pt-ml-ap'] }];
 
-export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLocale: string }>({
+export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLocale: string; hostileLabels: boolean; liveSettings: boolean }>({
   largeNetwork: [false, { option: true }],
+  hostileLabels: [false, { option: true }],
+  liveSettings: [true, { option: true }],
   watchLocale: ['en_US', { option: true }],
-  metro: async ({ page, largeNetwork, watchLocale }, use, testInfo) => {
+  metro: async ({ page, largeNetwork, watchLocale, hostileLabels, liveSettings }, use, testInfo) => {
     await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
       const device = yield* acquireEmulator(testInfo);
       yield* device.ready;
@@ -77,6 +88,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
         const extraStations = largeNetwork ? Array.from({ length: 47 }, (_, i) => ({ network: 'pt-ml',
           id: 'pt-ml-z' + i, name: 'Z station ' + i, lines: ['pt-ml-red'] })) : [];
         const catalogue = [...stations.map(station => ({ ...station, lines: [...station.lines] })), ...extraStations];
+        if (hostileLabels) catalogue[1].name = '</script><img src=x onerror=alert(1)>';
         const routes = [{ ...lines[0], stations: ['pt-ml-ss', 'pt-ml-sa', ...extraStations.map(s => s.id), 'pt-ml-ap'] }];
         if (largeNetwork) {
           // Extra lines serve only the last six Z stations. Base stations (and
@@ -94,7 +106,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
         const network = { stations: catalogue.map(({ id, name, lines }) => ({ id, name, lines })),
           lines: routes.map(({ id, name, color, stations }) => ({ id, name, color: '#' + color, stations })) };
         expect(Buffer.byteLength(JSON.stringify({ type: 'catalog', network, cached: false }))).toBeLessThanOrEqual(4800);
-        const expectedCatalog = { type: 'catalog', cached: expect.any(Boolean),
+        const expectedCatalog = { type: 'catalog', cached: expect.any(Boolean), catalogId: expect.any(Number),
           stations: catalogue.map(station => [station.id, station.name,
             routes.reduce((mask, line, index) => mask | (station.lines.includes(line.id) ? 1 << index : 0), 0)]),
           lines: routes.map(line => [line.id, line.name, '#' + line.color,
@@ -104,8 +116,10 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
         let deferredArrival: DeferredArrival | undefined;
         const sent = new Map<string, Batch>(), receipts = new Set<string>();
         const serializedArrivals: Message[] = [];
-        const phoneLog: string[] = [], inbox: PhoneData[] = [];
-        let phoneReady = false, closing = false, autoArrivals = true, uiStarts = 0, expectedStarts = 1, delivering = Promise.resolve();
+        const phoneLog: string[] = [], inbox: PhoneData[] = [], configurationUrls: string[] = [];
+        const configurationPages: Page[] = [];
+        let settingsCloses = 0;
+        let phoneReady = false, closing = false, autoArrivals = true, settingsPaused = false, uiStarts = 0, expectedStarts = 1, delivering = Promise.resolve();
         function dispatch(payload: PhoneData) {
           delivering = delivering.then(() => page.evaluate(payload => window.phoneEvent('appmessage', { payload }), payload))
             .catch(error => { if (!closing) errors.push(String(error)); });
@@ -218,6 +232,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             });
             socket.onMessage(message => parser.parse(typeof message === 'string' ? Buffer.from(message) : message));
           });
+          await page.exposeFunction('configurationOpened', (url: string) => { configurationUrls.push(url); });
           await page.exposeFunction('observeArrival', (raw: string) => { serializedArrivals.push(JSON.parse(raw)); });
           await page.exposeFunction('sendToWatch', async (data: PhoneData) => {
             const message = track(data.DATA);
@@ -234,6 +249,11 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             // Observe queue entry without changing any bytes, values or application model.
             const stringify = JSON.stringify;
             JSON.stringify = function (...args: [unknown, ...unknown[]]) {
+              if ((args[0] as { type?: string; request?: number } | null)?.type === 'settings-save'
+                && typeof (args[0] as { request?: number }).request === 'number' && window.settingsPatch) {
+                args[0] = { ...(args[0] as Record<string, unknown>), ...window.settingsPatch };
+                delete window.settingsPatch;
+              }
               const raw = Reflect.apply(stringify, JSON, args);
               if ((args[0] as { type?: string } | null)?.type === 'arrivals') void window.observeArrival(raw);
               return raw;
@@ -243,6 +263,8 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
               addEventListener(name, callback) { (listeners[name] ||= []).push(callback); },
               removeEventListener(name, callback) { listeners[name] = (listeners[name] || []).filter(fn => fn !== callback); },
               sendAppMessage(data, success, failure) { window.sendToWatch(data).then(() => success?.({}), () => failure?.({})); },
+              openURL(url) { void (window as unknown as { configurationOpened(url: string): Promise<void> }).configurationOpened(url); },
+              sendConfigMessage() { /* Capability present independently of the preview toggle. */ },
             };
             window.phoneEvent = (name, event) => { for (const callback of listeners[name] || []) callback(event); };
           });
@@ -252,9 +274,10 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             const payload = { DATA: raw };
             const command: WatchCommand = JSON.parse(raw);
             commands.push(command);
-            if (!['hello', 'ack', 'watch', 'catalog', 'refresh'].includes(command.type))
+            if (!['hello', 'ack', 'watch', 'catalog', 'refresh', 'settings-state'].includes(command.type))
               errors.push(`Unexpected watch command: ${command.type}`);
             if (command.type === 'ack') receipts.add(`${key(command)}/${command.part}`);
+            if (settingsPaused && command.type === 'settings-state') return;
             if (phoneReady) dispatch(payload);
             else inbox.push(payload);
           };
@@ -293,6 +316,64 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             expectScreen, delivered, startPhone,
             async screenshot() { return Buffer.from(await Effect.runPromise(device.request('screenshot', {})), 'base64'); },
             setAutoArrivals(enabled) { autoArrivals = enabled; },
+            pauseSettings(paused) { settingsPaused = paused; },
+            async alterNextSave(patch) { await page.evaluate(value => { window.settingsPatch = value; }, patch); },
+            async favorites() {
+              let found: (string[] | null)[] | undefined;
+              await expect.poll(() => {
+                const session = commands.filter(command => command.type === 'hello').at(-1)?.session;
+                const states = commands.filter(command => command.type === 'settings-state' && command.session === session);
+                const latest = states.at(-1);
+                if (!latest) return false;
+                const parts = new Map(states.filter(state => state.snapshot === latest.snapshot).map(state => [state.part, state.favorites!]));
+                if (parts.size !== 4) return false;
+                found = [0, 1, 2, 3].flatMap(part => parts.get(part)!); return true;
+              }, { message: 'Complete native favourites snapshot' }).toBe(true);
+              return found!.filter((f): f is string[] => f !== null).map(f => ({ station: f[0], line: f[1], direction: f[2] }));
+            },
+            get settingsCloses() { return settingsCloses; },
+            async openSettings() {
+              const before = configurationUrls.length;
+              await page.evaluate(() => window.phoneEvent('showConfiguration', {}));
+              await expect.poll(() => configurationUrls.length).toBe(before + 1);
+              const config = await page.context().newPage(); configurationPages.push(config);
+              config.on('pageerror', error => errors.push(error.message));
+              await config.route('**/*', route => { errors.push(`Settings attempted network: ${route.request().url()}`); return route.abort(); });
+              await config.exposeFunction('configurationClosed', async () => {
+                settingsCloses++;
+                await page.evaluate(() => window.phoneEvent('webviewclosed', { response: '{}' }));
+              });
+              await config.exposeFunction('configurationMessage', async (message: unknown) => {
+                try {
+                  return await page.evaluate(data => new Promise(resolve => {
+                    window.phoneEvent('configmessage', { data, respond: resolve });
+                  }), message);
+                } catch (error) {
+                  if (String(error).includes('Execution context was destroyed')) return { status: 'expired', view: null };
+                  throw error;
+                }
+              });
+              await config.addInitScript(enabled => {
+                if (enabled) Object.defineProperty(window, 'Pebble', { value: {
+                  sendMessage(target: string, message: unknown) {
+                    if (target !== 'pkjs') return Promise.reject(new Error('Unknown configuration target'));
+                    return (window as unknown as { configurationMessage(message: unknown): Promise<unknown> }).configurationMessage(message);
+                  },
+                  addEventListener(name: string, callback: (event: { target: string }) => void) {
+                    if (name === 'ready') callback({ target: 'pkjs' });
+                  },
+                }, configurable: true });
+                document.addEventListener('click', event => {
+                  const link = event.target as HTMLAnchorElement;
+                  if (link.tagName === 'A' && link.href.startsWith('pebblejs://close#')) {
+                    event.preventDefault();
+                    void (window as unknown as { configurationClosed(url: string): Promise<void> }).configurationClosed(link.href);
+                  }
+                });
+              }, liveSettings);
+              await config.goto(configurationUrls.at(-1)!);
+              return config;
+            },
             async expectAnimation(loader) {
               const initial = await Effect.runPromise(device.request('screenshot', { crop_loader: loader }));
               await expect.poll(() => Effect.runPromise(device.request('screenshot', { crop_loader: loader })),
@@ -351,6 +432,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             await testInfo.attach('watch at end', { body: image, contentType: 'image/png' });
           } catch { /* Startup/connection failure: scoped release still saves logs. */ }
           closing = true;
+          for (const config of configurationPages) if (!config.isClosed()) await config.close();
           await page.close();
           writeFileSync(testInfo.outputPath('phone.log'), phoneLog.join('\n'));
           writeFileSync(testInfo.outputPath('messages.json'), JSON.stringify({ commands, subscriptions, activeSubscriptions: [...publishers.keys()], errors,

@@ -16,21 +16,28 @@ UnderLX-derived data and its adaptations retain ODbL 1.0; original software is
 0BSD. [DATA_METHODS.md](../DATA_METHODS.md) documents the exact inputs, alterations,
 fixture additions and the case-specific private-client release assessment.
 
-There are no alerts, vibration, disturbances, settings page, custom backend,
-background worker or watch-side JS runtime. No GPS or private Metro credentials.
+There are no alerts, vibration, disturbances, custom backend, background worker
+or watch-side JS runtime. No GPS or private Metro credentials. A self-contained
+[phone favourites editor](phone-configuration.md) uses the Pebble app's standard
+configuration WebView plus its live local message bridge (Plugins / permissions
+preview required). There is no hosted page, additional plugin or new network provider.
 
 ## Native memory design
 
-All catalogue, favourite, ETA, token and transport storage is statically bounded:
+All catalogue, favourite, ETA, token and transport capacities are fixed:
 
 - 80 stations and eight lines, represented with IDs and station indices/line masks.
 - Station IDs up to 48 ASCII bytes; input station/line names validated at their
   full 240/120 UTF-8 byte bounds, then display labels safely truncated to 80/40
   UTF-8 bytes. Native text drawing ellipsizes at the actual screen width.
-- 16 favourites, each with at most three fixed-size predictions.
+- 16 favourites, each with at most three fixed-size predictions, plus one fixed
+  16-route staging array for whole-list validation/commit.
 - Two small persisted recent-route snapshots, not a second full catalogue/model.
 - One 5,000-byte reassembly prefix, a 2,000-byte decoded chunk scratch buffer,
-  1,024 caller-owned JSON tokens, 4,096-byte AppMessage inbox and 1,024-byte outbox.
+  1,024 JSON tokens, 4,096-byte AppMessage inbox and 1,024-byte outbox. The token
+  buffer is allocated once at startup with checked failure/exit and freed on
+  shutdown; this preserves capacity while keeping the SDK's uint16 virtual image
+  below 64 KiB. Parsing/navigation never allocate model or token storage.
 - One window/layer. Menus draw at most four rows and have no per-row callbacks,
   dynamic object trees or per-navigation allocations.
 
@@ -42,10 +49,11 @@ There is no interpreter or separately loaded JS archive. The per-app budget is
 128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
 rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-Each native target uses approximately **64 KiB code/static RAM**, leaving about
-**59 KiB free native heap** after UI/messages in emulator button-regression runs. The stress tests
-check both platforms independently for headroom and switch-sample growth. Each
-watch binary plus resources is approximately **34 KiB**. The PBW contains both
+The phone-editor build uses approximately **60 KiB code/static RAM** plus the
+fixed startup token allocation. The initial 64-test emulator run sampled
+**53,700–53,924 bytes free heap**, preserving the existing 50 KiB minimum and
+4 KiB steady-state variation checks. Both targets also retain the expected-start
+assertion. These are sampled emulator measurements, not continuous traces. The PBW contains both
 watch binaries but only one phone bundle/source map. Complete licence/notices
 copies are embedded as a comment in that phone bundle, not as watch resources.
 Rebuilds can change size/hash; these are emulator measurements, not physical-watch
@@ -113,7 +121,13 @@ the handshake offset. Zero is `Due` / `Estimated now`, not observed presence.
 ## Watch/phone protocol
 
 Watch commands remain bounded JSON `{v:1,session,type,...}` with `hello`, `watch`,
-`catalog` and `ack`. IDs/sessions are validated ASCII before serialization.
+`catalog`, `ack` and four-part `settings-state` exports. IDs/sessions are validated
+ASCII before serialization. Settings snapshot/result receipts and saves use the
+existing phone-to-watch chunk transport; see [configuration protocol](phone-configuration.md).
+The open page calls `Pebble.sendMessage("pkjs", ...)`; PKJS handles `configmessage`
+and replies only after a complete watch result. Add and confirmed Remove autosave;
+no favourite choices pass through a close URL. Watch views remain quiet on both
+success and failure; existing storage/cache error indicators are not suppressed.
 One native outbox send is active; pending flags are consumed on successful queueing,
 not at the later callback, so rapid favourite changes cannot be lost. A fresh phone
 runtime sends the startup wake `{}`. Native starts a new session (invalidating old
@@ -127,7 +141,7 @@ uses the watch's local time; this does not affect Unix-time ETA arithmetic.
 Compact catalogue:
 
 ```text
-{type:"catalog", cached:boolean,
+{type:"catalog", cached:boolean, catalogId:uint32,
  stations:[[id,name,lineMask],...],
  lines:[[id,name,"#rrggbb",[stationIndex,...]],...]}
 ```
@@ -175,10 +189,22 @@ capacities, and rejects embedded NUL. Object lookup rejects duplicate matching k
 
 ## Persistence and reopen
 
-Native favourite records use independent integer-keyed Pebble persistence entries;
-removing one does not rewrite or reindex every other favourite. Write failures are
-reported and an unsaved add/remove is not presented as successful. Selected slot
-is persisted separately. Each value is at most 256 bytes.
+`favorites.c` stages the complete favourite list in the inactive one of two
+16-record banks (keys `310..341`), checks each write/read, and publishes its
+checksummed generation commit last (keys `300..301`). Boot chooses the newest
+valid complete bank, including across generation rollover; partial staging cannot
+replace the active list. A commit readback failure locks mutations until reload
+and reports an unknown outcome, not a guaranteed rollback. All values remain below
+256 bytes. Selected slot stays independently persisted at key `1` and is validated
+against the loaded list.
+
+Legacy native keys `100..115` are seeded unchanged into the first bank. Only after
+that bank and the migration seal at key `302` are verified can mutations proceed
+or legacy cleanup occur. An interrupted seed can reload legacy data; a sealed
+migration with corrupt banks cannot resurrect deleted legacy choices. Cleanup is
+best effort; the previous bank is a recovery copy, not secure deletion. No uninstall,
+UUID change or cache expiry reset is part of migration. Older app versions cannot
+read the new banks; downgrading/reconciling edits from a downgrade is unsupported.
 
 Two recent-route entries store full route IDs, original prediction receipt/expiry,
 a saved-at timestamp and a serial. Short labels are in a second serial-matched
@@ -194,10 +220,12 @@ Failed deletions retain durable tracking and retry once per second or on forced
 flush. Persistent firmware storage failure can prevent an invalidation being made
 durable and is shown as an error. A saved value never becomes live just because it
 was restored.
-The cache stores no service state or alert continuity. Favourites plus both cache
-slots use approximately 3.2 KiB of value payloads at the 16-favourite limit. The
-actual firmware persistence limit is queried/documented by `persist_get_max_size()`;
-all writes are checked, rather than assuming global watch storage is available.
+The cache stores no service state or alert continuity. Two favourite banks use
+4,736 bytes plus small commit/seal values; both arrival-cache slots remain separate.
+Initial migration additionally retains the legacy list until its seed/seal are
+verified. The actual firmware persistence limit is queried/logged by
+`persist_get_max_size()`; all writes are checked instead of assuming free storage.
+No cache/favourite data is evicted to make a failed bank write fit.
 
 ## UI language
 
@@ -216,6 +244,10 @@ fallback. There is no language-specific branching in C. The allocation-free
 `main.c` only requests text by key. Invalid keys return empty text rather than
 indexing outside the table. Each lookup reads the current locale, so retained
 notice/error keys follow language changes on the next redraw.
+
+Phone-only copy lives in `src/pkjs/locales/*.json` under semantic keys. The same
+root locale registry chooses its bundled table; phone copy never enlarges native
+C tables. The page has no inline English/Portuguese copy branches.
 
 Incoming companion diagnostics retain their raw text and existing bounds:
 `localization_diagnostic()` maps known wire strings to keys, with verbatim fallback

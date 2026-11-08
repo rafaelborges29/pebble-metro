@@ -14,6 +14,11 @@ Pebble.addEventListener("ready", function () {
   console.log("Metro phone companion ready");
   var companion = createCompanion({
     Pebble: Pebble,
+    localeRegistry: require("../../locales/index.json"),
+    phoneLocales: {
+      "en.json": require("./locales/en.json"),
+      "pt_PT.json": require("./locales/pt_PT.json")
+    },
     timers: timers,
     now: Date.now,
     storage: typeof localStorage !== "undefined" ? localStorage : null,

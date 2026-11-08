@@ -83,7 +83,14 @@ export function createTransport(pebble, timers, onInvalidationLoss) {
         invalidates = invalidates || batch.invalidates;
         return false;
       });
-      var discarded = queue.length >= 8 ? queue.splice(queue[0].key === 'hello' ? 1 : 0, 1)[0] : null;
+      // Configuration saves/receipts must not be silently evicted by feed traffic.
+      var discarded = null;
+      if (queue.length >= 8) {
+        var victim = -1;
+        for (var i = 0; i < queue.length; i++) if (queue[i].key !== 'hello' && queue[i].key.indexOf('settings:') !== 0) { victim = i; break; }
+        if (victim < 0) return false;
+        discarded = queue.splice(victim, 1)[0];
+      }
       queue.push({ session: session, id: ++sequence, part: 0, total: parts.length, parts: parts, key: key, attempts: 0, invalidates: invalidates });
       // Publish the generation barrier AFTER every older queued snapshot.
       if (discarded && discarded.invalidates) onInvalidationLoss();

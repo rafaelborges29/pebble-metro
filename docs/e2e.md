@@ -111,6 +111,37 @@ The removal cases caught a native fallback bug: changing stations after deletion
 could label the survivor's retained data LIVE without a new update. The fallback
 now marks it SAVED; a continuously subscribed same-station direction remains LIVE.
 
+## Phone configuration coverage
+
+`settings.spec.ts` adds 19 cases per target using the same compiled PBW/companion:
+17 emulator/browser flows, a host C fault probe and a keyed-translation check.
+The generated local data page runs in Chromium with the documented live bridge:
+`ready` for target `pkjs`, `Pebble.sendMessage()` promises and PKJS `configmessage`
+responses. Only Done invokes the intercepted close URL. Page network requests fail
+the test. This models the API contract, not Android WebView/native bridge internals.
+
+The cases cover immediate Add/confirmed Remove with no close, an unsubmitted
+picker selection on Done, duplicates, 16-route/empty lists, retained slots/restart,
+independent native validation, concurrent watch/catalogue edits, refresh recovery,
+stale pages, idempotent requests, missing-result timeouts with no blind replay,
+unavailable preview, hostile labels, keyed Portuguese copy and unchanged cache
+expiry. Existing arrival/action/picker screenshots verify no phone-result notice
+or unwanted navigation; removing a selected route dismisses its obsolete removal
+confirmation safely. Appearance cases start in both light/dark preferences, switch
+both ways while open, preserve the URL/list/selection and native revision, and
+check 4.5:1 text contrast for content/controls and success/warning/error statuses.
+Native dropdown colour-scheme support is declared; these browser tests cannot prove
+every mobile WebView's app-theme propagation. No existing screenshots are replaced
+or relaxed.
+
+`e2e/persistence/faults.c` compiles production `favorites.c` with the system `cc`
+and a minimal persistence API edge. It injects no-op, partial and complete-but-error
+writes at each of 18 legacy migration and 17 normal save boundaries, plus failed
+commit readback and legacy cleanup. Recovery must be a complete old/new list;
+a sealed migration cannot fall back to obsolete legacy entries. This is a fault
+model, not a claim of physical-flash power-loss verification. No new test framework,
+production fault switches, hardware installation or touch injection is used.
+
 ## Memory assertions
 
 The native app logs `Metro memory <reason>: used=<bytes> free=<bytes>` at startup,
@@ -121,14 +152,15 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **26 cases per platform (52 tests)**, including four locale
-cases per platform. Each platform independently checks heap headroom, switch
-variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (104 tests). Recheck after
+The normal matrix has **45 cases per platform (90 tests)**, including four locale
+and 19 configuration cases per platform. Each platform independently checks heap
+headroom, switch variation and expected startup count.
+For repeated runs use `npm run e2e -- --repeat-each=2` (180 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
-After removing the About screen, the full matrix passed **52/52 tests** (four
+Historical baseline before the phone editor: after removing the About screen,
+the matrix passed **52/52 tests** (four
 workers, 5.4 minutes) with snapshot updates disabled:
 `npm run e2e -- --workers=4 --update-snapshots=none`.
 All 16 new or changed menu baselines and both refreshed store menu images were
@@ -173,8 +205,9 @@ npx playwright show-report
 ```
 
 Do not add `"type": "module"` to the root package: the SDK webpack configuration
-is CommonJS. One-off host C probes can check production helpers and persistence
-failures, but do not replace the actual native PBW flows.
+is CommonJS. The configuration spec also requires a system C compiler (`cc`) for
+its production-store fault probe. Host probes complement, never replace, the
+actual native PBW flows.
 
 ## Screenshots and synchronization
 
@@ -227,7 +260,8 @@ and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
 `DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
 reproducibility and data provenance. These private diagnostics are not a public
 methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
-The workflow allows 20 minutes for setup and the 52-case serial emulator matrix.
+The workflow allows 25 minutes for setup and the 90-case serial matrix, matching
+the release verification budget. Workers and retry policy are unchanged.
 It never installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
 

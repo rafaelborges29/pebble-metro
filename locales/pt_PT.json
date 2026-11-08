@@ -1,4 +1,5 @@
 {
+  "notice.settings_unknown": "Resultado de armazenamento incerto. Reabra o Metro antes de tentar de novo.",
   "notice.catalog_updated": "Lista de estações atualizada. Escolha novamente.",
   "error.invalid_station_data": "Dados de estações inválidos",
   "notice.direction_unavailable": "Sentido indisponível. Escolha novamente a estação.",

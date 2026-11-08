@@ -12,8 +12,8 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-24.04
-    # The combined navigation/layout/locale matrix has 52 serial emulator cases.
-    timeout-minutes: 20
+    # Navigation/layout/locale/configuration: 90 serial cases, including fault probes.
+    timeout-minutes: 25
     env:
       CI: 'true'
     steps:

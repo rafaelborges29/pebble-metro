@@ -32,6 +32,17 @@ No alerts, vibration, line-status pages, GPS, watch-side JavaScript runtime,
 background worker, custom Android app or custom backend. The paired phone needs
 the Pebble mobile app and internet access. See [privacy](PRIVACY.md).
 
+**Phone favourites editor:** enable **Settings → Plugins → Plugins / permissions
+preview** in a Pebble Android app with live settings support, then open Metro
+Lisboa's **Settings**. Choose line → station → direction and tap **Add favourite**;
+Add and confirmed Remove save immediately while the page stays open. Save/error
+feedback stays on the phone, with no watch popup. Keep Metro running on the
+connected watch. The editor is bundled: no website, separate plugin or Android
+app is needed. The page automatically follows the WebView's light/dark preference
+from the Pebble app, including native controls, with no separate theme toggle.
+The on-watch picker remains available without the preview feature.
+See [sync, recovery and upgrade details](docs/phone-configuration.md).
+
 ## Language
 
 The watch's system locale selects the UI: **Portuguese (Portugal)** for `pt_PT`,
@@ -39,14 +50,15 @@ English for every other locale (including unsupported languages). This follows
 [`i18n_get_system_locale()`](https://developer.repebble.com/docs/c/Foundation/Internationalization/),
 not the phone/browser language. Choose Portuguese in the watch's system language
 settings; availability depends on firmware/mobile-app language support. There is
-no Metro language setting or phone configuration page. Changes appear on the next
-redraw (a button press, arrival tick or minute tick).
+no Metro language preference. The phone favourites editor also uses the watch's
+language. Watch changes appear on the next redraw (a button press, arrival tick or
+minute tick); reopen Settings to change an already-open editor's language.
 
 Portuguese uses **ATUAL / GUARDADO** for **LIVE / SAVED**, and **Agora / Hora
 estimada** for **Due / Estimated now**: these remain estimates, never an assertion
 that a train is present. `~`, ranges/bounds, minutes and source seconds (`seg`)
 retain their meanings. Official place/line names and complete legal texts are
-unchanged. Existing favourites and cached data need no migration.
+unchanged. Changing language does not alter favourites or cached data.
 
 ## Controls
 

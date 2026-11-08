@@ -1,6 +1,7 @@
 import { parseNetwork, parseFavorites } from "../common/metro.js";
 import { createTransport } from "./transport.js";
 import { openFeed } from "./feed.js";
+import { createSettings } from "./settings.js";
 
 var CACHE_KEY = "metro.network.v1";
 function bytes(s) { return encodeURIComponent(s).replace(/%[A-F\d]{2}/gi, "x").length; }
@@ -23,7 +24,9 @@ export function createCompanion(options) {
   var metadataBusy = false, metadataRetry = null, closed = false;
   var metadataGeneration = 0, cancels = [];
   var connection = { type: "connection", status: "disconnected" };
-  var feedGeneration = 0, announcedConnection = null;
+  var feedGeneration = 0, announcedConnection = null, catalogId = 0;
+  var settings = createSettings({ Pebble: pebble, timers: timers, localeRegistry: options.localeRegistry, phoneLocales: options.phoneLocales,
+    send: function (message, key) { return transport.send(message, key); } });
   function send(message, key) {
     if (!session || closed) return;
     if (message.type === "connection") {
@@ -39,7 +42,8 @@ export function createCompanion(options) {
   function catalog() {
     if (!network) return;
     var ids = network.stations.map(function (s) { return s.id; });
-    send({ type: "catalog", cached: cached,
+    settings.catalog(network, catalogId);
+    send({ type: "catalog", cached: cached, catalogId: catalogId,
       stations: network.stations.map(function (s) {
         var mask = network.lines.reduce(function (value, line, index) {
           return s.lines.indexOf(line.id) === -1 ? value : value | (1 << index);
@@ -63,6 +67,7 @@ export function createCompanion(options) {
       var raw = options.storage.getItem(CACHE_KEY);
       if (typeof raw !== "string" || raw.length > 16000) return;
       network = cachedNetwork(raw);
+      catalogId++;
       cached = true;
     } catch (_) {}
   }
@@ -92,6 +97,7 @@ export function createCompanion(options) {
         try {
           var parsed = parseNetwork(stationData, lineData);
           network = parsed;
+          catalogId = (catalogId + 1) >>> 0 || 1;
           cached = false;
           if (options.storage) { try { options.storage.setItem(CACHE_KEY, JSON.stringify(parsed)); } catch (_) {} }
         } catch (error) { failed = true; console.log("UnderLX metadata: " + error.message); }
@@ -136,6 +142,7 @@ export function createCompanion(options) {
     if (command.type === "hello") {
       if (typeof command.now !== "number" || !isFinite(command.now) || command.now < 0) return;
       session = command.session;
+      settings.reset(session);
       favorite = null;
       transport.reset(session);
       // Must be the first logical response, even when metadata is synchronous.
@@ -149,7 +156,9 @@ export function createCompanion(options) {
       return;
     }
     if (!session || command.session !== session) return;
-    if (command.type === "ack") {
+    if (command.type === "settings-state") {
+      settings.receive(command);
+    } else if (command.type === "ack") {
       if (typeof command.id === "number" && command.id > 0 && command.id % 1 === 0 && typeof command.part === "number" && command.part >= 0 && command.part < 32 && command.part % 1 === 0)
         transport.receipt(command.id, command.part);
     } else if (command.type === "watch") {
@@ -175,6 +184,7 @@ export function createCompanion(options) {
       cancels.forEach(function (cancel) { cancel(); });
       cancels = [];
       if (feed) feed.close();
+      settings.close();
       transport.close();
       if (pebble.removeEventListener) pebble.removeEventListener("appmessage", receive);
     }
