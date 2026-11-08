@@ -5,7 +5,7 @@ export default defineConfig({
   testMatch: '**/*.spec.ts',
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  // Hosted 1/2/4-worker measurements are recorded in docs/e2e.md.
+  // Per-target CI worker benchmarks are recorded in docs/e2e.md.
   workers: process.env.CI ? 4 : 1,
   retries: 0,
   forbidOnly: !!process.env.CI,

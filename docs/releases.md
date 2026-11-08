@@ -75,13 +75,19 @@ release instead of selecting another listing or upload route.
 3. The exact revision uses the shared pinned toolchain: SDK **4.33.1**, Pebble Tool
    **5.0.39**, libpebble2 **0.0.31**, Python **3.13** for the tool, Node **24.21.0**.
    It checks production phone/shared TypeScript and the harness, then builds once
-   (compiling the phone to SDK-compatible JavaScript). The existing
-   emulator suite installs that PBW on both `emery` and `gabbro`, without rebuilding
-   or updating snapshots. Release verification shares the normal CI default of
-   four workers, with fresh watch/browser storage per test and retries disabled;
-   the PBW checksum is checked again afterwards. See the
-   [hosted measurements](e2e.md#hosted-performance) before changing concurrency.
-   No physical watch or touch tests are run.
+   (compiling the phone to SDK-compatible JavaScript). This build-only job skips
+   Chromium. Two independent Ubuntu jobs download the **same immutable candidate**
+   and install it on `emery` / `gabbro`, without rebuilding or updating snapshots.
+   Each uses the shared CI worker default and test-level scheduling, with fresh
+   watch/browser storage per test and retries disabled. Both jobs validate the
+   candidate's source provenance/hash before and after testing; a changed PBW is
+   rejected. Both targets finish even if one fails. Their blob reports merge into
+   one private HTML/JUnit report; the report gate explicitly requires both target
+   jobs to pass. Publication waits for all these jobs, then downloads the original
+   candidate artifact. See the [hosted measurements](e2e.md#hosted-performance)
+   before changing concurrency. The pinned SDK cache contains no app build or
+   credentials; its exact key includes OS/toolchain/interpreter versions. No
+   physical watch or touch tests are run.
 4. Preflight verifies ZIP integrity and allowed entries, UUID, numeric release
    version, native header versions/UUIDs, both target manifests/binaries/resources,
    phone bundle, complete bundled licence notices, and the 4.4 MB size ceiling.
@@ -124,8 +130,11 @@ Each published GitHub release contains generated notes and:
   SHA-256 and stable public PBW download URL. Signed redirect URLs are not recorded.
 
 No credentials, device logs, screenshots, test reports or internal evidence are
-release assets. Failure diagnostics stay in separate private Actions artifacts
-for seven days. The tested candidate artifact is retained for 30 days; once staged,
+release assets. Each target's private `release-test-diagnostics-emery` /
+`release-test-diagnostics-gabbro` artifact and the merged `release-test-diagnostics`
+report are retained for seven days, on success as well as failure. Test-job setup
+failures may have no blob to merge; they still block publication. The tested
+candidate artifact is retained for 30 days; once staged,
 the draft/release also retains its candidate indefinitely until deliberately removed.
 
 The existing **0.2.0** store upload is historical. This automation will not rebuild,

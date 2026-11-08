@@ -281,22 +281,31 @@ and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
 `DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
 reproducibility and data provenance. These private diagnostics are not a public
 methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
-Normal PR/main runs and release verification use the same Playwright config:
-four workers on CI, one locally unless overridden with `--workers`. Files run
-concurrently, but tests inside each file remain sequential; `fullyParallel` is
-not enabled by default. Retries remain disabled and snapshots are never updated.
-Each test still owns fresh flash, its browser context and per-test output directory. Normal CI never
-installs on hardware or publishes. A local pass does
-not prove hosted checks passed for an exact revision.
+Normal PR/main runs and release verification use one `ubuntu-24.04` runner per
+watch target, sharing `.github/actions/test-emulator`. Each job selects exactly
+one Playwright project and uses test-level parallel scheduling (`--fully-parallel`)
+with the shared CI worker default. Local runs still default to one worker and
+sequential tests within each file; pass `--workers` / `--fully-parallel` explicitly
+to reproduce a CI target. Retries remain disabled and snapshots are never updated.
+Each test still owns fresh flash, its browser context and per-test output directory.
+Both target jobs finish even if one fails (`fail-fast: false`). Their separate
+`emulator-e2e-emery` / `emulator-e2e-gabbro` artifacts retain native logs, traces,
+heap samples, timings, JUnit and Playwright blob reports. A small final `e2e` job
+merges both blobs into the existing `emulator-e2e` HTML/JUnit artifact and preserves
+the required-check name. It requires both target jobs to succeed, independently
+of report rendering: `merge-reports` itself exits zero even for failing tests.
+A missing target/blob also fails the gate; reports cannot silently omit a platform.
+Normal CI never installs on hardware or publishes. A local pass does not prove
+hosted checks passed for an exact revision.
 
 ### Hosted performance
 
-Use **Actions → Emulator E2E → Run workflow** to benchmark `workers` (1/2/4),
-`repeat` (1/2), and optional `fully_parallel` scheduling on `ubuntu-24.04`:
+Use **Actions → Emulator E2E → Run workflow** to benchmark `workers` (2/3/4 per
+target), `repeat` (1/2), and `fully_parallel` scheduling on `ubuntu-24.04`:
 
 ```sh
-gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=1 -f fully_parallel=false
-gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=2 -f fully_parallel=false
+gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=1 -f fully_parallel=true
+gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=2 -f fully_parallel=true
 ```
 
 The workflow separates setup, typecheck, native/phone build, testing and artifact
@@ -310,6 +319,8 @@ counts/elapsed totals for install, buttons, screenshots and delivery. Startup is
 not firmware/application readiness; the existing draw and receipt waits remain.
 RPC totals can overlap and must not be summed into a test's wall time. JUnit and
 HTML reports retain per-test/platform durations, logs and failure traces.
+
+#### Single-runner baseline
 
 Measured on 2026-11-08, all using `ubuntu-24.04` with **2 vCPUs / 7.75 GiB RAM**.
 The before revision `4b795ce` adds measurement only; `f9f019a` adds inherited
@@ -346,16 +357,17 @@ without larger runners or duplicate setup jobs. The under-eight-minute target wa
 not the issue's historical 52. No external download outlier occurred; setup still
 varied from 59–71 seconds, so do not credit all setup differences to `--only-shell`.
 
-Fully parallel execution was only a few seconds faster in testing, with higher
-CPU pressure and slower individual starts/screenshots. Keep file-level scheduling
-rather than adding parallel mode or splitting specs for this negligible gain.
+On that single runner, fully parallel execution was only a few seconds faster in
+testing, with higher CPU pressure and slower individual starts/screenshots. That
+stage therefore retained file-level scheduling; the per-target split below makes
+test-level scheduling useful without doubling contention on one machine.
 Each stress case still uses 430 real button presses, including the 160 switches;
 about 109 seconds is spent in button RPCs. Both 100 ms press / 150 ms release
 waits are retained: no coverage, persistence timing, heap/restart assertions or
 screenshot tolerances are relaxed. Production timeout/recovery cases also retain
 their real waits. Setup downloads only Chromium's required headless shell, not
-the unused full browser. No SDK/browser cache or extra CI job is added without
-measured need; warm restores would not address the dominant serial bottleneck.
+the unused full browser. At this first stage no SDK/browser cache or extra CI
+runner was added; concurrency addressed the dominant serial bottleneck first.
 The confirmation/repeat runs also checked that testing left PBW bytes unchanged.
 Across all runs, stress samples retained at least 53,772 bytes free on Gabbro and
 53,908 on Emery, zero sampled steady-state heap variation and exactly two expected
@@ -363,6 +375,58 @@ starts per stress case. No tests were skipped or retried. Four concurrent local
 locale cases additionally exercised both platforms' inherited debugger listeners; four
 SIGTERM probes verified QEMU exit and private-flash removal. These checks do not
 replace the physical-watch acceptance below.
+
+#### Per-target runners and setup
+
+PR/main CI builds from the exact checkout in each independent target job; builds
+are deliberately not serialized behind a third SDK setup job. Release verification
+instead builds/restores and freezes one PBW, then both target jobs download that
+same immutable candidate artifact. Each validates the release provenance/hash
+before and after testing, without rebuilding. Publication depends on both targets
+and their report gate; it still downloads the original frozen candidate, not a
+separately rebuilt watch package. The release critical path includes candidate
+preparation, so measure it separately from PR feedback.
+
+The shared setup installs browser dependencies before the QEMU runtime libraries,
+reusing the fresh apt indexes instead of running `apt-get update` twice. The
+release build-only job skips Chromium and refreshes apt itself. All required
+system packages and native/browser validation remain intact.
+
+Only `~/.local/share/pebble-sdk/SDKs/4.33.1` is cached. The exact key includes OS,
+architecture, Ubuntu version, SDK, Pebble Tool, libpebble2, Node and the installed
+Python **patch** version: the SDK contains a venv with interpreter paths. There
+are no fallback restore keys. A miss installs the pinned SDK; every run activates
+it. Application builds, test storage, credentials and the developer's managed
+emulators are never cached. npm/uv retain their existing caches; no browser cache
+is added. Record cold saves and warm restores separately before attributing any
+speedup to caching.
+
+Initial split-runner measurements (same two-core runner class per target) are
+below. Pipeline time runs from the first watch job starting through the merged
+report gate completing, not just the faster platform's test time. CPU models vary
+and runner-minutes sum all three jobs, so splitting is not a free speedup.
+
+| Run / workers per target | SDK cache | Full pipeline | Result |
+| --- | --- | --- | --- |
+| [2 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533915573) | Not yet added | 8m15s | 98 passed |
+| [3 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533917999) | Not yet added | 6m39s | 98 passed |
+| [4 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533920282) | Not yet added | 6m57s | 98 passed |
+| [Normal PR, 4 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533920706) | Not yet added | **5m17s** | 98 passed |
+| [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534850485) | Cold miss/save | 6m45s | 98 passed |
+| [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534856192) | Cold miss/save | 6m53s | 98 passed |
+
+Sub-six-minute PR feedback is possible, but the slower cold/hosted runs must not
+be hidden or described as a guaranteed sub-six SLA. Warm-cache confirmations and
+the full repeated suite are required before crediting the SDK cache or choosing
+the final worker setting. Button delays and all production timeout cases remain
+unchanged.
+
+One-off local integration probes verified both successful and intentionally failed
+blob merges: both projects and the failure survive into HTML/JUnit. The explicit
+job-result gate rejects failure, cancellation and skipped targets even though the
+merger exits zero. An offline temporary release fixture exercised candidate copies
+and pre/post provenance validation for both targets, rejecting a tampered PBW and
+a wrong-source provenance record. No release workflow was dispatched or published.
 
 ### Other probes and limits
 
