@@ -211,6 +211,7 @@ def immutable_upload(tag, release, path):
 
 def publish(tag):
     from pebble_store import PebbleStore, refresh_token
+    from rebble_store import APP_ID as REBBLE_APP_ID, RebbleStore, refresh_token as rebble_token
     version, commit = validate_tag(tag)
     record = read_json("dist/provenance.json")
     pbw = Path("dist") / names(version)[0]
@@ -221,22 +222,31 @@ def publish(tag):
     # Freeze provenance first. Partial uploads must resume using the original job artifact.
     for filename in ("provenance.json", pbw.name, "SHA256SUMS"):
         immutable_upload(tag, release, Path("dist") / filename)
-    receipt_path = Path("dist/pebble-release.json")
+    receipts = [("pebble-release.json", APP_ID), ("rebble-release.json", REBBLE_APP_ID)]
     if not release["draft"]:
         with tempfile.TemporaryDirectory() as tmp:
-            download(tag, receipt_path.name, tmp)
-            receipt = read_json(Path(tmp) / receipt_path.name)
-            require(receipt["version"] == version and receipt["sha256"] == record["sha256"]
-                    and receipt["app_id"] == APP_ID and receipt["release_id"], "Published release receipt mismatch")
-        print("Release already published; nothing to upload")
+            for filename, app_id in receipts:
+                download(tag, filename, tmp)
+                receipt = read_json(Path(tmp) / filename)
+                require(receipt["version"] == version and receipt["sha256"] == record["sha256"]
+                        and receipt["app_id"] == app_id and receipt["release_id"], "Published release receipt mismatch")
+        print("Release already published to GitHub, Pebble and Rebble; nothing to upload")
         return
-    store = PebbleStore(refresh_token())
-    receipt = store.publish(pbw, version, release["body"] or "")
-    write_json(receipt_path, receipt)
-    immutable_upload(tag, release, receipt_path)
-    # Store upload and hash verification happen before publishing the GitHub release.
+    stores = [PebbleStore(refresh_token()), RebbleStore(rebble_token())]
+    # Catch credentials, ownership, version conflicts and reused-byte mismatches
+    # at either destination before making the first store upload.
+    for store in stores:
+        store.preflight(pbw, version)
+    # GitHub's generated notes can contain private PR/source links. Store notes
+    # must be public-safe and identical on retries, not copied from the draft body.
+    notes = f"Metro Lisboa {version} for Pebble Time 2 and Pebble Round 2 with Android."
+    for store, (filename, _) in zip(stores, receipts):
+        receipt_path = Path("dist") / filename
+        write_json(receipt_path, store.publish(pbw, version, notes))
+        immutable_upload(tag, release, receipt_path)
+    # Both public downloads must match before GitHub publication / snapshot bump.
     api("PATCH", f"releases/{release['id']}", {"draft": False, "make_latest": "true"})
-    print(f"Published {tag} to GitHub and Pebble; SHA-256 {record['sha256']}")
+    print(f"Published {tag} to GitHub, Pebble and Rebble; SHA-256 {record['sha256']}")
 
 
 def advance(tag):
