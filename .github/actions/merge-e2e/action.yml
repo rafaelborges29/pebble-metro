@@ -29,6 +29,7 @@ runs:
         for platform in emery gabbro; do
           cp "e2e-artifacts/$ARTIFACT_PREFIX-$platform/blob-report/report-$platform.zip" "blob-reports/$platform.zip"
         done
+        # Rendering a failed test report exits zero; callers must gate on job results.
         npx playwright merge-reports --config=playwright.config.ts blob-reports
     - name: Upload the combined report
       if: always()

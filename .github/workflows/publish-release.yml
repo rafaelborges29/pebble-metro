@@ -57,6 +57,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-pebble
+        with:
+          browser: 'false'
       - run: npm run typecheck
       - name: Reuse the frozen candidate when resuming a draft
         id: restore
@@ -68,11 +70,6 @@ jobs:
         run: npm run check
       - name: Verify and freeze the candidate
         run: python3 tools/release.py package "$RELEASE_TAG"
-      # CI uses the same measured worker default as PR/main; no rebuild or retries.
-      - name: Test that exact PBW on both watch targets
-        run: npx playwright test --update-snapshots=none
-      - name: Check that testing did not alter the PBW
-        run: python3 tools/release.py package "$RELEASE_TAG"
       - uses: actions/upload-artifact@v7
         id: candidate
         with:
@@ -80,18 +77,65 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
-      - name: Keep failure diagnostics private and separate from release assets
-        if: failure()
-        uses: actions/upload-artifact@v7
+
+  test:
+    name: Verify watch (${{ matrix.platform }})
+    needs: [resolve, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [emery, gabbro]
+    env:
+      CI: 'true'
+      RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
         with:
-          name: release-test-diagnostics
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
+          ref: ${{ needs.resolve.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-pebble
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact }}
+          path: dist
+          merge-multiple: true
+      - name: Install the frozen candidate path and validate provenance
+        run: |
+          mkdir -p build
+          cp dist/*.pbw "build/$(basename "$PWD").pbw"
+          python3 tools/release.py package "$RELEASE_TAG"
+      - uses: ./.github/actions/test-emulator
+        with:
+          platform: ${{ matrix.platform }}
+          artifact-prefix: release-test-diagnostics
+      - name: Check the tested bytes against frozen provenance again
+        run: python3 tools/release.py package "$RELEASE_TAG"
+
+  reports:
+    needs: [resolve, test]
+    if: ${{ always() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
+      - uses: ./.github/actions/merge-e2e
+        with:
+          artifact-prefix: release-test-diagnostics
+          report-name: release-test-diagnostics
+      - name: Require both watch jobs to pass
+        if: always()
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+        run: test "$TEST_RESULT" = success
 
   publish:
-    needs: [resolve, verify]
+    needs: [resolve, verify, test, reports]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
