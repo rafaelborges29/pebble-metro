@@ -56,6 +56,8 @@ jobs:
           ref: ${{ needs.resolve.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Test release publication without network or credentials
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
       - uses: ./.github/actions/setup-pebble
       - run: npm run typecheck
       - name: Reuse the frozen candidate when resuming a draft
@@ -106,12 +108,13 @@ jobs:
           artifact-ids: ${{ needs.verify.outputs.artifact }}
           path: dist
           merge-multiple: true
-      - name: Publish the verified bytes to Pebble, then GitHub
+      - name: Publish the verified bytes to Pebble, Rebble, then GitHub
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
           PEBBLE_FIREBASE_API_KEY: ${{ vars.PEBBLE_FIREBASE_API_KEY }}
           PEBBLE_FIREBASE_REFRESH_TOKEN: ${{ secrets.PEBBLE_FIREBASE_REFRESH_TOKEN }}
+          REBBLE_REFRESH_TOKEN: ${{ secrets.REBBLE_REFRESH_TOKEN }}
         run: python3 tools/release.py publish "$RELEASE_TAG"
 
   next-development:

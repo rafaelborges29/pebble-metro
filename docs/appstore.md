@@ -183,8 +183,8 @@ Earlier Alloy favourites must be re-added after upgrading; the old store is not 
 
 For updates to the existing Metro Lisboa listing, use the
 [Create release GitHub Action](releases.md). It tests one tagged PBW and publishes
-those exact bytes, preserving the current listing and screenshots. Running that
-action is approval to publish when checks pass. Setup, credentials, generated
+those exact bytes to GitHub, Pebble and Rebble, preserving the existing listings
+and screenshots. Running that action is approval to publish when checks pass. Setup, credentials, generated
 notes, retry handling and automatic version bumps on main are documented there.
 
 Pebble officially supports three routes to the same appstore listing:
@@ -204,6 +204,15 @@ Pebble Tool 5.0.39 help exposes `--is-published` with a false default, which dif
 from those docs. Treat defaults as version-dependent and inspect actual listing
 visibility and release state; the dashboard's explicit controls are safer initially.
 Do not put sign-in tokens in commands, source, logs or screenshots.
+
+## Rebble Appstore
+
+Rebble's initial submission is tracked under #9; future releases use the same
+[release workflow](releases.md) as Pebble after its new secret is configured.
+[Metro Lisboa on Rebble](https://apps.rebble.io/en_US/application/6af0e5dfb99ed90009374190)
+is Public at version **0.3.0**, published 2026-11-08. Its served PBW matches the
+GitHub/Pebble package exactly. See [Rebble submission](rebble.md) for the receipt,
+store-specific assets, listing copy, compatibility caveat and recovery procedure.
 
 ## Official references
 

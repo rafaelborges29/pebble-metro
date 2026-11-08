@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="320" viewBox="0 0 720 320">
+  <title>Metro Lisboa — original train and decorative route lines</title>
+  <desc>Original train artwork beside four abstract coloured routes, not a map of the Lisbon Metro network.</desc>
+  <rect width="720" height="320" fill="#102b3b"/>
+  <g fill="none" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M330 104H420L456 68H650" stroke="#499fe2"/>
+    <path d="M330 144H650" stroke="#f5cc47"/>
+    <path d="M330 184H650" stroke="#42d4ab"/>
+    <path d="M330 224H420L456 260H650" stroke="#ef6478"/>
+  </g>
+  <g fill="#102b3b" stroke="#f7fbfc" stroke-width="5">
+    <circle cx="508" cy="68" r="10"/>
+    <circle cx="604" cy="68" r="10"/>
+    <circle cx="468" cy="144" r="10"/>
+    <circle cx="564" cy="144" r="10"/>
+    <circle cx="508" cy="184" r="10"/>
+    <circle cx="604" cy="184" r="10"/>
+    <circle cx="468" cy="260" r="10"/>
+    <circle cx="564" cy="260" r="10"/>
+  </g>
+  <g transform="translate(32 16) scale(2)">
+    <g fill="#f7fbfc">
+      <rect x="60" y="17" width="24" height="5" rx="2.5"/>
+      <rect x="41" y="26" width="62" height="77" rx="13"/>
+    </g>
+    <rect x="53" y="34" width="38" height="4" rx="2" fill="#42d4ab"/>
+    <g fill="#102b3b">
+      <rect x="49" y="45" width="19" height="23" rx="4"/>
+      <rect x="76" y="45" width="19" height="23" rx="4"/>
+      <rect x="61" y="91" width="22" height="5" rx="2.5"/>
+    </g>
+    <g fill="#42d4ab">
+      <circle cx="55" cy="82" r="4"/>
+      <circle cx="89" cy="82" r="4"/>
+    </g>
+    <g fill="none" stroke="#f7fbfc" stroke-width="5" stroke-linecap="round">
+      <path d="M59 104 49 118M85 104 95 118M54 112H90"/>
+    </g>
+    <circle cx="52" cy="132" r="3.5" fill="#499fe2"/>
+    <circle cx="65" cy="132" r="3.5" fill="#f5cc47"/>
+    <circle cx="78" cy="132" r="3.5" fill="#42d4ab"/>
+    <circle cx="91" cy="132" r="3.5" fill="#ef6478"/>
+  </g>
+</svg>

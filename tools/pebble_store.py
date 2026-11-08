@@ -115,15 +115,21 @@ class PebbleStore:
         return {"app_id": APP_ID, "release_id": latest["id"], "version": version,
                 "sha256": actual, "pbw_url": url}
 
-    def publish(self, path, version, notes):
+    def preflight(self, path, version):
         app, maximum = self.context()
-        require(Path(path).stat().st_size <= maximum, "PBW exceeds current store upload limit")
+        require(0 < Path(path).stat().st_size <= maximum, "PBW exceeds current store upload limit or is empty")
         desired = store_version(version)
         versions = [store_version(v) for v in app["versions"]]
         require(not any(v > desired for v in versions), "A newer store version already exists")
-        digest = sha256(path)
-        if desired not in versions:
-            data, content_type = multipart(path, version, notes)
-            # Intentionally one POST. A timeout may mean the store already accepted it.
-            request(API + f"/api/dashboard/apps/{APP_ID}/releases", self.token, data, content_type)
-        return self.receipt(version, digest)
+        if desired in versions:
+            return self.receipt(version, sha256(path))
+        return None
+
+    def publish(self, path, version, notes):
+        existing = self.preflight(path, version)
+        if existing:
+            return existing
+        data, content_type = multipart(path, version, notes)
+        # Intentionally one POST. A timeout may mean the store already accepted it.
+        request(API + f"/api/dashboard/apps/{APP_ID}/releases", self.token, data, content_type)
+        return self.receipt(version, sha256(path))

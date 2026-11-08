@@ -3,6 +3,9 @@
 Lisbon Metro arrival estimates on your wrist. A small native C watch app with a
 PebbleKit JavaScript phone companion, connecting directly to [UnderLX](https://underlx.com/).
 
+**Get the app:** [Pebble Appstore](https://apps.repebble.com/dce54d3eb02943f1935e1529)
+· [Rebble Appstore](https://apps.rebble.io/en_US/application/6af0e5dfb99ed90009374190).
+
 **Targets:** Pebble Time 2 (`emery`, 200×228) and Pebble Round 2 (`gabbro`,
 260×260), firmware 4.33+, and Android. The original Pebble Time Round (`chalk`),
 other watches and iOS are not supported. Version 0.2 is under hardware validation;
@@ -156,6 +159,7 @@ the app with the same UUID; read the migration note above before upgrading.
 - [Architecture and protocol](docs/architecture.md)
 - [UI and cache flow](docs/design.md)
 - [Appstore publishing and listing draft](docs/appstore.md)
+- [Rebble Appstore submission and update checklist](docs/rebble.md)
 - [Artwork and screenshots](assets/README.md)
 - [GitHub Actions releases, versioning and recovery](docs/releases.md)
 - [Privacy](PRIVACY.md)
