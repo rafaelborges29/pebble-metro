@@ -19,8 +19,10 @@ button regression passes do not verify touch gestures or finger usability.
   `mqtt-packet`. Unexpected destinations/methods fail instead of reaching the
   internet. Service/disruption requests are not allowed in this slim version.
 
-Each test uses new private flash images and a private loopback port. The harness
-never connects to a physical watch or wipes managed emulator storage. Python
+Each test uses new private flash images and private loopback listeners for the
+serial bridge and debugger. Python passes both already-bound listening sockets
+to QEMU with `pass_fds`; there is no release/rebind window in which another test
+can steal a port. The harness never connects to a physical watch or wipes managed emulator storage. Python
 reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 
 ## Flows
@@ -113,8 +115,8 @@ now marks it SAVED; a continuously subscribed same-station direction remains LIV
 
 ## Phone configuration coverage
 
-`settings.spec.ts` adds 19 cases per target using the same compiled PBW/companion:
-17 emulator/browser flows, a host C fault probe and a keyed-translation check.
+`settings.spec.ts` adds 20 cases per target using the same compiled PBW/companion:
+18 emulator/browser flows, a host C fault probe and a keyed-translation check.
 The generated local data page runs in Chromium with the documented live bridge:
 `ready` for target `pkjs`, `Pebble.sendMessage()` promises and PKJS `configmessage`
 responses. Only Done invokes the intercepted close URL. Page network requests fail
@@ -152,10 +154,10 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **45 cases per platform (90 tests)**, including four locale
-and 19 configuration cases per platform. Each platform independently checks heap
+The normal matrix has **49 cases per platform (98 tests)**, including four locale,
+20 configuration and three permission cases per platform. Each platform independently checks heap
 headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (180 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (196 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
@@ -182,7 +184,7 @@ Supported locally: Linux x86-64, Node 24.21.0, Pebble Tool 5.0.39,
 
 ```sh
 npm ci
-npx playwright install chromium
+npx playwright install --only-shell chromium
 npm run e2e
 ```
 
@@ -279,10 +281,47 @@ and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
 `DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
 reproducibility and data provenance. These private diagnostics are not a public
 methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
-The workflow allows 25 minutes for setup and the 90-case serial matrix, matching
-the release verification budget. Workers and retry policy are unchanged.
-It never installs on hardware or publishes. A local pass does
+Normal PR/main runs and release verification use the same Playwright config:
+four workers on CI, one locally unless overridden with `--workers`. Files run
+concurrently, but tests inside each file remain sequential; `fullyParallel` is
+not enabled by default. Retries remain disabled and snapshots are never updated. Each test still owns
+fresh flash, its browser context and per-test output directory. Normal CI never
+installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
+
+### Hosted performance
+
+Use **Actions → Emulator E2E → Run workflow** to benchmark `workers` (1/2/4),
+`repeat` (1/2), and optional `fully_parallel` scheduling on `ubuntu-24.04`:
+
+```sh
+gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=1 -f fully_parallel=false
+gh workflow run e2e.yml --ref <branch> -f workers=4 -f repeat=2 -f fully_parallel=false
+```
+
+The workflow separates setup, typecheck, native/phone build, testing and artifact
+upload into timed steps. `e2e-metrics/` in the private artifact records CPU/RAM,
+one-second `vmstat` samples, GNU time output and the tested PBW's SHA-256 (checked
+again after testing). GNU time's maximum RSS is the largest individual child,
+not aggregate process-tree memory; use `vmstat` to inspect whole-runner pressure.
+Each emulator writes/attaches `emulator-timings.json`: bridge startup (Python,
+flash preparation and socket connection), lifetime including teardown, and RPC
+counts/elapsed totals for install, buttons, screenshots and delivery. Startup is
+not firmware/application readiness; the existing draw and receipt waits remain.
+RPC totals can overlap and must not be summed into a test's wall time. JUnit and
+HTML reports retain per-test/platform durations, logs and failure traces.
+
+Four file-level workers passed all 98 cases in 7.0 minutes of test execution.
+The test-level parallel benchmark also passed but took 6.9 minutes, with higher
+CPU pressure and slower individual starts/screenshots. Keep file-level scheduling
+rather than adding parallel mode or splitting specs for this negligible gain.
+Each stress case still uses 430 real button presses, including the 160 switches;
+about 109 seconds is spent in button RPCs. Both 100 ms press / 150 ms release
+waits are retained: no coverage, persistence timing, heap/restart assertions or
+screenshot tolerances are relaxed. Production timeout/recovery cases also retain
+their real waits. Setup downloads only Chromium's required headless shell, not
+the unused full browser. No SDK/browser cache or extra CI job is added without
+measured need; warm restores would not address the dominant serial bottleneck.
 
 During development, the allocation-free C JSON decoder was separately checked
 using one-off host probes with C99 warnings,
@@ -326,8 +365,8 @@ cannot select it there. For the two locale fixtures only, the harness uses the
 SDK's bundled GDB/debug ELF to set `s_system_domain.iso_locale` in the private
 emulator's RAM before installing Metro. It asserts the locale logged by the
 release app's actual `i18n_get_system_locale()` call; no app renderer, translation
-helper, phone language or app binary is substituted. The debugger uses a private
-loopback port and detaches immediately. Normal SDK files and managed emulators
+helper, phone language or app binary is substituted. The debugger uses an inherited private
+loopback listener and detaches immediately. Normal SDK files and managed emulators
 are untouched. These tests exercise the native API boundary and built-in system
 fonts, **not** the physical watch's language picker or downloaded font packs.
 

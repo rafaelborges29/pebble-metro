@@ -13,3 +13,4 @@ __pycache__/
 .DS_Store
 playwright-report/
 test-results/
+e2e-metrics/

@@ -10,7 +10,7 @@ on:
         description: Playwright workers (benchmark on the same runner class)
         type: choice
         options: ['1', '2', '4']
-        default: '1'
+        default: '4'
       repeat:
         description: Complete suite repetitions (retries remain disabled)
         type: choice
@@ -27,11 +27,11 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-24.04
-    # Allow a repeated serial baseline; normal runs should finish well below this.
-    timeout-minutes: 45
+    # A manually requested repeated serial baseline needs twice the normal budget.
+    timeout-minutes: ${{ inputs.repeat == '2' && 45 || 25 }}
     env:
       CI: 'true'
-      E2E_WORKERS: ${{ inputs.workers || '1' }}
+      E2E_WORKERS: ${{ inputs.workers }}
       E2E_REPEAT: ${{ inputs.repeat || '1' }}
       E2E_FULLY_PARALLEL: ${{ inputs.fully_parallel || false }}
     steps:
@@ -54,9 +54,12 @@ jobs:
           vmstat --wide --timestamp 1 > e2e-metrics/vmstat.txt &
           sampler=$!
           trap 'kill "$sampler"; wait "$sampler" || true' EXIT
-          args=(--workers="$E2E_WORKERS" --repeat-each="$E2E_REPEAT")
+          args=(--repeat-each="$E2E_REPEAT")
+          if [[ -n "$E2E_WORKERS" ]]; then args+=(--workers="$E2E_WORKERS"); fi
           if [[ "$E2E_FULLY_PARALLEL" == true ]]; then args+=(--fully-parallel); fi
+          sha256sum build/*.pbw > e2e-metrics/pbw.sha256
           /usr/bin/time -v -o e2e-metrics/playwright-time.txt npx playwright test "${args[@]}"
+          sha256sum --check e2e-metrics/pbw.sha256
       - name: Upload reports and failure diagnostics
         if: always()
         uses: actions/upload-artifact@v7

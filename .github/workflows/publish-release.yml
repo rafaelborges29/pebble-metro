@@ -68,6 +68,7 @@ jobs:
         run: npm run check
       - name: Verify and freeze the candidate
         run: python3 tools/release.py package "$RELEASE_TAG"
+      # CI uses the same measured worker default as PR/main; no rebuild or retries.
       - name: Test that exact PBW on both watch targets
         run: npx playwright test --update-snapshots=none
       - name: Check that testing did not alter the PBW

@@ -77,7 +77,11 @@ release instead of selecting another listing or upload route.
    It checks production phone/shared TypeScript and the harness, then builds once
    (compiling the phone to SDK-compatible JavaScript). The existing
    emulator suite installs that PBW on both `emery` and `gabbro`, without rebuilding
-   or updating snapshots. No physical watch or touch tests are run.
+   or updating snapshots. Release verification shares the normal CI default of
+   four workers, with fresh watch/browser storage per test and retries disabled;
+   the PBW checksum is checked again afterwards. See the
+   [hosted measurements](e2e.md#hosted-performance) before changing concurrency.
+   No physical watch or touch tests are run.
 4. Preflight verifies ZIP integrity and allowed entries, UUID, numeric release
    version, native header versions/UUIDs, both target manifests/binaries/resources,
    phone bundle, complete bundled licence notices, and the 4.4 MB size ceiling.
