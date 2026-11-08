@@ -5,6 +5,21 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      workers:
+        description: Playwright workers (benchmark on the same runner class)
+        type: choice
+        options: ['1', '2', '4']
+        default: '1'
+      repeat:
+        description: Complete suite repetitions (retries remain disabled)
+        type: choice
+        options: ['1', '2']
+        default: '1'
+      fully_parallel:
+        description: Benchmark test-level rather than file-level scheduling
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -12,19 +27,36 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-24.04
-    # Navigation/layout/locale/configuration: 90 serial cases, including fault probes.
-    timeout-minutes: 25
+    # Allow a repeated serial baseline; normal runs should finish well below this.
+    timeout-minutes: 45
     env:
       CI: 'true'
+      E2E_WORKERS: ${{ inputs.workers || '1' }}
+      E2E_REPEAT: ${{ inputs.repeat || '1' }}
+      E2E_FULLY_PARALLEL: ${{ inputs.fully_parallel || false }}
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Record runner resources
+        run: |
+          mkdir -p e2e-metrics
+          { uname -a; lscpu; free -k; } | tee e2e-metrics/runner.txt
       - uses: ./.github/actions/setup-pebble
       - name: Validate version metadata
         run: python3 tools/release.py check
-      - name: Build and test Time 2 and Round 2 in real emulators
-        run: npm run e2e
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build Time 2 and Round 2 once
+        run: npm run check
+      - name: Test Time 2 and Round 2 in real emulators
+        run: |
+          vmstat --wide --timestamp 1 > e2e-metrics/vmstat.txt &
+          sampler=$!
+          trap 'kill "$sampler"; wait "$sampler" || true' EXIT
+          args=(--workers="$E2E_WORKERS" --repeat-each="$E2E_REPEAT")
+          if [[ "$E2E_FULLY_PARALLEL" == true ]]; then args+=(--fully-parallel); fi
+          /usr/bin/time -v -o e2e-metrics/playwright-time.txt npx playwright test "${args[@]}"
       - name: Upload reports and failure diagnostics
         if: always()
         uses: actions/upload-artifact@v7
@@ -33,6 +65,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            e2e-metrics/
             LICENSE
             THIRD_PARTY_NOTICES.md
             DATA_METHODS.md
