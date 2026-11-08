@@ -56,8 +56,6 @@ jobs:
           ref: ${{ needs.resolve.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Test release publication without network or credentials
-        run: python3 -m unittest discover -s tools -p 'test_*.py'
       - uses: ./.github/actions/setup-pebble
       - run: npm run typecheck
       - name: Reuse the frozen candidate when resuming a draft

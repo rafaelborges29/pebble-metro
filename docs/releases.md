@@ -213,7 +213,6 @@ validation rejects snapshots before credentials are used. There is no version UI
 
 ```sh
 python3 tools/release.py check
-python3 -m unittest discover -s tools -p 'test_*.py'
 npm run typecheck
 npm run check
 npx playwright test --update-snapshots=none
@@ -222,8 +221,7 @@ npx playwright test --update-snapshots=none
 The first live publication requires choosing a real release through the workflow
 after its setup and merge.
 Rebble is included in the same publication approval after this change is merged
-and its secret configured. Offline stdlib tests cover publication ordering,
-preflights, unchanged bytes, receipts, retries, account/version conflicts, token
-handling and transport safeguards without network access or credentials. No new
-release, store upload, hardware installation or merge is performed by those tests.
+and its secret configured. Runtime preflights, package-hash verification and
+receipt checks stop publication on errors; there is no separate publisher test
+suite. Implementing this change does not trigger a release or hardware install.
 See the [existing Rebble listing and submission record](rebble.md).

@@ -246,10 +246,10 @@ faulty release, preserve its identity and release a reviewed, higher unused
 version; withdrawal and visibility changes need an explicit owner decision.
 
 Version 0.3.0 above was submitted manually before this automation. Do not backfill
-its GitHub assets or re-upload it to test the implementation. Offline tests make
-no store requests; the standalone `tools/rebble_store.py` entry point checks only
-authentication/ownership. No automatic feed/importer, new dependency, live release,
-hardware install or repository visibility change is part of this implementation.
+its GitHub assets or re-upload it to test the implementation. The standalone
+`tools/rebble_store.py` entry point checks only authentication/ownership. No
+automatic feed/importer, new dependency, live release, hardware install or
+repository visibility change is part of this implementation.
 An intentional manual recovery, if required, must still use the existing listing's
 **New Release** and the original verified PBW, never a rebuild or New App.
 
