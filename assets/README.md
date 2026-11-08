@@ -45,6 +45,30 @@ release assessment are documented in the
 [data scope and client assessment](../DATA_METHODS.md). Reassess before publishing
 the fixture database itself or substantially different real-data imagery.
 
+## Rebble-specific assets
+
+Rebble requires a **48×48** small icon and a **720×320** watchapp banner, unlike
+the existing Pebble listing. Keep these separate so the 80×80 Pebble icon remains
+unchanged:
+
+| File | Dimensions | Purpose |
+| --- | --- | --- |
+| `rebble/icon-small.png` | 48×48 | Rebble small icon, rendered from `icon.svg` |
+| `rebble/banner.svg` | 720×320 | Editable original banner master |
+| `rebble/banner.png` | 720×320 | Rebble watchapp banner |
+
+The banner reuses our original train geometry and colours, with decorative
+abstract routes, not an actual metro map. It embeds no fonts, external images or
+third-party artwork. These files share the project's 0BSD artwork licence and
+were published with v0.3.0 on Rebble on 2026-11-08, alongside the existing 144×144
+large icon and Emery/Gabbro screenshots. All served originals were verified
+byte-for-byte; see the [Rebble receipt and checklist](../docs/rebble.md).
+
+```sh
+rsvg-convert -w 48 -h 48 assets/icon.svg -o assets/rebble/icon-small.png
+rsvg-convert -w 720 -h 320 assets/rebble/banner.svg -o assets/rebble/banner.png
+```
+
 ## Rebuild icons
 
 The generated PNGs are checked in; ordinary builds/CI do not need an SVG renderer.
