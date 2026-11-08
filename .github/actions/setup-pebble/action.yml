@@ -26,4 +26,4 @@ runs:
     - shell: bash
       run: npm ci
     - shell: bash
-      run: npx playwright install --with-deps chromium
+      run: npx playwright install --with-deps --only-shell chromium

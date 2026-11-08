@@ -64,25 +64,30 @@ def run():
         with bz2.open(firmware / "qemu_spi_flash.bin.bz2", "rb") as source:
             with (directory / "spi.bin").open("wb") as destination:
                 shutil.copyfileobj(source, destination)
-        with socket.socket() as reservation:
-            reservation.bind(("127.0.0.1", 0))
-            port = reservation.getsockname()[1]
-            with socket.socket() as debug_reservation:
-                debug_reservation.bind(("127.0.0.1", 0))
-                debug_port = debug_reservation.getsockname()[1]
-        command = [
-            str(toolchain / "bin/qemu-pebble"),
-            "-machine", "pebble-" + platform, "-cpu", "cortex-m33",
-            "-kernel", str(directory / "micro.bin"),
-            "-drive", f"if=mtd,format=raw,file={directory / 'spi.bin'}",
-            "-rtc", "base=utc", "-display", "none",
-            "-gdb", f"tcp:127.0.0.1:{debug_port}",
-            "-audio", "driver=none,id=audio0",
-            "-serial", "null", "-serial", f"tcp:127.0.0.1:{port},server=on,wait=off",
-            "-serial", "file:" + str(directory / "console.log"),
-        ]
         try:
-            process = subprocess.Popen(command, stdout=sys.stderr, stderr=sys.stderr)
+            # Hand both bound listeners directly to QEMU. Never release a chosen
+            # port before QEMU owns it: concurrent tests cannot steal either one.
+            with socket.socket() as serial, socket.socket() as debug:
+                for listener in (serial, debug):
+                    listener.bind(("127.0.0.1", 0))
+                    listener.listen(1)
+                port = serial.getsockname()[1]
+                debug_port = debug.getsockname()[1]
+                command = [
+                    str(toolchain / "bin/qemu-pebble"),
+                    "-machine", "pebble-" + platform, "-cpu", "cortex-m33",
+                    "-kernel", str(directory / "micro.bin"),
+                    "-drive", f"if=mtd,format=raw,file={directory / 'spi.bin'}",
+                    "-rtc", "base=utc", "-display", "none",
+                    "-chardev", f"socket,id=debug,fd={debug.fileno()},server=on,wait=off",
+                    "-gdb", "chardev:debug",
+                    "-audio", "driver=none,id=audio0",
+                    "-chardev", f"socket,id=serial,fd={serial.fileno()},server=on,wait=off",
+                    "-serial", "null", "-serial", "chardev:serial",
+                    "-serial", "file:" + str(directory / "console.log"),
+                ]
+                process = subprocess.Popen(command, stdout=sys.stderr, stderr=sys.stderr,
+                                           pass_fds=(serial.fileno(), debug.fileno()))
             deadline = time.monotonic() + 30
             while True:
                 if process.poll() is not None:
@@ -92,6 +97,8 @@ def run():
                     transport.connect()
                     break
                 except Exception:
+                    if transport.socket:
+                        transport.socket.close()
                     if time.monotonic() >= deadline:
                         raise TimeoutError("QEMU socket did not start")
                     time.sleep(0.1)
@@ -201,15 +208,17 @@ def run():
                 except Exception as error:
                     emit({"id": request["id"], "error": str(error)})
         finally:
-            if connection:
-                connection.transport.socket.close()
-            if process:
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+            try:
+                if connection:
+                    connection.transport.socket.close()
+            finally:
+                if process:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
             console = directory / "console.log"
             if console.exists():
                 print(console.read_text(errors="replace"), file=sys.stderr)
