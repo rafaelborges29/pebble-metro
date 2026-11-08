@@ -25,7 +25,7 @@ export function createCompanion(options) {
   var metadataGeneration = 0, cancels = [];
   var connection = { type: "connection", status: "disconnected" };
   var feedGeneration = 0, announcedConnection = null, catalogId = 0;
-  var settings = createSettings({ Pebble: pebble, timers: timers, localeRegistry: options.localeRegistry,
+  var settings = createSettings({ Pebble: pebble, timers: timers, localeRegistry: options.localeRegistry, phoneLocales: options.phoneLocales,
     send: function (message, key) { return transport.send(message, key); } });
   function send(message, key) {
     if (!session || closed) return;

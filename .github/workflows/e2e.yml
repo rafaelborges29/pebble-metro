@@ -12,7 +12,7 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-24.04
-    # Navigation/layout/locale/configuration: 76 serial cases, including fault probes.
+    # Navigation/layout/locale/configuration: 86 serial cases, including fault probes.
     timeout-minutes: 25
     env:
       CI: 'true'

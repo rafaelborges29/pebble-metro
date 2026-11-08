@@ -39,7 +39,8 @@ export interface Metro {
   deferNextArrival(): { wait(): Promise<void>; release(): void };
   removeLine(id: string): Promise<void>;
   setAutoArrivals(enabled: boolean): void;
-  openSettings(decoded?: boolean): Promise<Page>;
+  openSettings(): Promise<Page>;
+  readonly settingsCloses: number;
   favorites(): Promise<Favourite[]>;
   alterNextSave(patch: Record<string, unknown>): Promise<void>;
   pauseSettings(paused: boolean): void;
@@ -55,6 +56,7 @@ declare global {
       removeEventListener(name: string, callback: Listener): void;
       sendAppMessage(data: PhoneData, success?: Listener, failure?: Listener): void;
       openURL(url: string): void;
+      sendConfigMessage(message: unknown): void;
     };
   }
 }
@@ -72,11 +74,12 @@ const stations = [
 const lines = [{ network: 'pt-ml', id: 'pt-ml-red', name: 'Vermelha', color: 'ff0000',
   stations: ['pt-ml-ss', 'pt-ml-sa', 'pt-ml-ap'] }];
 
-export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLocale: string; hostileLabels: boolean }>({
+export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLocale: string; hostileLabels: boolean; liveSettings: boolean }>({
   largeNetwork: [false, { option: true }],
   hostileLabels: [false, { option: true }],
+  liveSettings: [true, { option: true }],
   watchLocale: ['en_US', { option: true }],
-  metro: async ({ page, largeNetwork, watchLocale, hostileLabels }, use, testInfo) => {
+  metro: async ({ page, largeNetwork, watchLocale, hostileLabels, liveSettings }, use, testInfo) => {
     await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
       const device = yield* acquireEmulator(testInfo);
       yield* device.ready;
@@ -115,6 +118,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
         const serializedArrivals: Message[] = [];
         const phoneLog: string[] = [], inbox: PhoneData[] = [], configurationUrls: string[] = [];
         const configurationPages: Page[] = [];
+        let settingsCloses = 0;
         let phoneReady = false, closing = false, autoArrivals = true, settingsPaused = false, uiStarts = 0, expectedStarts = 1, delivering = Promise.resolve();
         function dispatch(payload: PhoneData) {
           delivering = delivering.then(() => page.evaluate(payload => window.phoneEvent('appmessage', { payload }), payload))
@@ -245,7 +249,8 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
             // Observe queue entry without changing any bytes, values or application model.
             const stringify = JSON.stringify;
             JSON.stringify = function (...args: [unknown, ...unknown[]]) {
-              if ((args[0] as { type?: string } | null)?.type === 'settings-save' && window.settingsPatch) {
+              if ((args[0] as { type?: string; request?: number } | null)?.type === 'settings-save'
+                && typeof (args[0] as { request?: number }).request === 'number' && window.settingsPatch) {
                 args[0] = { ...(args[0] as Record<string, unknown>), ...window.settingsPatch };
                 delete window.settingsPatch;
               }
@@ -259,6 +264,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
               removeEventListener(name, callback) { listeners[name] = (listeners[name] || []).filter(fn => fn !== callback); },
               sendAppMessage(data, success, failure) { window.sendToWatch(data).then(() => success?.({}), () => failure?.({})); },
               openURL(url) { void (window as unknown as { configurationOpened(url: string): Promise<void> }).configurationOpened(url); },
+              sendConfigMessage() { /* Capability present independently of the preview toggle. */ },
             };
             window.phoneEvent = (name, event) => { for (const callback of listeners[name] || []) callback(event); };
           });
@@ -325,18 +331,38 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
               }, { message: 'Complete native favourites snapshot' }).toBe(true);
               return found!.filter((f): f is string[] => f !== null).map(f => ({ station: f[0], line: f[1], direction: f[2] }));
             },
-            async openSettings(decoded = true) {
+            get settingsCloses() { return settingsCloses; },
+            async openSettings() {
               const before = configurationUrls.length;
               await page.evaluate(() => window.phoneEvent('showConfiguration', {}));
               await expect.poll(() => configurationUrls.length).toBe(before + 1);
               const config = await page.context().newPage(); configurationPages.push(config);
               config.on('pageerror', error => errors.push(error.message));
               await config.route('**/*', route => { errors.push(`Settings attempted network: ${route.request().url()}`); return route.abort(); });
-              await config.exposeFunction('configurationClosed', async (url: string) => {
-                const encoded = url.slice('pebblejs://close#'.length);
-                await page.evaluate(response => window.phoneEvent('webviewclosed', { response }), decoded ? decodeURIComponent(encoded) : encoded);
+              await config.exposeFunction('configurationClosed', async () => {
+                settingsCloses++;
+                await page.evaluate(() => window.phoneEvent('webviewclosed', { response: '{}' }));
               });
-              await config.addInitScript(() => {
+              await config.exposeFunction('configurationMessage', async (message: unknown) => {
+                try {
+                  return await page.evaluate(data => new Promise(resolve => {
+                    window.phoneEvent('configmessage', { data, respond: resolve });
+                  }), message);
+                } catch (error) {
+                  if (String(error).includes('Execution context was destroyed')) return { status: 'expired', view: null };
+                  throw error;
+                }
+              });
+              await config.addInitScript(enabled => {
+                if (enabled) Object.defineProperty(window, 'Pebble', { value: {
+                  sendMessage(target: string, message: unknown) {
+                    if (target !== 'pkjs') return Promise.reject(new Error('Unknown configuration target'));
+                    return (window as unknown as { configurationMessage(message: unknown): Promise<unknown> }).configurationMessage(message);
+                  },
+                  addEventListener(name: string, callback: (event: { target: string }) => void) {
+                    if (name === 'ready') callback({ target: 'pkjs' });
+                  },
+                }, configurable: true });
                 document.addEventListener('click', event => {
                   const link = event.target as HTMLAnchorElement;
                   if (link.tagName === 'A' && link.href.startsWith('pebblejs://close#')) {
@@ -344,7 +370,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
                     void (window as unknown as { configurationClosed(url: string): Promise<void> }).configurationClosed(link.href);
                   }
                 });
-              });
+              }, liveSettings);
               await config.goto(configurationUrls.at(-1)!);
               return config;
             },

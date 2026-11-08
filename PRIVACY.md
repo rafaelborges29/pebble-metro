@@ -33,15 +33,20 @@ practices, outside this application's control.
   recovery. Removed choices can remain in the previous bank until it is overwritten;
   legacy native preference cleanup is best effort. This is not secure erasure.
 - **Phone:** validated station/line metadata in PebbleKit JavaScript local storage;
-  the selected station, complete watch-favourites snapshot and an editing draft are
-  transient in the running companion/settings page. Favourites are not stored in
+  the selected station, complete watch-favourites snapshot, picker selection and
+  pending save are transient in the running companion/settings page. Favourites are not stored in
   phone local storage or queued for automatic offline replay.
 
 The Settings page's HTML/CSS/JavaScript is bundled in the PBW and opened locally,
 without a hosted website, external page assets, analytics or new service. Its
-catalogue and favourites travel in local data/close URIs inside the Pebble app,
-not website query parameters. The mobile app/device and their diagnostics can
-still inspect these URIs; they are not a secrecy boundary.
+initial catalogue/favourites travel in a local data URI; reads and saves use the
+mobile app's local live-message bridge, not website query parameters or a server.
+The close URI contains no favourite choices. The mobile app/device and their
+diagnostics can still inspect local data/messages; they are not a secrecy boundary.
+Live editing requires the Pebble app's Plugins / permissions preview, which also
+enables that platform's permission system. Metro adds no plugin and does not
+request access to unrelated plugins, files, contacts or location. The existing
+UnderLX network connections remain subject to the mobile app's permissions.
 
 Removing a favourite removes it from the current list and attempts to delete its
 saved arrival data. Storage errors are reported. Closing does not erase saved

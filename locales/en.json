@@ -1,8 +1,5 @@
 {
-  "notice.settings_saved": "Favourites saved from phone.",
-  "notice.settings_conflict": "Favourites changed. Reopen Settings on the phone.",
-  "notice.settings_failed": "Phone changes not saved. Reopen Settings and retry.",
-  "notice.settings_unknown": "Save result unknown. Reopen Metro and Settings to check.",
+  "notice.settings_unknown": "Storage outcome unknown. Reopen Metro before retrying.",
   "notice.catalog_updated": "Station list updated. Please choose again.",
   "error.invalid_station_data": "Invalid station data",
   "notice.direction_unavailable": "Direction unavailable. Choose the station again.",

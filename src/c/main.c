@@ -464,14 +464,19 @@ static bool receive_settings(const JsonDoc *doc, const char *text, size_t length
   }
   s_storage_error = false; save_selection(); s_need_watch = true; favorites_changed();
   s_request_status = SETTINGS_SAVED;
-  s_history_count = 0; s_row = 0; s_view = favorite_count() ? ARRIVALS : EMPTY;
+  // Phone edits are quiet. Keep the user's watch screen/draft unless its selected
+  // route disappeared, in which case an action/removal screen would target a new route.
+  if (s_view == EMPTY || (!selected_retained && (s_view == ARRIVALS || s_view == ACTIONS || s_view == REMOVE || s_view == NOTICE))) {
+    s_history_count = 0; s_row = 0; s_view = favorite_count() ? ARRIVALS : EMPTY;
+  }
+  if (s_view == FAVORITES && s_row >= favorite_count() + 2) s_row = 0;
+  for (int i = 0; i < s_history_count; i++) {
+    if (s_history[i].view == EMPTY && favorite_count()) s_history[i] = (History){ .view = FAVORITES };
+    if (s_history[i].view == ARRIVALS && !favorite_count()) s_history[i] = (History){ .view = EMPTY };
+  }
 result:
   export_settings(s_request_id, s_request_status);
   touch_cancel();
-  if (s_request_status == SETTINGS_SAVED) notice(UI_NOTICE_SETTINGS_SAVED);
-  else if (s_request_status == SETTINGS_CONFLICT) notice(UI_NOTICE_SETTINGS_CONFLICT);
-  else if (s_request_status == SETTINGS_UNKNOWN) notice(UI_NOTICE_SETTINGS_UNKNOWN);
-  else notice(UI_NOTICE_SETTINGS_FAILED);
   return true;
 }
 static bool logical_message(const char *text, size_t length) {

@@ -4,7 +4,11 @@ The native app uses one window and drawing layer, fixed-size models and direct
 button navigation plus optional SDK tap/swipe input on Time 2 and Round 2.
 No alerts, vibration, on-watch settings or service-status dashboard.
 The optional [phone favourites editor](phone-configuration.md) complements this
-watch flow; both use the watch's validated, transactionally saved list.
+watch flow; both use the watch's validated, transactionally saved list. With the
+mobile app's live-bridge preview enabled, phone Add/Remove save immediately and
+keep Settings open. Phone results do not open notices on the watch. Existing watch
+navigation is retained unless a removed selected route makes its action/removal
+screen unsafe; then the watch returns quietly to arrivals or the empty state.
 
 ## Navigation
 

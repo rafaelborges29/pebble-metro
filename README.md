@@ -29,11 +29,13 @@ No alerts, vibration, line-status pages, GPS, watch-side JavaScript runtime,
 background worker, custom Android app or custom backend. The paired phone needs
 the Pebble mobile app and internet access. See [privacy](PRIVACY.md).
 
-**Phone favourites editor:** open Metro Lisboa's **Settings** in the Pebble Android
-app to add/remove routes using line → station → direction. The editor is bundled
-with the app: no website or separate Android app is needed. Keep Metro running on
-the connected watch, choose **Send to watch**, then check its confirmation. Cancel
-leaves the saved list unchanged. The on-watch picker remains available.
+**Phone favourites editor:** enable **Settings → Plugins → Plugins / permissions
+preview** in a Pebble Android app with live settings support, then open Metro
+Lisboa's **Settings**. Choose line → station → direction and tap **Add favourite**;
+Add and confirmed Remove save immediately while the page stays open. Save/error
+feedback stays on the phone, with no watch popup. Keep Metro running on the
+connected watch. The editor is bundled: no website, separate plugin or Android
+app is needed. The on-watch picker remains available without the preview feature.
 See [sync, recovery and upgrade details](docs/phone-configuration.md).
 
 ## Language

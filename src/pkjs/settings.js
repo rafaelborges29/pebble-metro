@@ -5,24 +5,37 @@ function uint(value, min) { return typeof value === "number" && isFinite(value) 
 function route(value) { return Array.isArray(value) && value.length === 3 && value.every(function (id) { return typeof id === "string" && /^[a-zA-Z0-9_-]{1,48}$/.test(id); }); }
 var STATUSES = ["ready", "saved", "conflict", "invalid", "storage", "unknown"];
 
-// The page has no bridge/storage/network of its own. Only the companion talks to the watch.
+// The page uses Pebble's local live bridge. Only this companion talks to the watch.
 export function createSettings(options) {
   var pebble = options.Pebble, timers = options.timers, registry = options.localeRegistry;
-  function pageLanguage(locale) {
-    var file = registry.locales[locale] || registry.locales[registry.fallback];
-    return file === "pt_PT.json" ? "pt" : "en";
-  }
   var session = null, network = null, catalog = 0, assembly = null, state = null, edit = null;
-  var request = 0, pending = null, pendingTimer = null, openingTimer = null, opening = 0, lastStatus = "ready", closed = false;
+  var request = 0, pending = null, reader = null, openingTimer = null, opening = 0, closed = false;
+  var live = typeof pebble.sendConfigMessage === "function";
   function send(message, key) { return session && options.send(message, "settings:" + key); }
-  function usable() { return state && state.catalog === catalog && network && state.writable; }
+  function usable() { return state && state.catalog === catalog && network; }
+  function view(token) {
+    if (!edit || token !== edit.token || edit.session !== session || !usable()) return null;
+    edit.revision = state.revision; edit.catalog = state.catalog; edit.slots = state.slots; edit.network = network;
+    return { editable: state.writable, favorites: state.slots.filter(function (f) { return f !== null; }), network: network };
+  }
+  function finishRead(status) {
+    var job = reader; reader = null;
+    if (!job) return;
+    timers.clearTimeout(job.timer);
+    job.respond({ status: status, view: status === "ready" ? view(job.token) : null });
+  }
+  function finishSave(status) {
+    var job = pending; pending = null;
+    if (!job) return;
+    timers.clearTimeout(job.timer);
+    job.respond({ status: status, view: view(job.token) });
+  }
   function open() {
     var visit = ++opening;
-    edit = null;
+    edit = null; finishRead("expired");
     if (openingTimer) timers.clearTimeout(openingTimer);
     var previous = state && state.snapshot;
     send({ type: "settings-get" }, "get");
-    // Require a fresh complete response, not an old mirror after a disconnect.
     var waited = 0;
     function show() {
       if (closed || visit !== opening) return;
@@ -31,51 +44,49 @@ export function createSettings(options) {
         waited += 100; openingTimer = timers.setTimeout(show, 100); return;
       }
       openingTimer = null;
-      var model = { language: state ? state.language : "en", status: state && !state.writable && lastStatus === "ready" ? "storage" : lastStatus };
-      if (usable() && fresh && !pending) {
-        edit = { token: Date.now().toString(36) + "-" + visit + "-" + Math.random().toString(36).slice(2, 10),
-          session: session, revision: state.revision, catalog: state.catalog, slots: state.slots, network: network };
-        model.edit = edit.token; model.network = network;
-        model.favorites = state.slots.filter(function (f) { return f !== null; });
-      }
-      try { pebble.openURL(settingsPage(model)); }
-      catch (_) { edit = null; pebble.openURL(settingsPage({ language: model.language })); }
+      // An unavailable watch is not an editable empty list. Keep an edit session
+      // so the page's Refresh can recover without closing once the watch responds.
+      var token = Date.now().toString(36) + "-" + visit + "-" + Math.random().toString(36).slice(2, 10);
+      edit = { token: token, session: session };
+      var file = registry.locales[state && state.locale] || registry.locales[registry.fallback];
+      var model = { edit: token, language: file === "pt_PT.json" ? "pt" : "en", strings: options.phoneLocales[file] || options.phoneLocales["en.json"],
+        view: usable() && fresh && !pending ? view(token) : null };
+      pebble.openURL(settingsPage(model));
     }
     show();
   }
-  function submitted(event) {
-    var baseline = edit; edit = null;
-    if (!baseline || pending || !event || !event.response) return;
+  function configMessage(event) {
+    if (!event || typeof event.respond !== "function") return;
+    var data = event.data;
     try {
-      var raw = event.response;
-      if (typeof raw !== "string" || raw.length > 15000) return;
-      if (raw.charAt(0) !== "{") raw = decodeURIComponent(raw);
-      if (raw.length > 5000) return;
-      var data = JSON.parse(raw);
-      if (!data || data.v !== 1 || data.edit !== baseline.token) return;
-      if (baseline.session !== session) { lastStatus = "conflict"; return; }
-      // Send the original baseline even if a newer snapshot arrived: the watch
-      // rejects it with a visible conflict result rather than overwriting edits.
-      var favorites = validateFavorites(data.favorites, baseline.network, baseline.slots);
-      var message = { type: "settings-save", request: ++request, revision: baseline.revision, catalog: baseline.catalog, favorites: favorites };
-      pending = message.request;
-      if (!send(message, "save")) { pending = null; lastStatus = "unknown"; return; }
-      pendingTimer = timers.setTimeout(function () {
-        pending = null; pendingTimer = null; state = null; lastStatus = "unknown";
-      }, 15000);
-    } catch (_) { lastStatus = "invalid"; }
+      if (!data || JSON.stringify(data).length > 5000 || data.v !== 1 || typeof data.edit !== "string") throw new Error("Invalid message");
+      if (closed || !edit || data.edit !== edit.token || edit.session !== session) { event.respond({ status: "expired", view: null }); return; }
+      if (pending || reader) { event.respond({ status: "busy", view: null }); return; }
+      if (data.type === "settings-read") {
+        reader = { token: data.edit, respond: event.respond, previous: state && state.snapshot };
+        reader.timer = timers.setTimeout(function () { finishRead("unavailable"); }, 5000);
+        if (!send({ type: "settings-get" }, "get")) finishRead("unavailable");
+      } else if (data.type === "settings-save") {
+        if (!edit.slots || !state || !state.writable) { event.respond({ status: state && !state.writable ? "storage" : "unavailable", view: null }); return; }
+        var favorites = validateFavorites(data.favorites, edit.network, edit.slots);
+        var message = { type: "settings-save", request: ++request, revision: edit.revision, catalog: edit.catalog, favorites: favorites };
+        pending = { request: message.request, token: data.edit, respond: event.respond };
+        pending.timer = timers.setTimeout(function () { state = null; finishSave("unknown"); }, 15000);
+        if (!send(message, "save")) { state = null; finishSave("unknown"); }
+      } else event.respond({ status: "invalid", view: null });
+    } catch (_) { event.respond({ status: "invalid", view: null }); }
   }
+  function pageClosed() { edit = null; finishRead("expired"); }
   pebble.addEventListener("showConfiguration", open);
-  pebble.addEventListener("webviewclosed", submitted);
+  pebble.addEventListener("webviewclosed", pageClosed);
+  // Older mobile apps must retain arrivals instead of throwing on an unknown event.
+  if (live) pebble.addEventListener("configmessage", configMessage);
   return {
     catalog: function (value, id) { network = value; catalog = id; },
     reset: function (nextSession) {
       if (session === nextSession) return;
       session = nextSession; assembly = null; state = null; edit = null;
-      if (pending) lastStatus = "unknown";
-      pending = null;
-      if (pendingTimer) timers.clearTimeout(pendingTimer);
-      pendingTimer = null;
+      finishRead("expired"); finishSave("unknown");
     },
     receive: function (message) {
       if (!uint(message.snapshot, 1) || !uint(message.revision, 1) || !uint(message.catalog, 0) || !uint(message.part, 0) || message.part > 3
@@ -91,22 +102,20 @@ export function createSettings(options) {
       if (assembly.parts.filter(Boolean).length === 4) {
         var slots = [].concat.apply([], assembly.parts), keys = [];
         if (!slots.every(function (f) { if (!f) return true; var key = f.join("/"); if (keys.indexOf(key) !== -1) return false; keys.push(key); return true; })) return;
-        state = { snapshot: assembly.snapshot, revision: assembly.revision, catalog: assembly.catalog, slots: slots, writable: assembly.writable, language: pageLanguage(assembly.locale) };
-        if (pending === assembly.request) {
-          pending = null; lastStatus = assembly.status;
-          if (pendingTimer) timers.clearTimeout(pendingTimer);
-          pendingTimer = null;
-        } else if (lastStatus === "ready" && assembly.status !== "ready") lastStatus = assembly.status;
+        state = { snapshot: assembly.snapshot, revision: assembly.revision, catalog: assembly.catalog, slots: slots, writable: assembly.writable, locale: assembly.locale };
+        if (pending && pending.request === assembly.request) finishSave(assembly.status);
+        if (reader && reader.previous !== state.snapshot && usable()) finishRead("ready");
       }
       send({ type: "settings-receipt", snapshot: message.snapshot, part: message.part }, "receipt");
     },
     close: function () {
       closed = true; edit = null;
-      if (pendingTimer) timers.clearTimeout(pendingTimer);
+      finishRead("expired"); finishSave("unknown");
       if (openingTimer) timers.clearTimeout(openingTimer);
       if (pebble.removeEventListener) {
         pebble.removeEventListener("showConfiguration", open);
-        pebble.removeEventListener("webviewclosed", submitted);
+        pebble.removeEventListener("webviewclosed", pageClosed);
+        if (live) pebble.removeEventListener("configmessage", configMessage);
       }
     }
   };

@@ -72,6 +72,17 @@ The generator uses only the Python standard library in the existing Pebble build
 environment. Run the normal build and emulator checks. Pixel-preserving copy
 refactors must pass existing English and Portuguese snapshots without updating them.
 
+### Phone settings copy
+
+The phone editor uses separate flat keyed tables in `src/pkjs/locales/en.json`
+and `src/pkjs/locales/pt_PT.json`, selected through the same root locale registry.
+Keep keys identical and values nonempty/well-formed; `settings.spec.ts` checks
+parity and the page's literal key references. Page code calls `t(key)`, not inline
+English/Portuguese string pairs. Official station/line names are not translated.
+Phone-only copy is bundled in PKJS, not generated into native C tables, avoiding
+unnecessary watch RAM use. The current editor supports English and Portuguese;
+new phone languages also need an explicit bundled-table/language mapping.
+
 ## Changes
 
 - Keep diffs focused. Avoid new dependencies or abstractions without a current need.

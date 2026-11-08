@@ -1,8 +1,5 @@
 {
-  "notice.settings_saved": "Favoritos guardados pelo telemóvel.",
-  "notice.settings_conflict": "Favoritos alterados. Reabra as definições no telemóvel.",
-  "notice.settings_failed": "Alterações não guardadas. Reabra as definições e tente de novo.",
-  "notice.settings_unknown": "Resultado incerto. Reabra o Metro e as definições para verificar.",
+  "notice.settings_unknown": "Resultado de armazenamento incerto. Reabra o Metro antes de tentar de novo.",
   "notice.catalog_updated": "Lista de estações atualizada. Escolha novamente.",
   "error.invalid_station_data": "Dados de estações inválidos",
   "notice.direction_unavailable": "Sentido indisponível. Escolha novamente a estação.",

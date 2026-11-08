@@ -19,7 +19,8 @@ fixture additions and the case-specific private-client release assessment.
 There are no alerts, vibration, disturbances, custom backend, background worker
 or watch-side JS runtime. No GPS or private Metro credentials. A self-contained
 [phone favourites editor](phone-configuration.md) uses the Pebble app's standard
-configuration WebView; there is no hosted page or new network provider.
+configuration WebView plus its live local message bridge (Plugins / permissions
+preview required). There is no hosted page, additional plugin or new network provider.
 
 ## Native memory design
 
@@ -123,6 +124,10 @@ Watch commands remain bounded JSON `{v:1,session,type,...}` with `hello`, `watch
 `catalog`, `ack` and four-part `settings-state` exports. IDs/sessions are validated
 ASCII before serialization. Settings snapshot/result receipts and saves use the
 existing phone-to-watch chunk transport; see [configuration protocol](phone-configuration.md).
+The open page calls `Pebble.sendMessage("pkjs", ...)`; PKJS handles `configmessage`
+and replies only after a complete watch result. Add and confirmed Remove autosave;
+no favourite choices pass through a close URL. Watch views remain quiet on both
+success and failure; existing storage/cache error indicators are not suppressed.
 One native outbox send is active; pending flags are consumed on successful queueing,
 not at the later callback, so rapid favourite changes cannot be lost. A fresh phone
 runtime sends the startup wake `{}`. Native starts a new session (invalidating old
@@ -239,6 +244,10 @@ fallback. There is no language-specific branching in C. The allocation-free
 `main.c` only requests text by key. Invalid keys return empty text rather than
 indexing outside the table. Each lookup reads the current locale, so retained
 notice/error keys follow language changes on the next redraw.
+
+Phone-only copy lives in `src/pkjs/locales/*.json` under semantic keys. The same
+root locale registry chooses its bundled table; phone copy never enlarges native
+C tables. The page has no inline English/Portuguese copy branches.
 
 Incoming companion diagnostics retain their raw text and existing bounds:
 `localization_diagnostic()` maps known wire strings to keys, with verbatim fallback

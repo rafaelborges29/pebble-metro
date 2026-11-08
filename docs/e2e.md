@@ -113,17 +113,21 @@ now marks it SAVED; a continuously subscribed same-station direction remains LIV
 
 ## Phone configuration coverage
 
-`settings.spec.ts` adds 12 cases per target using the same compiled PBW/companion:
-11 emulator/browser flows plus one host C fault probe. The generated local data
-page runs in Chromium, with the native close URL intercepted like the mobile app;
-both already-decoded and percent-encoded close responses are exercised. Page network
-requests fail the test. This bridge does not emulate Android WebView internals.
+`settings.spec.ts` adds 17 cases per target using the same compiled PBW/companion:
+15 emulator/browser flows, a host C fault probe and a keyed-translation check.
+The generated local data page runs in Chromium with the documented live bridge:
+`ready` for target `pkjs`, `Pebble.sendMessage()` promises and PKJS `configmessage`
+responses. Only Done invokes the intercepted close URL. Page network requests fail
+the test. This models the API contract, not Android WebView/native bridge internals.
 
-The cases cover cancel/duplicate handling, complete 16-route and empty saves,
-retained slots and restart, independent native rejection of malformed/oversized
-saves, concurrent watch/catalogue edits, missing fresh snapshots, stale pages after
-a companion restart, idempotent requests, hostile source labels, Portuguese and
-cache expiry after phone edits. No existing screenshots are replaced or relaxed.
+The cases cover immediate Add/confirmed Remove with no close, an unsubmitted
+picker selection on Done, duplicates, 16-route/empty lists, retained slots/restart,
+independent native validation, concurrent watch/catalogue edits, refresh recovery,
+stale pages, idempotent requests, missing-result timeouts with no blind replay,
+unavailable preview, hostile labels, keyed Portuguese copy and unchanged cache
+expiry. Existing arrival/action/picker screenshots verify no phone-result notice
+or unwanted navigation; removing a selected route dismisses its obsolete removal
+confirmation safely. No existing screenshots are replaced or relaxed.
 
 `e2e/persistence/faults.c` compiles production `favorites.c` with the system `cc`
 and a minimal persistence API edge. It injects no-op, partial and complete-but-error
@@ -143,10 +147,10 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **38 cases per platform (76 tests)**, including four locale
-and 12 configuration cases per platform. Each platform independently checks heap
+The normal matrix has **43 cases per platform (86 tests)**, including four locale
+and 17 configuration cases per platform. Each platform independently checks heap
 headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (152 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (172 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
@@ -251,7 +255,7 @@ and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
 `DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
 reproducibility and data provenance. These private diagnostics are not a public
 methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
-The workflow allows 25 minutes for setup and the 76-case serial matrix, matching
+The workflow allows 25 minutes for setup and the 86-case serial matrix, matching
 the release verification budget. Workers and retry policy are unchanged.
 It never installs on hardware or publishes. A local pass does
 not prove hosted checks passed for an exact revision.
