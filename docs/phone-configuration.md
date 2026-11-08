@@ -38,6 +38,37 @@ can recover a missing snapshot without reopening; a changed PKJS/watch session
 expires the old page and requires reopening. No durable phone favourites mirror or
 queued offline replay is added.
 
+## Native permissions
+
+`package.json` explicitly sets `pebble.manifestVersion: 2` and declares two
+required `Internet` permissions, each with a purpose:
+
+- `api.underlx.com`: download the station/line catalogue.
+- `perturbacoes.pt`: receive live arrival estimates over WebSocket/MQTT.
+
+Pebble's domain grants include subdomains. No location, local-network, files,
+contacts, notifications, timeline or unrelated plugin permission is declared.
+The phone app owns approval/revocation UI; Metro adds no permission toggles or
+custom permission screen. With preview enabled, Android 1.18+ puts a shield in
+the native Settings title bar. Permissions are also available on the app's page;
+1.18.0.1+ displays the manifest's purpose/required fields, which older versions
+ignore. The purpose strings are English manifest metadata; Pebble owns its native
+permission labels, independently of the editor's keyed translations.
+
+On an upgrade from a legacy manifest, Pebble replaces implicit grants with the
+explicit declarations, so users may need to approve both domains again. Until
+allowed, network calls fail normally: the editor must not become an editable
+empty list, source retries remain bounded, and cached estimates keep their original
+expiry. Grant access, allow the companion to retry, then Refresh the same page;
+no failed mutation is replayed. Denying/revoking Internet does not erase favourites.
+
+No SDK/tool upgrade is needed for this metadata-only change: pinned SDK 4.33.1
+preserves the explicit manifest fields, and the phone applies permission rules
+from `manifestVersion`, not the compiler version. Build/preflight tests inspect
+the actual PBW and reject a legacy or mismatched permission manifest. SDK 4.44+
+is still the documented packaging path for a future bundled `configPage` migration;
+this change keeps the existing live data-URI editor.
+
 ## Page and translations
 
 `package.json` keeps `pebble.capabilities: ["configurable"]`. PKJS still handles

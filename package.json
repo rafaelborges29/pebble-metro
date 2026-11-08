@@ -27,9 +27,24 @@
     "uuid": "5576168a-8b38-4be1-90e7-343af607c167",
     "projectType": "native",
     "sdkVersion": "3",
+    "manifestVersion": 2,
     "enableMultiJS": true,
     "capabilities": [
       "configurable"
+    ],
+    "usesPermissions": [
+      {
+        "name": "Internet",
+        "parameters": { "domains": ["api.underlx.com"] },
+        "reason": "To download Lisbon Metro station and line information from UnderLX.",
+        "required": true
+      },
+      {
+        "name": "Internet",
+        "parameters": { "domains": ["perturbacoes.pt"] },
+        "reason": "To receive live Lisbon Metro arrival estimates from UnderLX.",
+        "required": true
+      }
     ],
     "targetPlatforms": [
       "emery",

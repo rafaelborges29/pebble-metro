@@ -118,6 +118,8 @@ headers or redirects.
 4. Preflight verifies ZIP integrity and allowed entries, UUID, numeric release
    version, native header versions/UUIDs, both target manifests/binaries/resources,
    phone bundle, complete bundled licence notices, and the 4.4 MB size ceiling.
+   It also requires `manifestVersion: 2` and permission declarations exactly matching
+   `package.json`, rejecting stripped, legacy or unexpectedly broadened metadata.
    Pebble publication also checks the account's current upload size limit. Rebble's
    inspected API provides no account upload-limit field; retain the local ceiling
    and fail clearly if the production endpoint rejects a candidate.

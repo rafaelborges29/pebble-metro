@@ -213,6 +213,21 @@ The configuration spec also requires a system C compiler (`cc`) for
 its production-store fault probe. Host probes complement, never replace, the
 actual native PBW flows.
 
+## Permission checks
+
+`permissions.spec.ts` inspects the built PBW's version-2 manifest and checks that
+only the two production UnderLX Internet domains are declared, with purposes and
+required flags. It also mutates disposable archive copies to prove preflight
+rejects legacy, missing and broadened permission metadata.
+
+The existing native-emulator/browser fixture can deny network access with HTTP
+403 and a closed WebSocket, matching the Android network gate's observable
+behaviour. A denied-start/grant test uses real compiled PKJS, its automatic retries
+and the real watch to recover on the same Settings page without saving, closing
+or replaying a mutation. These simulations do not test Android's permission prompts
+or shield rendering; those belong to the Pebble app and need a compatible phone.
+The SDK/tool pins, screenshot baselines and minimum heap assertions are unchanged.
+
 ## Screenshots and synchronization
 
 Time 2 baselines remain in `e2e/screenshots/`; Round 2 baselines are isolated in

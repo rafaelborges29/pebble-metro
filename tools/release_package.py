@@ -100,6 +100,9 @@ def verify_pbw(path, version, root=Path(".")):
         info = json.loads(bundle.read("appinfo.json"))
         require(info["uuid"] == APP_UUID and info["versionLabel"] == version, "PBW identity/version mismatch")
         require(sorted(info["targetPlatforms"]) == TARGETS, "PBW target metadata mismatch")
+        require(info.get("manifestVersion") == 2, "PBW must use native permissions (manifestVersion 2)")
+        require(info.get("usesPermissions") == read_json(root / "package.json")["pebble"]["usesPermissions"],
+                "PBW permissions differ from the source manifest")
         manifests = {f"{target}/manifest.json" for target in TARGETS}
         require({name for name in names if name.endswith("manifest.json")} == manifests,
                 "Unexpected or missing PBW target manifests")

@@ -41,7 +41,11 @@ connected watch. The editor is bundled: no website, separate plugin or Android
 app is needed. The page automatically follows the WebView's light/dark preference
 from the Pebble app, including native controls, with no separate theme toggle.
 The on-watch picker remains available without the preview feature.
-See [sync, recovery and upgrade details](docs/phone-configuration.md).
+Metro declares only two required Internet domains: `api.underlx.com` for the
+catalogue and `perturbacoes.pt` for arrivals. Approve them in Pebble's native
+permissions UI; compatible 1.18+ builds expose a shield in the Settings title bar.
+No location, files, contacts or notification access is requested.
+See [permissions, sync, recovery and upgrade details](docs/phone-configuration.md).
 
 ## Language
 
