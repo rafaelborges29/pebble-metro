@@ -58,7 +58,7 @@ def build(ctx):
     phone_outputs += [ctx.path.get_bld().make_node('phone/' + source.path_from(ctx.path)) for source in phone_json]
     ctx.env.PHONE_TSC = [ctx.path.find_node('node_modules/.bin/tsc').abspath()]
     ctx(rule='${PHONE_TSC} --project ${SRC[0].abspath()}',
-        source=['tsconfig.phone.json', 'package.json', 'package-lock.json'] + phone_sources + phone_json,
+        source=['tsconfig.json', 'package.json', 'package-lock.json'] + phone_sources + phone_json,
         target=phone_outputs)
     ctx.load('pebble_sdk')
 

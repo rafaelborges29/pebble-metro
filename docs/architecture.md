@@ -25,8 +25,8 @@ preview required). There is no hosted page, additional plugin or new network pro
 
 ## Phone compilation and types
 
-`tsconfig.phone.json` checks production phone/shared sources independently of the
-E2E harness: strict null/unknown handling, indexed access and optional properties,
+The root `tsconfig.json` is discoverable by editors and checks production
+phone/shared sources independently of the E2E harness: strict null/unknown handling, indexed access and optional properties,
 without ambient Node globals. SDK builds compile ES2015/CommonJS into
 `build/phone/` before webpack 1 runs, with tracked TS/JSON/config/lockfile inputs
 and declared generated outputs. Type errors stop the build before packaging.

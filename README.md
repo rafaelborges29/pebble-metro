@@ -125,7 +125,7 @@ The SDK names the package after the checkout directory:
 - `npm run assets:screenshots` — explicitly recapture unmasked store screenshots.
 
 Do not add `"type": "module"` to the root package: the SDK generates a CommonJS
-webpack configuration. `tsconfig.phone.json` compiles strict phone/shared TypeScript
+webpack configuration. The root `tsconfig.json` compiles strict phone/shared TypeScript
 to ES2015/CommonJS under `build/phone/` before SDK webpack runs. A tiny
 `src/pkjs/bootstrap.cjs` loads the compiled entry and bundled notices; the custom
 ESM adapter is no longer needed. Direct `pebble build --sdk 4.33.1` also performs
