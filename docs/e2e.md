@@ -352,9 +352,9 @@ aggregate child RSS. Non-cache RAM is approximately total minus free/buffers/cac
 CPU summaries exclude `vmstat`'s first (since-boot) row. Hosted CPU models vary
 within this runner class, so these are not identical-hardware microbenchmarks.
 
-The chosen setting reduces full-job wall time and runner-minutes by about **63%**
-without larger runners or duplicate setup jobs. The under-eight-minute target was
-**not quite reached**: normal confirmations took 8m13s–8m18s for today's 98 cases,
+The first-stage setting reduced full-job wall time and runner-minutes by about
+**63%** without larger runners or duplicate setup jobs. The under-eight-minute
+target was **not quite reached at that stage**: normal confirmations took 8m13s–8m18s for today's 98 cases,
 not the issue's historical 52. No external download outlier occurred; setup still
 varied from 59–71 seconds, so do not credit all setup differences to `--only-shell`.
 
@@ -418,6 +418,7 @@ and runner-minutes sum all three jobs, so splitting is not a free speedup.
 | [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535418474) | Warm hit | **5m15s** | 98 passed |
 | [4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535420304) | Warm hit | 6m24s | 98 passed |
 | [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535543763) | Warm hit | **5m45s** | 98 passed |
+| [4 workers, repeat-each=2](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535422402) | Warm hit | 9m36s | **196 passed** |
 
 Choose **three workers per target**: it reaches the goal without the higher
 contention/memory of four. In the warm three-worker sample, test execution took
@@ -438,6 +439,11 @@ Sub-six-minute PR feedback is possible, but the slower cold/hosted runs must not
 be hidden or described as a guaranteed sub-six SLA. The selected setting's final
 PR check and repeated-suite evidence are linked in the PR; rerun after source or
 toolchain changes. Button delays and all production timeout cases remain unchanged.
+
+The merged/per-target JUnit identities were compared with the original 98-case
+baseline, including exact multiplicities in the repeated run. Stress artifacts
+retained 430 real button presses, heap headroom/variation checks and exactly two
+expected app starts per case, with no errors, skips or retries.
 
 One-off local integration probes verified both successful and intentionally failed
 blob merges: both projects and the failure survive into HTML/JUnit. The explicit
