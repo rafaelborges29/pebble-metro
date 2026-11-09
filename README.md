@@ -121,11 +121,12 @@ npm ci
 npm run check
 ```
 
-The SDK names the package after the checkout directory:
-`build/<checkout-directory-name>.pbw`. For a clone named `pebble-metro`, this is
-`build/pebble-metro.pbw`.
+The default build uses the **production identity** and names the package after
+its checkout directory: `build/<checkout-directory-name>.pbw`. For a clone named
+`pebble-metro`, this is `build/pebble-metro.pbw`. Installing it replaces live.
 
 - `npm run build` — type-check/compile phone TypeScript, build C and bundle JavaScript.
+- `npm run build:dev` — build `Metro Lisboa Dev` as `build/metro-lisboa-dev.pbw`.
 - `npm run check` — SDK bootstrap syntax and production build.
 - `npm run typecheck` — strict phone/shared TypeScript and emulator harness checks.
 - `npm run e2e` — typecheck, build and real-emulator tests.
@@ -164,15 +165,54 @@ reopen, expiry, phone restart, source replacement, removal navigation and
 16-favourite/160-switch memory stress.
 See [E2E documentation](docs/e2e.md) and [contributing](CONTRIBUTING.md).
 
-To install on your own watch, enable Developer Connection in the Android Pebble app:
+### Send a development build to your watch
+
+Enable Developer Connection in Pebble Android, then use one explicit connection:
 
 ```sh
-pebble ping --cloudpebble
-pebble install --cloudpebble "build/$(basename "$PWD").pbw"
+# Phone's reachable LAN address (enable LAN developer connection on trusted Wi-Fi):
+npm run install:dev -- --phone 192.168.1.42
+# Or your signed-in CloudPebble developer connection:
+npm run install:dev -- --cloudpebble
 ```
 
-Use `--phone PHONE_ADDRESS` instead for a reachable LAN phone. Installation replaces
-the app with the same UUID; read the migration note above before upgrading.
+`tools/install-dev.sh` builds with SDK 4.33.1, makes a private PBW copy, verifies
+its dev UUID/name in package metadata and both native binaries, then sends that
+exact copy. It stops on failure, rejects extra arguments and clears conflicting
+Pebble connection environment variables. No production package or implicit
+`pebble install` selection is used. No new dependencies are required.
+
+Dev uses the permanent UUID `af9f9c16-6542-4568-bdd8-01e57443e3d0` and the name
+**Metro Lisboa Dev**. It can coexist with store-installed **Metro Lisboa**
+(`5576168a-8b38-4be1-90e7-343af607c167`); a name change alone would not suffice.
+Watch favourites/caches, phone companion storage and native permission grants
+are UUID-scoped. Dev starts with its own empty favourites and needs its own
+Internet grants. Open dev on the watch and choose its matching Settings entry
+on the phone; close old Settings pages when switching apps. The shared HTML page
+title still reads Metro Lisboa. Android's preview toggle/connectivity remain shared.
+
+Rerun the same command to update dev **without uninstalling**. To switch, use the
+watch's named app entries; for logs, launch dev then use `pebble logs --phone
+PHONE_ADDRESS` (or `--cloudpebble`). Logs are not UUID-filtered. To remove dev,
+remove only **Metro Lisboa Dev** through Pebble Android. Never wipe the watch or
+uninstall live. Production UUID/store IDs and release checks stay unchanged;
+store updates continue to target live, and production validation rejects dev PBWs.
+
+Build variants sequentially in one checkout; they share generated intermediates.
+Normal build/E2E commands remain production-only. The direct dev build command is
+`pebble build --sdk 4.33.1 -- --app-variant=dev`; unknown variants are rejected.
+Offline installer guards run with
+`python3 -m unittest discover -s tools -p 'test_dev_install.py'`.
+Platform references: [app identity](https://developer.repebble.com/guides/tools-and-resources/app-metadata/),
+[storage](https://developer.repebble.com/guides/events-and-services/persistent-storage/),
+[developer connection](https://developer.repebble.com/guides/tools-and-resources/developer-connection/)
+and the [UUID-scoped Android settings session](https://github.com/coredevices/mobileapp/blob/89f31dca3fd344ae9923fe9ca2f27b0f1f8a0230/pebble/src/commonMain/kotlin/coredevices/pebble/config/ConfigPageSession.kt).
+
+Hardware acceptance still needs an owner-requested install: keep live favourite A,
+install dev and save different B, update dev, then remove only dev; live A and its
+Settings must survive. Check each app's companion and independent permission
+approval/revocation on the actual Android/watch versions. Emulator and package
+checks alone do not verify those platform interactions.
 
 ## Documentation and licensing
 
