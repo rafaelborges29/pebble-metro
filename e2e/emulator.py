@@ -92,8 +92,8 @@ def run():
             while True:
                 if process.poll() is not None:
                     raise RuntimeError(f"QEMU exited with status {process.returncode}")
+                transport = QemuTransport(port=port)
                 try:
-                    transport = QemuTransport(port=port)
                     transport.connect()
                     break
                 except Exception:

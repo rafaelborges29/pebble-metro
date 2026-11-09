@@ -81,7 +81,9 @@ release instead of selecting another listing or upload route.
    Each uses the shared three-worker CI default and test-level scheduling, with fresh
    watch/browser storage per test and retries disabled. Both jobs validate the
    candidate's source provenance/hash before and after testing; a changed PBW is
-   rejected. Both targets finish even if one fails. Their blob reports merge into
+   rejected. Both validation steps require the downloaded provenance file to be
+   present and nonempty, rather than letting packaging regenerate it. Both targets
+   finish even if one fails. Their blob reports merge into
    one private HTML/JUnit report; the report gate explicitly requires both target
    jobs to pass. Publication waits for all these jobs, then downloads the original
    candidate artifact. See the [hosted measurements](e2e.md#hosted-performance)

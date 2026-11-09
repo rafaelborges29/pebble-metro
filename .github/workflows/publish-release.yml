@@ -104,6 +104,7 @@ jobs:
           merge-multiple: true
       - name: Install the frozen candidate path and validate provenance
         run: |
+          test -s dist/provenance.json
           mkdir -p build
           cp dist/*.pbw "build/$(basename "$PWD").pbw"
           python3 tools/release.py package "$RELEASE_TAG"
@@ -112,7 +113,9 @@ jobs:
           platform: ${{ matrix.platform }}
           artifact-prefix: release-test-diagnostics
       - name: Check the tested bytes against frozen provenance again
-        run: python3 tools/release.py package "$RELEASE_TAG"
+        run: |
+          test -s dist/provenance.json
+          python3 tools/release.py package "$RELEASE_TAG"
 
   reports:
     needs: [resolve, test]
