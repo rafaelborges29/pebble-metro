@@ -476,8 +476,14 @@ extra browser/watch RPCs. Button hold/release delays, screenshot/animation polli
 production timeout/recovery timers, fresh storage and heap/restart checks remain
 unchanged. In the eight-flow local pilot, serialization-plus-arrival expect-step
 time summed to 6.48s before / 3.25s after. Total pilot wall time was 37.1s / 36.6s;
-these small local timings are not a hosted speedup claim. Full hosted confirmation
-and repeated-suite evidence are linked in the PR.
+these small local timings are not a hosted speedup claim.
+
+Hosted traces also exposed a scheduling tail: the independent 16-route phone
+save/remove case ran almost last, leaving the other workers idle for about 25s.
+Its existing describe block now registers earlier in `settings.spec.ts`; the
+block's test bodies, options, titles and assertions are unchanged. This improves
+load balance without another runner or scheduling framework. Full hosted
+confirmation and repeated-suite evidence are linked in the PR.
 
 ### Other probes and limits
 
