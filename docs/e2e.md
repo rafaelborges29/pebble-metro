@@ -19,8 +19,10 @@ button regression passes do not verify touch gestures or finger usability.
   `mqtt-packet`. Unexpected destinations/methods fail instead of reaching the
   internet. Service/disruption requests are not allowed in this slim version.
 
-Each test uses new private flash images and a private loopback port. The harness
-never connects to a physical watch or wipes managed emulator storage. Python
+Each test uses new private flash images and private loopback listeners for the
+serial bridge and debugger. Python passes both already-bound listening sockets
+to QEMU with `pass_fds`; there is no release/rebind window in which another test
+can steal a port. The harness never connects to a physical watch or wipes managed emulator storage. Python
 reuses the Pebble tool's `libpebble2`; no competing `pypkjs` process runs.
 
 ## Flows
@@ -113,8 +115,8 @@ now marks it SAVED; a continuously subscribed same-station direction remains LIV
 
 ## Phone configuration coverage
 
-`settings.spec.ts` adds 19 cases per target using the same compiled PBW/companion:
-17 emulator/browser flows, a host C fault probe and a keyed-translation check.
+`settings.spec.ts` adds 20 cases per target using the same compiled PBW/companion:
+18 emulator/browser flows, a host C fault probe and a keyed-translation check.
 The generated local data page runs in Chromium with the documented live bridge:
 `ready` for target `pkjs`, `Pebble.sendMessage()` promises and PKJS `configmessage`
 responses. Only Done invokes the intercepted close URL. Page network requests fail
@@ -152,10 +154,10 @@ captured in `messages.json`. The stress requires:
 - No more than **4 KiB variation** after font/SDK warmup.
 - Exactly the expected app starts; no hidden crash/restart is accepted.
 
-The normal matrix has **45 cases per platform (90 tests)**, including four locale
-and 19 configuration cases per platform. Each platform independently checks heap
+The normal matrix has **49 cases per platform (98 tests)**, including four locale,
+20 configuration and three permission cases per platform. Each platform independently checks heap
 headroom, switch variation and expected startup count.
-For repeated runs use `npm run e2e -- --repeat-each=2` (180 tests). Recheck after
+For repeated runs use `npm run e2e -- --repeat-each=2` (196 tests). Recheck after
 every production change; samples are not continuous allocation traces or a
 physical-watch/battery guarantee.
 
@@ -182,7 +184,7 @@ Supported locally: Linux x86-64, Node 24.21.0, Pebble Tool 5.0.39,
 
 ```sh
 npm ci
-npx playwright install chromium
+npx playwright install --only-shell chromium
 npm run e2e
 ```
 
@@ -279,10 +281,226 @@ and heap samples. The artifact also carries `LICENSE`, `THIRD_PARTY_NOTICES.md`,
 `DATA_METHODS.md`, `LICENSES/` and the matching `src/` / `e2e/` for diagnostic
 reproducibility and data provenance. These private diagnostics are not a public
 methods offer; see the case-specific release assessment in `DATA_METHODS.md`.
-The workflow allows 25 minutes for setup and the 90-case serial matrix, matching
-the release verification budget. Workers and retry policy are unchanged.
-It never installs on hardware or publishes. A local pass does
-not prove hosted checks passed for an exact revision.
+Normal PR/main runs and release verification use one `ubuntu-24.04` runner per
+watch target, sharing `.github/actions/test-emulator`. Each job selects exactly
+one Playwright project and uses test-level parallel scheduling (`--fully-parallel`)
+with three workers per target, the shared CI default. Local runs still default
+to one worker and
+sequential tests within each file; pass `--workers` / `--fully-parallel` explicitly
+to reproduce a CI target. Retries remain disabled and snapshots are never updated.
+Each test still owns fresh flash, its browser context and per-test output directory.
+Both target jobs finish even if one fails (`fail-fast: false`). Their separate
+`emulator-e2e-emery` / `emulator-e2e-gabbro` artifacts retain native logs, traces,
+heap samples, timings, JUnit and Playwright blob reports. A small final `e2e` job
+merges both blobs into the existing `emulator-e2e` HTML/JUnit artifact and preserves
+the required-check name. It requires both target jobs to succeed, independently
+of report rendering: `merge-reports` itself exits zero even for failing tests.
+A missing target/blob also fails the gate; reports cannot silently omit a platform.
+Normal CI never installs on hardware or publishes. A local pass does not prove
+hosted checks passed for an exact revision.
+
+### Hosted performance
+
+Use **Actions → Emulator E2E → Run workflow** to benchmark `workers` (2/3/4 per
+target), `repeat` (1/2), and `fully_parallel` scheduling on `ubuntu-24.04`:
+
+```sh
+gh workflow run e2e.yml --ref <branch> -f workers=3 -f repeat=1 -f fully_parallel=true
+gh workflow run e2e.yml --ref <branch> -f workers=3 -f repeat=2 -f fully_parallel=true
+```
+
+The workflow separates setup, typecheck, native/phone build, testing and artifact
+upload into timed steps. `e2e-metrics/` in the private artifact records CPU/RAM,
+one-second `vmstat` samples, GNU time output and the tested PBW's SHA-256 (checked
+again after testing). GNU time's maximum RSS is the largest individual child,
+not aggregate process-tree memory; use `vmstat` to inspect whole-runner pressure.
+Each emulator writes/attaches `emulator-timings.json`: bridge startup (Python,
+flash preparation and socket connection), lifetime including teardown, and RPC
+counts/elapsed totals for install, buttons, screenshots and delivery. Startup is
+not firmware/application readiness; the existing draw and receipt waits remain.
+RPC totals can overlap and must not be summed into a test's wall time. JUnit and
+HTML reports retain per-test/platform durations, logs and failure traces.
+
+#### Single-runner baseline
+
+Measured on 2026-11-08, all using `ubuntu-24.04` with **2 vCPUs / 7.75 GiB RAM**.
+The before revision `4b795ce` adds measurement only; `f9f019a` adds inherited
+sockets/headless-only setup, and `e03589f` selects the four-worker CI default.
+Production code, all 98 test identities and screenshot baselines are identical.
+Times below are rounded to seconds; whole-job time excludes queueing.
+
+| Configuration / hosted run | Setup | Typecheck + build | Tests | Report upload | Whole job | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| [Before: 1 worker](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529218535) | 1m11s | 7s | 20m54s | 2s | **22m22s** | 98 passed |
+| [2 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529367222) | 1m11s | 5s | 10m45s | 3s | 12m12s | 98 passed |
+| [4 workers, files](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529369378) | 59s | 5s | 7m00s | 2s | **8m13s** | 98 passed |
+| [4 workers, fully parallel](https://github.com/rafaelborges29/pebble-metro/actions/runs/42529517026) | 1m08s | 6s | 6m55s | 2s | 8m20s | 98 passed |
+| [4 workers, files: confirmation](https://github.com/rafaelborges29/pebble-metro/actions/runs/42530501498) | 1m11s | 6s | 6m53s | 2s | **8m18s** | 98 passed |
+| [4 workers, files: repeat-each=2](https://github.com/rafaelborges29/pebble-metro/actions/runs/42530499386) | 1m11s | 4s | 13m27s | 3s | 14m58s | **196 passed** |
+
+| Configuration | CPU model | CPU busy mean / peak | Peak non-cache RAM | Median bridge startup |
+| --- | --- | --- | --- | --- |
+| Before: 1 worker | EPYC 7763 | 26.9% / 79% | 1.31 GiB | 1.917s |
+| 2 workers | EPYC 9V74 | 48.0% / 99% | 1.81 GiB | 1.756s |
+| 4 workers, files | EPYC 9V45 | 66.7% / 100% | 2.66 GiB | 2.207s |
+| 4 workers, fully parallel | EPYC 9V74 | 85.6% / 100% | 2.74 GiB | 2.718s |
+| 4 workers, files: confirmation | EPYC 9V45 | 65.7% / 100% | 2.63 GiB | 2.184s |
+| 4 workers, files: repeat | Xeon 6975P-C | 70.8% / 100% | 2.73 GiB | 2.208s |
+
+Resource figures are whole-runner, one-second samples, not continuous maxima or
+aggregate child RSS. Non-cache RAM is approximately total minus free/buffers/cache;
+CPU summaries exclude `vmstat`'s first (since-boot) row. Hosted CPU models vary
+within this runner class, so these are not identical-hardware microbenchmarks.
+
+The first-stage setting reduced full-job wall time and runner-minutes by about
+**63%** without larger runners or duplicate setup jobs. The under-eight-minute
+target was **not quite reached at that stage**: normal confirmations took 8m13s–8m18s for today's 98 cases,
+not the issue's historical 52. No external download outlier occurred; setup still
+varied from 59–71 seconds, so do not credit all setup differences to `--only-shell`.
+
+On that single runner, fully parallel execution was only a few seconds faster in
+testing, with higher CPU pressure and slower individual starts/screenshots. That
+stage therefore retained file-level scheduling; the per-target split below makes
+test-level scheduling useful without doubling contention on one machine.
+Each stress case still uses 430 real button presses, including the 160 switches;
+about 109 seconds is spent in button RPCs. Both 100 ms press / 150 ms release
+waits are retained: no coverage, persistence timing, heap/restart assertions or
+screenshot tolerances are relaxed. Production timeout/recovery cases also retain
+their real waits. Setup downloads only Chromium's required headless shell, not
+the unused full browser. At this first stage no SDK/browser cache or extra CI
+runner was added; concurrency addressed the dominant serial bottleneck first.
+The confirmation/repeat runs also checked that testing left PBW bytes unchanged.
+Across all runs, stress samples retained at least 53,772 bytes free on Gabbro and
+53,908 on Emery, zero sampled steady-state heap variation and exactly two expected
+starts per stress case. No tests were skipped or retried. Four concurrent local
+locale cases additionally exercised both platforms' inherited debugger listeners; four
+SIGTERM probes verified QEMU exit and private-flash removal. These checks do not
+replace the physical-watch acceptance below.
+
+#### Per-target runners and setup
+
+PR/main CI builds from the exact checkout in each independent target job; builds
+are deliberately not serialized behind a third SDK setup job. Release verification
+instead builds/restores and freezes one PBW, then both target jobs download that
+same immutable candidate artifact. Each validates the release provenance/hash
+before and after testing, without rebuilding. Publication depends on both targets
+and their report gate; it still downloads the original frozen candidate, not a
+separately rebuilt watch package. The release critical path includes candidate
+preparation, so measure it separately from PR feedback.
+
+The shared setup installs browser dependencies before the QEMU runtime libraries,
+reusing the fresh apt indexes instead of running `apt-get update` twice. The
+release build-only job skips Chromium and refreshes apt itself. All required
+system packages and native/browser validation remain intact.
+
+Only `~/.local/share/pebble-sdk/SDKs/4.33.1` is cached. The exact key includes OS,
+architecture, Ubuntu version, SDK, Pebble Tool, libpebble2, Node and the installed
+Python **patch** version: the SDK contains a venv with interpreter paths. There
+are no fallback restore keys. A miss installs the pinned SDK; every run activates
+it. Application builds, test storage, credentials and the developer's managed
+emulators are never cached. npm/uv retain their existing caches; no browser cache
+is added. Record cold saves and warm restores separately before attributing any
+speedup to caching.
+
+Initial split-runner measurements (same two-core runner class per target) are
+below. Pipeline time runs from the first watch job starting through the merged
+report gate completing, not just the faster platform's test time. CPU models vary
+and runner-minutes sum all three jobs, so splitting is not a free speedup.
+
+| Run / workers per target | SDK cache | Full pipeline | Result |
+| --- | --- | --- | --- |
+| [2 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533915573) | Not yet added | 8m15s | 98 passed |
+| [3 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533917999) | Not yet added | 6m39s | 98 passed |
+| [4 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533920282) | Not yet added | 6m57s | 98 passed |
+| [Normal PR, 4 workers](https://github.com/rafaelborges29/pebble-metro/actions/runs/42533920706) | Not yet added | **5m17s** | 98 passed |
+| [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534850485) | Cold miss/save | 6m45s | 98 passed |
+| [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534856192) | Cold miss/save | 6m53s | 98 passed |
+| [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535418474) | Warm hit | **5m15s** | 98 passed |
+| [4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535420304/attempts/1) | Warm hit | 6m24s | 98 passed |
+| [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535543763) | Warm hit | **5m45s** | 98 passed |
+| [4 workers, repeat-each=2](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535422402) | Warm hit | 9m36s | **196 passed** |
+
+Choose **three workers per target**: it reaches the goal without the higher
+contention/memory of four. In the warm three-worker sample, test execution took
+3m45s / 3m55s on Emery/Gabbro, setup took 51s / 40s and the report job took 18s;
+combined job durations cost about 10.05 runner-minutes. CPU busy averaged
+54.7% / 59.7%, with peak non-cache RAM 2,258 / 2,331 MiB. Both runners were
+EPYC 9V45. By comparison, the warm four-worker samples used about 2.6–2.9 GiB
+per runner and could average nearly 90% CPU busy on slower EPYC 7763 hosts.
+The initial two-worker sample cost 15.77 runner-minutes; four-worker samples
+ranged 9.92–12.57. These are observed runner-minutes, not billing-rounded totals.
+
+SDK warm-hit setup was 40–55s rather than the cold 66–74s in these consolidated
+setup samples. Both exact-key restores and cached SDK/venv execution passed;
+there was no fresh SDK install on a hit. CPU models and download speeds still
+vary, so not all wall-time differences are caused by caching or worker count.
+
+Sub-six-minute PR feedback is possible, but the slower cold/hosted runs must not
+be hidden or described as a guaranteed sub-six SLA. The selected setting's final
+PR check and repeated-suite evidence are linked in the PR; rerun after source or
+toolchain changes. Button delays and all production timeout cases remain unchanged.
+
+The merged/per-target JUnit identities were compared with the original 98-case
+baseline, including exact multiplicities in the repeated run. Stress artifacts
+retained 430 real button presses, heap headroom/variation checks and exactly two
+expected app starts per case, with no errors, skips or retries.
+
+One-off local integration probes verified both successful and intentionally failed
+blob merges: both projects and the failure survive into HTML/JUnit. The explicit
+job-result gate rejects failure, cancellation and skipped targets even though the
+merger exits zero. An offline temporary release fixture exercised candidate copies
+and pre/post provenance validation for both targets, rejecting a tampered PBW and
+a wrong-source provenance record. No release workflow was dispatched or published.
+
+#### Runtime profiling and transport readiness
+
+A bounded Bun 1.4.4 experiment used the verified official Linux binary, without
+changing dependencies or the lockfile. Four locale checks passed under Bun, but
+full-suite discovery failed with `AggregateError` while loading the favourite,
+settings and permissions specs. Explicit harness-tsconfig and Playwright async-
+loader attempts did not make all 98 cases discoverable. A passing subset is not
+a valid runtime replacement: Node 24.21.0 remains the supported runner, and the
+bridge continues to reuse the Pebble SDK's Python `libpebble2` implementation.
+
+Local process accounting across eight representative range/header/locale flows
+measured 5.99 CPU-seconds in Python and 35.87 CPU-seconds in its QEMU/GDB children.
+Bridge lifetimes summed to 96.67 seconds across concurrently running cases; this
+is not one job's elapsed time or a complete Node/Chromium CPU profile. The result
+does not justify porting the watch protocol to a new runtime.
+
+Playwright step profiling instead found avoidable delay observing transport state
+already delivered into fixture memory. Only the serialization checkpoint and real
+native-receipt predicates now use 20/50/100 ms polling intervals; their assertion
+deadlines and required values/receipts are unchanged. These checks do not issue
+extra browser/watch RPCs. Button hold/release delays, screenshot/animation polling,
+production timeout/recovery timers, fresh storage and heap/restart checks remain
+unchanged. In the eight-flow local pilot, serialization-plus-arrival expect-step
+time summed to 6.48s before / 3.25s after. Total pilot wall time was 37.1s / 36.6s;
+these small local timings are not a hosted speedup claim.
+
+Hosted traces also exposed a scheduling tail: the independent 16-route phone
+save/remove case ran almost last, leaving the other workers idle for about 25s.
+Its existing describe block now registers earlier in `settings.spec.ts`; the
+block's test bodies, options, titles and assertions are unchanged. This improves
+load balance without another runner or scheduling framework.
+
+| Runtime investigation, 2026-11-09 | Full pipeline | Result |
+| --- | --- | --- |
+| [Fresh pre-change baseline](https://github.com/rafaelborges29/pebble-metro/actions/runs/42598828231) | 6m05s | 98 passed |
+| [Prompt transport polling only](https://github.com/rafaelborges29/pebble-metro/actions/runs/42599104404) | 6m45s | 98 passed |
+| [Prompt polling and early long-case scheduling](https://github.com/rafaelborges29/pebble-metro/actions/runs/42600719661) | **5m18s** | 98 passed |
+
+Do not attribute every difference to the polling change: the intermediate run
+received a slower EPYC Gabbro runner and started its second job 18s later. In the
+baseline/balanced Gabbro samples, both on Xeon 6975P-C, test execution decreased
+from 240.9s to 224.9s and estimated worker occupancy increased from 90.9% to 96.8%
+(sum of case durations / three workers / test wall time). The long phone-list
+case completed well before the last tests instead of leaving the final idle tail.
+All 98 identities and all assertion/receipt semantics remain intact. Current-head
+confirmation and repeated-suite evidence are linked in the PR; these samples are
+not a hard hosted latency SLA.
+
+### Other probes and limits
 
 During development, the allocation-free C JSON decoder was separately checked
 using one-off host probes with C99 warnings,
@@ -326,8 +544,8 @@ cannot select it there. For the two locale fixtures only, the harness uses the
 SDK's bundled GDB/debug ELF to set `s_system_domain.iso_locale` in the private
 emulator's RAM before installing Metro. It asserts the locale logged by the
 release app's actual `i18n_get_system_locale()` call; no app renderer, translation
-helper, phone language or app binary is substituted. The debugger uses a private
-loopback port and detaches immediately. Normal SDK files and managed emulators
+helper, phone language or app binary is substituted. The debugger uses an inherited
+private loopback listener and detaches immediately. Normal SDK files and managed emulators
 are untouched. These tests exercise the native API boundary and built-in system
 fonts, **not** the physical watch's language picker or downloaded font packs.
 

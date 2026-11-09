@@ -37,6 +37,9 @@ function emulator(testInfo: TestInfo) {
   const project = testInfo.project.name;
   if (project !== 'emery' && project !== 'gabbro') throw new Error(`Unsupported test platform: ${project}`);
   const platform: Platform = project;
+  const started = performance.now();
+  let bootMs: number | null = null;
+  const rpc: Record<string, { calls: number; totalMs: number }> = {};
   const child = spawn(pebblePython(), ['-B', '-u', 'e2e/emulator.py', platform], {
     cwd: root, detached: true, stdio: ['pipe', 'pipe', 'pipe'],
   });
@@ -64,7 +67,7 @@ function emulator(testInfo: TestInfo) {
     try {
       const message: WireMessage = JSON.parse(line);
       if ('event' in message) {
-        if (message.event === 'ready') { available = true; readyResolve(); }
+        if (message.event === 'ready') { bootMs = performance.now() - started; available = true; readyResolve(); }
         else if (message.event === 'log') {
           const sample = /^Metro memory (\S+): used=(\d+) free=(\d+)$/.exec(message.message);
           if (sample) memory.push({ reason: sample[1], used: Number(sample[2]), free: Number(sample[3]) });
@@ -83,7 +86,13 @@ function emulator(testInfo: TestInfo) {
     return Effect.callback<unknown, EmulatorError>(resume => {
       if (!available) { resume(Effect.fail(new EmulatorError({ message: 'Bridge unavailable. See emulator.log.' }))); return; }
       const id = ++sequence;
-      pending.set(id, resume);
+      const sent = performance.now();
+      pending.set(id, result => {
+        const timing = rpc[method] ||= { calls: 0, totalMs: 0 };
+        timing.calls++;
+        timing.totalMs += performance.now() - sent;
+        resume(result);
+      });
       child.stdin.write(JSON.stringify({ id, method, params }) + '\n');
       return Effect.sync(() => { pending.delete(id); });
     }).pipe(
@@ -107,8 +116,11 @@ function emulator(testInfo: TestInfo) {
         try { if (child.pid) process.kill(-child.pid, 'SIGKILL'); } catch { /* Already exited. */ }
       }).pipe(Effect.andThen(Effect.promise(() => exited)), Effect.timeout('2 seconds'))),
     );
+    const timings = JSON.stringify({ bootMs, lifetimeMs: performance.now() - started, rpc }, null, 2);
     writeFileSync(testInfo.outputPath('emulator.log'), output);
+    writeFileSync(testInfo.outputPath('emulator-timings.json'), timings);
     yield* Effect.promise(() => testInfo.attach('emulator log', { body: output, contentType: 'text/plain' }));
+    yield* Effect.promise(() => testInfo.attach('emulator timings', { body: timings, contentType: 'application/json' }));
   }).pipe(Effect.orDie);
   return {
     platform,

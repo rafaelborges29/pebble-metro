@@ -65,6 +65,9 @@ declare global {
 // Base catalogue facts: UnderLX (https://underlx.com/), ODbL 1.0:
 // https://opendatacommons.org/licenses/odbl/1-0/
 // Fixture data/additions retain ODbL; harness code is 0BSD. See DATA_METHODS.md.
+// These polls only read local event-fed state, never issue browser/watch RPCs.
+// Check promptly without changing assertion deadlines or production timers.
+const transportPollIntervals = [20, 50, 100];
 const topicFor = (station: string) => `json/vehicleeta/pt-ml/${station}/all`;
 const favourite: Favourite = { station: 'pt-ml-sa', line: 'pt-ml-red', direction: 'pt-ml-ap' };
 const stations = [
@@ -141,7 +144,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
         async function delivered(type: string, previous = new Set<string>(), matches = (_message: Message) => true) {
           await expect.poll(() => [...sent].some(([id, record]) => !previous.has(id) && record.message?.type === type
             && matches(record.message) && receipts.has(`${id}/${record.total - 1}`)),
-          { message: `${type} consumed by the real watch` }).toBe(true);
+          { message: `${type} consumed by the real watch`, intervals: transportPollIntervals }).toBe(true);
         }
         async function queueStation(routes: RoutePredictions[]) {
           const selected = commands.filter(command => command.type === 'watch').at(-1)?.favorite;
@@ -158,7 +161,7 @@ export const test = base.extend<{ metro: Metro; largeNetwork: boolean; watchLoca
           const previous = new Set(sent.keys()), before = serializedArrivals.length;
           publishers.get(topic)!(predictions);
           await expect.poll(() => serializedArrivals.slice(before).some(matches),
-            { message: 'Real phone transport serialized the source snapshot' }).toBe(true);
+            { message: 'Real phone transport serialized the source snapshot', intervals: transportPollIntervals }).toBe(true);
           return () => delivered('arrivals', previous, matches);
         }
         async function publishStation(routes: RoutePredictions[]) {

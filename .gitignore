@@ -13,3 +13,7 @@ __pycache__/
 .DS_Store
 playwright-report/
 test-results/
+e2e-metrics/
+blob-report/
+blob-reports/
+e2e-artifacts/

@@ -1,0 +1,40 @@
+name: Merge both watch reports
+description: Produce the existing combined HTML and JUnit reports from both platform artifacts
+inputs:
+  artifact-prefix:
+    description: Prefix of the two platform diagnostics artifacts
+    default: emulator-e2e
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '24.21.0'
+        cache: npm
+    - shell: bash
+      run: npm ci
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: ${{ inputs.artifact-prefix }}-*
+        path: e2e-artifacts
+    - name: Require and merge both platform reports
+      shell: bash
+      env:
+        ARTIFACT_PREFIX: ${{ inputs.artifact-prefix }}
+      run: |
+        mkdir -p blob-reports
+        for platform in emery gabbro; do
+          cp "e2e-artifacts/$ARTIFACT_PREFIX-$platform/blob-report/report-$platform.zip" "blob-reports/$platform.zip"
+        done
+        # Rendering a failed test report exits zero; callers must gate on job results.
+        npx playwright merge-reports --config=playwright.config.ts blob-reports
+    - name: Upload the combined report
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-prefix }}
+        path: |
+          playwright-report/
+          test-results/
+        if-no-files-found: error
+        retention-days: 7

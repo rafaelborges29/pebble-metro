@@ -1,5 +1,9 @@
 name: Set up Pebble build and emulator tools
 description: Shared pinned toolchain for CI and release verification
+inputs:
+  browser:
+    description: Install headless Chromium (not needed by the release build-only job)
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -8,22 +12,40 @@ runs:
         node-version: '24.21.0'
         cache: npm
     - uses: astral-sh/setup-uv@v10.3.0
+    - shell: bash
+      run: npm ci
+    - if: inputs.browser == 'true'
+      shell: bash
+      run: npx playwright install --with-deps --only-shell chromium
     - name: Install emulator runtime libraries
       shell: bash
+      env:
+        INSTALL_BROWSER: ${{ inputs.browser }}
       run: |
-        sudo apt-get update
+        # Playwright already refreshed apt indexes when installing browser deps.
+        if [[ "$INSTALL_BROWSER" != true ]]; then sudo apt-get update; fi
         sudo apt-get install -y --no-install-recommends \
           libsdl2-2.0-0 libglib2.0-0t64 libpixman-1-0 libpng16-16t64 \
           zlib1g libasound2t64 libpulse0 libsndio7.0
-    - name: Install pinned Pebble tool and SDK
+    - name: Install pinned Pebble tool
+      id: tool
       shell: bash
       run: |
         uv tool install --python 3.13 --with libpebble2==0.0.31 pebble-tool==5.0.39
-        export PATH="$(uv tool dir --bin):$PATH"
         echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
-        pebble sdk install 4.33.1
+        python_version=$("$(uv tool dir)/pebble-tool/bin/python" -c 'import platform; print(platform.python_version())')
+        echo "python-version=$python_version" >> "$GITHUB_OUTPUT"
+    - name: Cache the pinned SDK and toolchain only
+      id: sdk
+      uses: actions/cache@v6
+      with:
+        path: ~/.local/share/pebble-sdk/SDKs/4.33.1
+        # The SDK contains a venv: its exact interpreter patch/path must match.
+        key: sdk-v1-${{ runner.os }}-${{ runner.arch }}-ubuntu24.04-4.33.1-tool5.0.39-libpebble0.0.31-py${{ steps.tool.outputs.python-version }}-node24.21.0
+    - name: Install or activate SDK 4.33.1
+      shell: bash
+      env:
+        SDK_CACHE_HIT: ${{ steps.sdk.outputs.cache-hit }}
+      run: |
+        if [[ "$SDK_CACHE_HIT" != true ]]; then pebble sdk install 4.33.1; fi
         pebble sdk activate 4.33.1
-    - shell: bash
-      run: npm ci
-    - shell: bash
-      run: npx playwright install --with-deps chromium

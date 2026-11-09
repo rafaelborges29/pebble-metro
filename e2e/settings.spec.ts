@@ -40,6 +40,34 @@ async function result(metro: Metro, status: string, after: number) {
     { message: `Watch completed settings result: ${status}` }).toBe(status);
 }
 
+// Start the long independent full-list flow early instead of leaving a slow tail.
+test.describe('full phone favourites list', () => {
+  test.use({ largeNetwork: true });
+  test('catalogue changes reject an open selection and Refresh loads replacement controls', async ({ metro }) => {
+    await metro.favorites(); const config = await metro.openSettings();
+    await expect(config.getByRole('button', { name: 'Add favourite', exact: true })).toBeEnabled();
+    await config.getByLabel('Line', { exact: true }).selectOption('pt-ml-blue');
+    await metro.removeLine('pt-ml-blue'); const before = metro.commands.length;
+    await config.getByRole('button', { name: 'Add favourite', exact: true }).click(); await result(metro, 'conflict', before);
+    await expect(config.getByRole('status')).toHaveText('Changed on watch. The list has been refreshed; try again.');
+    await expect(config.getByLabel('Line', { exact: true }).locator('option[value="pt-ml-blue"]')).toHaveCount(0);
+    expect(await metro.favorites()).toEqual([]);
+  });
+  test('save 16 routes, retain surviving slots, remove all, and restart without resurrection', async ({ metro }) => {
+    await metro.favorites(); const config = await metro.openSettings();
+    for (const station of metro.stations.slice(0, 16)) await add(config, station.id, station.id === 'pt-ml-ap' ? 'pt-ml-ss' : 'pt-ml-ap');
+    await expect(config.getByText('16 / 16', { exact: true })).toBeVisible();
+    await expect(config.getByRole('button', { name: 'Add favourite', exact: true })).toBeDisabled();
+    expect(await metro.favorites()).toHaveLength(16);
+    config.on('dialog', dialog => dialog.accept());
+    await config.getByRole('button', { name: 'Remove', exact: true }).first().click(); await saved(config);
+    const remaining = await metro.favorites(); expect(remaining).toHaveLength(15); expect(remaining[0].station).toBe(metro.stations[1].id);
+    for (let i = 0; i < 15; i++) { await config.getByRole('button', { name: 'Remove', exact: true }).first().click(); await saved(config); }
+    expect(await metro.favorites()).toEqual([]); expect(metro.settingsCloses).toBe(0);
+    await metro.relaunch(0, 'root'); await metro.startPhone(); expect(await metro.favorites()).toEqual([]); await metro.expectScreen('first-use');
+  });
+});
+
 test('Add saves immediately without closing, duplicates do not write, Done does not save a picker draft', async ({ metro }) => {
   await metro.favorites();
   const cancelled = await metro.openSettings(); await choose(cancelled, 'pt-ml-sa');
@@ -263,33 +291,6 @@ test.describe('hostile source labels', () => {
     await config.getByRole('button', { name: 'Add favourite', exact: true }).click(); await saved(config);
     await expect(config.locator('.route h3')).toContainText('</script><img src=x onerror=alert(1)>');
     await expect(config.locator('img')).toHaveCount(0);
-  });
-});
-
-test.describe('full phone favourites list', () => {
-  test.use({ largeNetwork: true });
-  test('catalogue changes reject an open selection and Refresh loads replacement controls', async ({ metro }) => {
-    await metro.favorites(); const config = await metro.openSettings();
-    await expect(config.getByRole('button', { name: 'Add favourite', exact: true })).toBeEnabled();
-    await config.getByLabel('Line', { exact: true }).selectOption('pt-ml-blue');
-    await metro.removeLine('pt-ml-blue'); const before = metro.commands.length;
-    await config.getByRole('button', { name: 'Add favourite', exact: true }).click(); await result(metro, 'conflict', before);
-    await expect(config.getByRole('status')).toHaveText('Changed on watch. The list has been refreshed; try again.');
-    await expect(config.getByLabel('Line', { exact: true }).locator('option[value="pt-ml-blue"]')).toHaveCount(0);
-    expect(await metro.favorites()).toEqual([]);
-  });
-  test('save 16 routes, retain surviving slots, remove all, and restart without resurrection', async ({ metro }) => {
-    await metro.favorites(); const config = await metro.openSettings();
-    for (const station of metro.stations.slice(0, 16)) await add(config, station.id, station.id === 'pt-ml-ap' ? 'pt-ml-ss' : 'pt-ml-ap');
-    await expect(config.getByText('16 / 16', { exact: true })).toBeVisible();
-    await expect(config.getByRole('button', { name: 'Add favourite', exact: true })).toBeDisabled();
-    expect(await metro.favorites()).toHaveLength(16);
-    config.on('dialog', dialog => dialog.accept());
-    await config.getByRole('button', { name: 'Remove', exact: true }).first().click(); await saved(config);
-    const remaining = await metro.favorites(); expect(remaining).toHaveLength(15); expect(remaining[0].station).toBe(metro.stations[1].id);
-    for (let i = 0; i < 15; i++) { await config.getByRole('button', { name: 'Remove', exact: true }).first().click(); await saved(config); }
-    expect(await metro.favorites()).toEqual([]); expect(metro.settingsCloses).toBe(0);
-    await metro.relaunch(0, 'root'); await metro.startPhone(); expect(await metro.favorites()).toEqual([]); await metro.expectScreen('first-use');
   });
 });
 
