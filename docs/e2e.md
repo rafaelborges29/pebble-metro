@@ -452,6 +452,33 @@ merger exits zero. An offline temporary release fixture exercised candidate copi
 and pre/post provenance validation for both targets, rejecting a tampered PBW and
 a wrong-source provenance record. No release workflow was dispatched or published.
 
+#### Runtime profiling and transport readiness
+
+A bounded Bun 1.4.4 experiment used the verified official Linux binary, without
+changing dependencies or the lockfile. Four locale checks passed under Bun, but
+full-suite discovery failed with `AggregateError` while loading the favourite,
+settings and permissions specs. Explicit harness-tsconfig and Playwright async-
+loader attempts did not make all 98 cases discoverable. A passing subset is not
+a valid runtime replacement: Node 24.21.0 remains the supported runner, and the
+bridge continues to reuse the Pebble SDK's Python `libpebble2` implementation.
+
+Local process accounting across eight representative range/header/locale flows
+measured 5.99 CPU-seconds in Python and 35.87 CPU-seconds in its QEMU/GDB children.
+Bridge lifetimes summed to 96.67 seconds across concurrently running cases; this
+is not one job's elapsed time or a complete Node/Chromium CPU profile. The result
+does not justify porting the watch protocol to a new runtime.
+
+Playwright step profiling instead found avoidable delay observing transport state
+already delivered into fixture memory. Only the serialization checkpoint and real
+native-receipt predicates now use 20/50/100 ms polling intervals; their assertion
+deadlines and required values/receipts are unchanged. These checks do not issue
+extra browser/watch RPCs. Button hold/release delays, screenshot/animation polling,
+production timeout/recovery timers, fresh storage and heap/restart checks remain
+unchanged. In the eight-flow local pilot, serialization-plus-arrival expect-step
+time summed to 6.48s before / 3.25s after. Total pilot wall time was 37.1s / 36.6s;
+these small local timings are not a hosted speedup claim. Full hosted confirmation
+and repeated-suite evidence are linked in the PR.
+
 ### Other probes and limits
 
 During development, the allocation-free C JSON decoder was separately checked
