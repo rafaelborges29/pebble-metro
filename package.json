@@ -6,7 +6,7 @@
     "type": "git",
     "url": "git+https://github.com/rafaelborges29/pebble-metro.git"
   },
-  "version": "0.4.0-snapshot",
+  "version": "0.5.0-snapshot",
   "description": "Small native Lisbon Metro arrivals app for Pebble Time 2 and Pebble Round 2.",
   "scripts": {
     "build": "pebble build --sdk 4.33.1",
@@ -35,13 +35,21 @@
     "usesPermissions": [
       {
         "name": "Internet",
-        "parameters": { "domains": ["api.underlx.com"] },
+        "parameters": {
+          "domains": [
+            "api.underlx.com"
+          ]
+        },
         "reason": "To download Lisbon Metro station and line information from UnderLX.",
         "required": true
       },
       {
         "name": "Internet",
-        "parameters": { "domains": ["perturbacoes.pt"] },
+        "parameters": {
+          "domains": [
+            "perturbacoes.pt"
+          ]
+        },
         "reason": "To receive live Lisbon Metro arrival estimates from UnderLX.",
         "required": true
       }
