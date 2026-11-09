@@ -11,9 +11,7 @@
 - Do not uninstall live, wipe the watch or clear phone app data to install dev.
   Dev has its own stable identity and favourites; update it without uninstalling.
 - Building, running checks and opening a PR do not authorize physical installation.
-  Only send to a watch when the user requests it. Installer tests use mocked
-  external commands and never contact hardware.
+  Only send to a watch when the user requests it.
 
 E2E stays single-app/production; no dual-app emulator infrastructure is needed.
-Run `python3 -m unittest discover -s tools -p 'test_dev_install.py'` for offline
-package and installer safety checks. See README for build/install commands.
+See README for build/install commands.

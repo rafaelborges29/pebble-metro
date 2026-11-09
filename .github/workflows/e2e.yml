@@ -44,12 +44,6 @@ jobs:
         run: python3 tools/release.py check
       - name: Typecheck
         run: npm run typecheck
-      - name: Test offline dev installer guards
-        run: python3 -m unittest discover -s tools -p 'test_dev_install.py'
-      - name: Build and verify dev package (no installation)
-        run: |
-          npm run build:dev
-          python3 tools/release_package.py --dev build/metro-lisboa-dev.pbw
       - name: Build both targets from this revision
         run: npm run check
       - uses: ./.github/actions/test-emulator

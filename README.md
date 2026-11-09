@@ -201,8 +201,6 @@ store updates continue to target live, and production validation rejects dev PBW
 Build variants sequentially in one checkout; they share generated intermediates.
 Normal build/E2E commands remain production-only. The direct dev build command is
 `pebble build --sdk 4.33.1 -- --app-variant=dev`; unknown variants are rejected.
-Offline installer guards run with
-`python3 -m unittest discover -s tools -p 'test_dev_install.py'`.
 Platform references: [app identity](https://developer.repebble.com/guides/tools-and-resources/app-metadata/),
 [storage](https://developer.repebble.com/guides/events-and-services/persistent-storage/),
 [developer connection](https://developer.repebble.com/guides/tools-and-resources/developer-connection/)
