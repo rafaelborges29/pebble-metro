@@ -416,7 +416,7 @@ and runner-minutes sum all three jobs, so splitting is not a free speedup.
 | [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534850485) | Cold miss/save | 6m45s | 98 passed |
 | [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42534856192) | Cold miss/save | 6m53s | 98 passed |
 | [3 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535418474) | Warm hit | **5m15s** | 98 passed |
-| [4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535420304) | Warm hit | 6m24s | 98 passed |
+| [4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535420304/attempts/1) | Warm hit | 6m24s | 98 passed |
 | [Normal PR, 4 workers, consolidated setup](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535543763) | Warm hit | **5m45s** | 98 passed |
 | [4 workers, repeat-each=2](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535422402) | Warm hit | 9m36s | **196 passed** |
 
@@ -482,8 +482,23 @@ Hosted traces also exposed a scheduling tail: the independent 16-route phone
 save/remove case ran almost last, leaving the other workers idle for about 25s.
 Its existing describe block now registers earlier in `settings.spec.ts`; the
 block's test bodies, options, titles and assertions are unchanged. This improves
-load balance without another runner or scheduling framework. Full hosted
-confirmation and repeated-suite evidence are linked in the PR.
+load balance without another runner or scheduling framework.
+
+| Runtime investigation, 2026-11-09 | Full pipeline | Result |
+| --- | --- | --- |
+| [Fresh pre-change baseline](https://github.com/rafaelborges29/pebble-metro/actions/runs/42598828231) | 6m05s | 98 passed |
+| [Prompt transport polling only](https://github.com/rafaelborges29/pebble-metro/actions/runs/42599104404) | 6m45s | 98 passed |
+| [Prompt polling and early long-case scheduling](https://github.com/rafaelborges29/pebble-metro/actions/runs/42600719661) | **5m18s** | 98 passed |
+
+Do not attribute every difference to the polling change: the intermediate run
+received a slower EPYC Gabbro runner and started its second job 18s later. In the
+baseline/balanced Gabbro samples, both on Xeon 6975P-C, test execution decreased
+from 240.9s to 224.9s and estimated worker occupancy increased from 90.9% to 96.8%
+(sum of case durations / three workers / test wall time). The long phone-list
+case completed well before the last tests instead of leaving the final idle tail.
+All 98 identities and all assertion/receipt semantics remain intact. Current-head
+confirmation and repeated-suite evidence are linked in the PR; these samples are
+not a hard hosted latency SLA.
 
 ### Other probes and limits
 
