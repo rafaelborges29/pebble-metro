@@ -62,9 +62,8 @@ empty list, source retries remain bounded, and cached estimates keep their origi
 expiry. Grant access, allow the companion to retry, then Refresh the same page;
 no failed mutation is replayed. Denying/revoking Internet does not erase favourites.
 
-No SDK/tool upgrade is needed for this metadata-only change: pinned SDK 4.33.1
-preserves the explicit manifest fields, and the phone applies permission rules
-from `manifestVersion`, not the compiler version. Build/preflight tests inspect
+Pinned SDK 4.33.1 preserves the explicit manifest fields; the phone applies
+permission rules from `manifestVersion`, not the compiler version. Build/preflight tests inspect
 the actual PBW and reject a legacy or mismatched permission manifest. SDK 4.44+
 is still the documented packaging path for a future bundled `configPage` migration;
 this change keeps the existing live data-URI editor.
@@ -184,7 +183,5 @@ physical-flash power-loss guarantee is implied by this contract simulation.
   [preview gating](https://github.com/coredevices/mobileapp/blob/89f31dca3fd344ae9923fe9ca2f27b0f1f8a0230/pebble/src/commonMain/kotlin/coredevices/pebble/config/ConfigPageSession.kt),
   [PKJS event/respond bridge](https://github.com/coredevices/mobileapp/blob/89f31dca3fd344ae9923fe9ca2f27b0f1f8a0230/libpebble3/src/androidMain/assets/startup.js).
 
-Distributed PBWs expose their client HTML/JS/source maps, not the private Git
-repository/history. Catalogue facts retain UnderLX/ODbL attribution; original page
-code remains 0BSD. No hosting, store publication, merge or hardware installation
-is part of this change.
+Distributed PBWs expose client HTML/JS/source maps, not private Git history.
+Catalogue facts retain UnderLX/ODbL attribution; original page code remains 0BSD.

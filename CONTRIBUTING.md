@@ -3,14 +3,23 @@
 Keep the app small, predictable and arrivals-focused. The supported target is
 Pebble Time 2 (`emery`) and Pebble Round 2 (`gabbro`) with Android, SDK 4.33.1
 and Node 24.21.0.
-See [README](README.md) for setup and [architecture](docs/architecture.md) for the
-model, protocol and storage boundaries.
+See [README](README.md) for app usage and [architecture](docs/architecture.md)
+for the model, protocol and storage boundaries.
 
-## Local checks
+## Setup and checks
+
+The tested host is Linux x86-64. Install [uv](https://docs.astral.sh/uv/), Node
+24.21.0, and the runtime libraries listed in
+[the shared CI setup](.github/actions/setup-pebble/action.yml). On Ubuntu 24.04,
+that action is the authoritative package/toolchain recipe. Other hosts are not
+verified.
 
 ```sh
+uv tool install --python 3.13 --with libpebble2==0.0.31 pebble-tool==5.0.39
+pebble sdk install 4.33.1
+pebble sdk activate 4.33.1
 npm ci
-npx playwright install chromium
+npx playwright install --with-deps --only-shell chromium
 python3 tools/release.py check
 npm run typecheck
 npm run check
@@ -35,18 +44,53 @@ The tested versions and Linux system packages are pinned in
 [the shared CI setup](.github/actions/setup-pebble/action.yml); interpreter overrides are documented in
 [E2E](docs/e2e.md).
 
+The production PBW is `build/<checkout-directory-name>.pbw`; both native targets
+are included. Useful commands:
+
+- `npm run build` — compile phone TypeScript and build the production PBW.
+- `npm run build:dev` — build `build/metro-lisboa-dev.pbw`, without installing it.
+- `npm run check` — bootstrap syntax check and production build.
+- `npm run assets:screenshots` — explicitly recapture unmasked store screenshots.
+- `pebble clean --sdk 4.33.1` — clean after changing SDK or project type.
+
+### Development builds
+
+Build variants sequentially: they share generated intermediates. Normal checks
+and E2E stay production-only; no dual-app emulator setup is needed.
+
+| Variant | Name | Permanent UUID |
+| --- | --- | --- |
+| Production | Metro Lisboa | `5576168a-8b38-4be1-90e7-343af607c167` |
+| Development | Metro Lisboa Dev | `af9f9c16-6542-4568-bdd8-01e57443e3d0` |
+
+Use only the [guarded dev installer](README.md#install-development-on-your-watch)
+for owner-requested hardware tests. It validates metadata and both native headers,
+makes a private package copy and installs those exact bytes. Dev starts with its
+own favourites and Internet grants. Open its matching Settings entry and close
+old pages when switching apps; the shared page title still reads Metro Lisboa.
+Android's preview toggle/connectivity remain shared. Logs are not UUID-filtered:
+launch dev before `pebble logs --cloudpebble` (or explicit `--phone PHONE_ADDRESS`).
+Remove only **Metro Lisboa Dev** through Pebble Android if removal is intended;
+updates do not require uninstalling either app. Production release validation
+rejects dev packages.
+
+Hardware coexistence acceptance remains pending: with explicit owner approval,
+keep live favourite A, install dev and save different B, update dev, then remove
+only dev. Verify live A, both companions/Settings and independent permission
+grants on the actual Android/watch versions. Package/emulator checks cannot prove
+these platform interactions. Build, CI, PR or release approval does not authorize
+physical installation.
+
 ## Versions and releases
 
 Main carries the next `major.minor.0-snapshot` version. Keep `package.json` and both
 root lockfile version fields aligned. The build preserves that development label
 while Pebble's native binary uses numeric major/minor. Do not publish snapshot PBWs.
 
-Use **Actions → Create release** with **minor** or **major** to prepare and publish
-a tested release. This action creates a release branch/tag, publishes the same PBW
-to GitHub and Pebble after checks, then immediately commits the next snapshot
-directly to main and starts its emulator CI. No version-bump PR or second approval
-is required.
-See [release setup, verification and recovery](docs/releases.md).
+An explicitly approved **Actions → Create release** run publishes to GitHub,
+Pebble and Rebble after verification, then advances main's snapshot directly.
+There is no second approval. See [release setup and recovery](docs/releases.md).
+Do not dispatch it merely to test a change.
 
 ## Translations
 
@@ -107,9 +151,15 @@ new phone languages also need an explicit bundled-table/language mapping.
 - Do not commit build products, local credentials, real-device logs or emulator
   reports. Do not change the app UUID casually: it identifies installed data.
 
-For bug reports, include the app version, watch model/firmware, Android/Pebble app
-versions and steps to reproduce. Redact personal data from screenshots and logs.
-Emulator success does not replace physical-watch and battery testing.
+## Reporting issues
+
+For bugs, include app version, watch model/firmware, Android/Pebble app versions,
+steps to reproduce, and expected/actual behaviour. Say whether you used live or
+dev and whether it happens on hardware or an emulator. For feature requests,
+describe the problem and a concrete use case before suggesting an implementation.
+Redact personal data from screenshots/logs; never attach credentials or phone
+storage. Report vulnerabilities through [SECURITY.md](SECURITY.md), not public
+issues. Emulator success does not replace physical-watch and battery testing.
 
 Contributions to original project code are under [0BSD](LICENSE), the project's
 licence. Third-party licences and UnderLX attribution remain separate.

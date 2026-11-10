@@ -67,15 +67,11 @@ There is no interpreter or separately loaded JS archive. The per-app budget is
 128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
 rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-The phone-editor build uses approximately **60 KiB code/static RAM** plus the
-fixed startup token allocation. The initial 64-test emulator run sampled
-**53,700–53,924 bytes free heap**, preserving the existing 50 KiB minimum and
-4 KiB steady-state variation checks. Both targets also retain the expected-start
-assertion. These are sampled emulator measurements, not continuous traces. The PBW contains both
-watch binaries but only one phone bundle/source map. Complete licence/notices
-copies are embedded as a comment in that phone bundle, not as watch resources.
-Rebuilds can change size/hash; these are emulator measurements, not physical-watch
-heap or battery acceptance.
+[Emulator checks](e2e.md#memory-and-crash-diagnosis) enforce at least 50 KiB free
+heap, at most 4 KiB steady-state variation and expected app-start counts on both
+targets. These are sampled emulator checks, not hardware/battery acceptance.
+The PBW contains both watch binaries and one phone bundle/source map. Complete
+licence copies are embedded in that bundle, not watch resources.
 
 The drawing layer uses the actual window bounds. Time 2 retains its rectangular
 layout. Round 2 centers text and measured ETA/unit groups, places the header and

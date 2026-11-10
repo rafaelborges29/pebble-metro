@@ -1,116 +1,74 @@
-# Publishing Metro Lisboa
+# Store listing and assets
 
-## Recommended first release
+Metro Lisboa already has listings in the
+[Pebble Appstore](https://apps.repebble.com/dce54d3eb02943f1935e1529) and
+[Rebble Appstore](https://apps.rebble.io/en_US/application/6af0e5dfb99ed90009374190).
+Use the approved [release workflow](releases.md) for binary updates; do not create
+another app or change its UUID. Rebble-specific assets and its first-release
+receipt are in [rebble.md](rebble.md).
 
-Keep the Git repository/history and application source **private**. This guide
-prepares a binary-only store release; it does not authorize source publication or
-an upload. The [case-specific UnderLX assessment](../DATA_METHODS.md) identifies no
-additional public data/methods download or permission email prerequisite for this
-release. Retain its attribution/licensing conditions and review the submission
-requirements below before an approved Unlisted upload.
+This guide maintains listing copy and manual dashboard requirements, not approval
+to upload, accept legal terms or change visibility. The repository remains private
+pending the separate [source-publication review](open-source.md).
+
+## Listing changes
 
 Use the [Pebble Developer Dashboard](https://developer.repebble.com/dashboard)
-for the first release, with visibility explicitly set to **Unlisted**. It lets you
-review the exact PBW, artwork, URLs and visibility before submitting. After testing
-installation from the resulting store link, change the listing to **Listed**.
+for text, images, URLs and visibility. Release automation preserves these fields.
+Review the exact copy/assets and public publisher/contact details with the owner
+before changing them. Website and source fields are optional: leave them blank
+until public destinations are approved; never link private GitHub pages or derive
+a support address from commit metadata.
 
-Users normally discover/install the watch app through the Pebble mobile app's
-store. Website and source-code URL fields are optional; leave them blank rather
-than linking to private GitHub pages. A distributed PBW still contains extractable
-phone JavaScript and a source map; keeping GitHub private does not conceal them.
+Uploads/visibility changes can take effect immediately, without a review queue.
+**Unlisted** is shareable and installable, not private staging. **Hidden** is not
+installable/discoverable. Store caches can lag; visibility changes do not remove
+already-installed copies. After an uncertain upload, inspect the existing listing
+before retrying. Never rebuild/repackage an already verified release or replace a
+published version silently. See [release recovery](releases.md#retry-and-rollback).
 
-1. Review/commit the source and assets privately and run hosted CI. No public
-   repository or full application-source ZIP is part of this plan.
-2. Build the chosen revision with SDK 4.33.1. Record its version, UUID and PBW
-   SHA-256 privately; preserve the UUID on updates. Use an unused numeric version
-   such as `0.2.0`, not a `-beta` suffix. Retain each distributed version.
-3. Complete physical-watch checks and review applicable SDK/toolchain terms.
-   Standard builds embed complete
-   licence/notices copies in the phone bundle, so store-installed PBWs carry them.
-   Confirm the candidate still matches the recorded UnderLX client/screenshot
-   assessment and preserve its notices. No blanket permission email or public
-   application-source archive is required by that assessment. Reassess before
-   changing data-distribution scope; a private Release or expiring CI artifact
-   would not satisfy an offer if one becomes necessary. Test public URLs without
-   signing in.
-4. Sign in to the Developer Dashboard with the same Pebble account/sign-in method
-   used for development. Review any legal agreements yourself.
-5. Choose **New**, upload the exact PBW, and check type, UUID, version and both
-   **Emery (Time 2) / Gabbro (Round 2)** platform detections. Fill in the listing
-   and upload each platform's assets below.
-6. **Explicitly select Unlisted before Submit App.** Store submissions can become
-   available immediately: there is no review queue. Verify the resulting direct
-   link is installable but not discoverable in search/browsing.
-7. Install from that store link on Time 2 and Round 2 with Android and repeat
-   switching, reopen, expiry and disconnect/reconnect checks. Round 2 currently
-   has emulator coverage; collect physical-device feedback during the beta.
-8. When ready, use **Edit → App visibility → Listed** in the dashboard. For later
-   versions use **New Release**, the same UUID, an unused version and release notes.
-   Check the release's published/draft state as well as overall app visibility.
+The [distribution agreement §5.3](https://developer.repebble.com/legal/distribution/)
+requires a prominent privacy policy. Include the policy below directly in the
+store description; an optional website field or private `PRIVACY.md` link does
+not replace it. Recheck privacy statements, permissions and compatibility against
+the exact published version, not an unreleased main snapshot.
 
-Unlisted is still a shareable, installable release, not a private staging area.
-Hidden is not discoverable or installable. Changing visibility does not uninstall
-copies already on watches, and cached store pages can lag by up to ten minutes.
-
-## Privacy delivery
-
-The [Developer Distribution Agreement §5.3](https://developer.repebble.com/legal/distribution/)
-requires a prominently displayed privacy policy. Optional website/source fields
-are not a privacy exemption. The draft below includes the user-facing policy
-**directly in the store description**, so no separate website or public repository
-is needed for this delivery plan. Keep it visible in the final listing and verify
-it on the resulting store page. [PRIVACY.md](../PRIVACY.md) records the detailed
-behaviour for maintainers; its private URL is not a customer-facing policy.
-
-Review public publisher/contact details before submission. If providing an
-optional support contact, approve it separately; do not automatically reuse a
-commit email or private GitHub Issues. A future public privacy/notices-only page
-is an alternative, not an assumed prerequisite.
+Preserve [UnderLX attribution and the assessed data scope](../DATA_METHODS.md),
+complete licence copies in the phone bundle, and artificial-screenshot disclosure.
+The software-only store assessment does **not** cover publishing repository
+fixtures/history. Reassess changed data distribution; no blanket permission-email
+or public application-source requirement is assumed.
 
 ## Assets and limits
 
-Current official requirements, checked 2026-10-29:
-
-| Item | Requirement | Prepared file |
+| Item | Pebble requirement | File |
 | --- | --- | --- |
-| PBW | At most 4.4 MB; released SDK; unique app UUID | `build/<checkout-name>.pbw` |
-| Small store icon | 80×80 | `assets/appstore/icon-small.png` |
-| Large store icon | 144×144 | `assets/appstore/icon-large.png` |
-| Emery screenshots | Exactly 200×228; unframed; up to five | Four `assets/appstore/emery_*.png` files |
-| Gabbro screenshots | Exactly 260×260; unframed; up to five | Four `assets/appstore/gabbro_*.png` files |
-| Banner | Optional, 720×320 | Not required for the initial beta |
-| Watch launcher icon | At most 25×25; separate from store icons | `resources/images/menu-icon.png` |
+| PBW | At most 4.4 MB; stable version; both targets | Exact verified release PBW |
+| Small icon | 80×80 | `assets/appstore/icon-small.png` |
+| Large icon | 144×144 | `assets/appstore/icon-large.png` |
+| Emery screenshots | 200×228, unframed, up to five | `assets/appstore/emery_*.png` |
+| Gabbro screenshots | 260×260, unframed, up to five | `assets/appstore/gabbro_*.png` |
+| Optional banner | 720×320 | Not required for Pebble |
+| Launcher icon | At most 25×25 | `resources/images/menu-icon.png` |
 
-Store images accept PNG/JPEG/GIF, at most 4.4 MB each. These prepared assets use PNG.
-Icons and dashboard screenshots can technically be omitted/generated, but original
-icons and useful real-app screenshots make a much clearer listing.
-
-Suggested screenshot order on each platform: **seconds → approximate minutes →
-SAVED → favourites**. These are unmodified emulator captures from the native app,
-with deterministic example arrival data. Do not describe them as physical-watch
-captures or current train observations. Upload each set to its correct platform;
-Round 2 is Gabbro, not the original Time Round/Chalk. See
-[asset provenance and generation](../assets/README.md).
+Store images accept PNG/JPEG/GIF, at most 4.4 MB each. Use the prepared PNGs in
+**seconds → approximate minutes → SAVED → favourites** order for each platform.
+Round 2 is **Gabbro**, not Chalk. Images are actual emulator captures with
+artificial estimates, not live observations or proof of hardware acceptance.
+See [asset provenance and generation](../assets/README.md).
 
 ## Draft listing
 
-- **Name:** Metro Lisboa
-- **Type/category:** Watchapp / Daily (confirm the dashboard category label).
-- **Compatibility:** Pebble Time 2 and Pebble Round 2 + Android; no iOS, original
-  Time Round or other-watch claim. Round 2 hardware acceptance remains pending.
-- **Website URL:** leave blank; no approved public website is selected.
-- **Source code URL:** leave blank; repository/application source remain private.
-- **Support (optional):** use an approved customer-facing contact if provided;
-  private GitHub Issues are not a public support channel.
-- **Data access:** the current client/example-image assessment identifies no
-  separate data/alteration download requirement. Keep attribution and data terms;
-  reassess changed database distribution/public outputs before using this draft.
-- **Notices:** complete copies are embedded in the PBW's phone JavaScript bundle.
-- **Privacy:** include the policy below prominently in the store description.
-- **Android companion app:** leave the custom-companion field empty. The bundled
-  PebbleKit JavaScript uses the normal Pebble mobile app, not a separate Android app.
+- **Name/type/category:** Metro Lisboa / Watchapp / Daily (confirm dashboard label).
+- **Compatibility:** Time 2 and Round 2 with Android only; Round 2 hardware
+  acceptance is pending. Do not claim original Time Round, other watches or iOS.
+- **Website/source/support:** only approved public destinations, otherwise blank.
+- **Custom Android companion:** none; PKJS runs inside the normal Pebble app.
+- **Notices/privacy:** complete licences in the PBW; prominent policy below.
 
-Plain-text description draft:
+The following copy describes current development behaviour. Review which features
+exist in the selected stable release before using it; binary publication does not
+automatically update listing text.
 
 ```text
 Lisbon Metro arrival estimates on your Pebble Time 2 or Pebble Round 2.
@@ -120,9 +78,9 @@ Save up to 16 station, line and direction favourites on the watch or in Metro
 Lisboa's Settings in the Pebble Android app. Phone editing requires a connected
 watch, live settings support and Settings → Plugins → Plugins / permissions preview
 enabled. Add and confirmed Remove save immediately without closing the page;
-feedback stays on the phone. Its bundled editor needs no separate website or account. See the next three estimates, with second-by-second
-countdowns when the source supplies seconds. Minute-only
-estimates stay approximate rather than inventing precision.
+feedback stays on the phone. Its bundled editor needs no separate website or account.
+See the next three estimates, with second-by-second countdowns when the source
+supplies seconds. Minute-only estimates stay approximate rather than inventing precision.
 
 Reopen quickly with saved estimates for two recent routes, clearly marked SAVED.
 Original source expiry is preserved; unavailable or expired data is not shown as
@@ -160,7 +118,8 @@ The settings page is bundled and opened locally without external assets or hosti
 Initial data URLs and live read/save messages stay inside the mobile app, whose
 diagnostics/device can still inspect them. Close URLs contain no favourite choices.
 Live editing uses the mobile app's preview permission system; Metro adds no plugin
-and requests no access to unrelated plugins, files, contacts or location. The full list is not sent to UnderLX or a developer-operated service.
+and requests no access to unrelated plugins, files, contacts or location. The full
+list is not sent to UnderLX or a developer-operated service.
 Closing the app retains saved favourites/cache, but does not renew estimate expiry.
 Removing a favourite removes it from the current list and attempts to delete its
 saved estimates; storage errors are reported. Use platform app-data controls deliberately
@@ -176,63 +135,19 @@ practices, outside this app's control. See https://repebble.com/privacy/ and
 https://underlx.com/terms for the providers' published information.
 ```
 
-This remains a draft: review its privacy statements against the final build,
-public publisher details and any optional support contact. Confirm that the
-candidate matches the recorded UnderLX assessment; it is a case-specific reading,
-not legal certification or a universal exemption for other data uses. Do not
-insert private GitHub links or promise public application source as a shortcut.
-Obtain approval for the exact candidate and Unlisted visibility before submission.
+For Rebble, also include `https://rebble.io/privacy/` as its provider-policy
+reference. Review applicable [Pebble policies](https://developer.repebble.com/legal/program-policies/)
+and [Rebble terms](https://rebble.io/tos/) before approved submissions. Do not
+promise public source or expose user data to satisfy an optional field.
 
-Initial release notes draft:
-
-```text
-Native C arrivals beta for Pebble Time 2, Pebble Round 2 and Android.
-Round 2 includes a circular layout verified in the emulator; device feedback is welcome.
-Favourites, source-precision countdowns, two-route saved cache and tiny-train loader.
-Earlier Alloy favourites must be re-added after upgrading; the old store is not erased.
-```
-
-## Updates and other supported publishing routes
-
-For updates to the existing Metro Lisboa listing, use the
-[Create release GitHub Action](releases.md). It tests one tagged PBW and publishes
-those exact bytes to GitHub, Pebble and Rebble, preserving the existing listings
-and screenshots. Running that action is approval to publish when checks pass. Setup, credentials, generated
-notes, retry handling and automatic version bumps on main are documented there.
-
-Pebble officially supports three routes to the same appstore listing:
-
-- **Developer Dashboard:** manual PBW/images upload and the only place to edit an
-  existing listing's text, images, URLs and visibility.
-- **`pebble publish`:** build/capture/upload from the CLI, including non-interactive
-  CI uploads. It rebuilds, so our release automation uses its existing-app API
-  directly to preserve the verified PBW.
-- **CloudPebble Publish:** uses the latest successful CloudPebble build and that
-  signed-in account. Avoid it for the initial local release if it risks submitting
-  a different build from the exact PBW tested here.
-
-Do not assume a test upload is a draft or Unlisted. Current publishing docs describe
-CLI/CloudPebble uploads as immediate and new apps as Listed. The installed
-Pebble Tool 5.0.39 help exposes `--is-published` with a false default, which differs
-from those docs. Treat defaults as version-dependent and inspect actual listing
-visibility and release state; the dashboard's explicit controls are safer initially.
-Do not put sign-in tokens in commands, source, logs or screenshots.
-
-## Rebble Appstore
-
-Rebble's initial submission is tracked under #9; future releases use the same
-[release workflow](releases.md) as Pebble after its new secret is configured.
-[Metro Lisboa on Rebble](https://apps.rebble.io/en_US/application/6af0e5dfb99ed90009374190)
-is Public at version **0.3.0**, published 2026-11-08. Its served PBW matches the
-GitHub/Pebble package exactly. See [Rebble submission](rebble.md) for the receipt,
-store-specific assets, listing copy, compatibility caveat and recovery procedure.
-
-## Official references
+## References
 
 - [Publishing an app](https://developer.repebble.com/guides/appstore-publishing/publishing-an-app/)
 - [Submission fields, images and visibility](https://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/)
-- [Developer Distribution Agreement, including privacy §5.3](https://developer.repebble.com/legal/distribution/)
-- [Developer Program Policies](https://developer.repebble.com/legal/program-policies/)
-- [Watch launcher icon rules](https://developer.repebble.com/guides/app-resources/images/#menu-icon-in-the-launcher)
-- [Developer Dashboard](https://developer.repebble.com/dashboard)
-- [Public appstore](https://apps.repebble.com/)
+- [Distribution agreement](https://developer.repebble.com/legal/distribution/)
+- [Launcher icon rules](https://developer.repebble.com/guides/app-resources/images/#menu-icon-in-the-launcher)
+
+Requirements and upstream defaults can change. `pebble publish` rebuilds;
+CloudPebble Publish uses its latest build. Neither is a substitute for the exact
+verified PBW used by this project's release workflow. Never put sign-in tokens in
+commands, source, logs or screenshots.

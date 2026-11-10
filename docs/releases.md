@@ -18,7 +18,7 @@ before preparing a release.
 
 ## One-time repository setup
 
-After reviewing and merging the workflow:
+Before an approved release:
 
 1. Keep the repository private. GitHub releases and automatically generated tag
    source archives inherit that visibility; this does not change the public
@@ -74,12 +74,6 @@ through a private environment and run `python3 tools/rebble_store.py`. Repeat wi
 the same refresh token to confirm reuse. It only exchanges OAuth tokens and GETs
 the account/listing; it cannot publish through that entry point. Never enable shell
 tracing or dump the environment while credentials are loaded.
-
-Setup verified on 2026-11-08: the owning account/listing passed two consecutive
-refresh/authentication checks using the same original refresh token, and
-`REBBLE_REFRESH_TOKEN` was configured as a repository Actions secret. The public
-v0.3.0 downloads were also rechecked through both uploader receipt methods.
-No app upload or release workflow was run for this setup verification.
 
 Authentication is checked against the existing accounts/listings before every
 upload. Required identifiers:
@@ -223,8 +217,8 @@ the automation does not delete releases, roll back user data or install on watch
 ## Development checks
 
 `package.json` is the version source; the lockfile's two root version fields must
-match. After releasing `0.3.0`, main carries `0.4.0-snapshot`. SDK 4.33.1 rejects
-prerelease labels in its configuration validator, so `wscript` narrowly adapts that validator for our
+match. Main carries the next development snapshot. SDK 4.33.1 rejects prerelease
+labels in its configuration validator, so `wscript` narrowly adapts that validator for our
 `-snapshot` suffix. The PBW retains the full label; native headers use major/minor.
 Source files and the installed SDK remain unchanged during builds. Release tag
 validation rejects snapshots before credentials are used. There is no version UI.
@@ -236,10 +230,8 @@ npm run check
 npx playwright test --update-snapshots=none
 ```
 
-The first live publication requires choosing a real release through the workflow
-after its setup and merge.
-Rebble is included in the same publication approval after this change is merged
-and its secret configured. Runtime preflights, package-hash verification and
-receipt checks stop publication on errors; there is no separate publisher test
-suite. Implementing this change does not trigger a release or hardware install.
-See the [existing Rebble listing and submission record](rebble.md).
+Runtime preflights, package-hash verification and receipt checks stop publication
+on errors; there is no separate publisher test suite. Do not dispatch a live
+release to test workflow changes. Building, CI and source review do not authorize
+publication or physical-watch installation.
+See the [existing Rebble listing and first-release receipt](rebble.md).
