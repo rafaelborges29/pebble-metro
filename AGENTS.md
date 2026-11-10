@@ -2,8 +2,8 @@
 
 - When the user asks to install/send/update the watch app, use the **development**
   app unless they explicitly request production/live.
-- Use `npm run install:dev -- --phone PHONE_ADDRESS` with the owner's explicit
-  target, or `npm run install:dev -- --cloudpebble` for their cloud connection.
+- Default to `npm run install:dev -- --cloudpebble` for the owner's developer
+  connection. Use `--phone PHONE_ADDRESS` only when they explicitly request LAN.
   The Bash script builds, checks the fixed dev UUID in the PBW and both native
   headers, then installs that exact package. Never bypass its validation.
 - Never use bare `pebble install` or install the default build for routine testing:
