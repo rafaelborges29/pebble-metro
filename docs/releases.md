@@ -104,7 +104,7 @@ headers or redirects.
    package changes on a release branch are rejected. An intentionally user-pushed
    valid `vmajor.minor.0` tag also starts this pipeline and authorizes publication.
 3. The exact revision uses the shared pinned toolchain: SDK **4.33.1**, Pebble Tool
-   **5.0.39**, libpebble2 **0.0.31**, Python **3.13** for the tool, Node **24.21.0**.
+   **5.0.39**, libpebble2 **0.0.31**, Python **3.13** for the tool, Node **24.22.2**.
    It checks production phone/shared TypeScript and the harness, then builds once
    (compiling the phone to SDK-compatible JavaScript). This build-only job skips
    Chromium. Two independent Ubuntu jobs download the **same immutable candidate**

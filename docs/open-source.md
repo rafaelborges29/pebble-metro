@@ -62,8 +62,8 @@ unfetched GitHub history, deleted server material, artifacts or PR attachments.
   `npm ci`, release metadata checks, typecheck and a clean build of both targets.
   The working checkout passed all 98 emulator cases with snapshot updates
   disabled. Actionlint 1.7.12 passed workflow validation (ShellCheck unavailable);
-  local Markdown link targets and `git diff --check` passed. Hosted CI has not
-  been run for these edits.
+  local Markdown link targets and `git diff --check` passed. Check hosted CI on
+  the exact PR commit; local checks alone do not establish hosted success.
 
 These observations are a starting point, **not security certification or a
 complete publication audit**. Record final checks against an exact revision.

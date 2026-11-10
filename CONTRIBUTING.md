@@ -2,14 +2,14 @@
 
 Keep the app small, predictable and arrivals-focused. The supported target is
 Pebble Time 2 (`emery`) and Pebble Round 2 (`gabbro`) with Android, SDK 4.33.1
-and Node 24.21.0.
+and Node 24.22.2.
 See [README](README.md) for app usage and [architecture](docs/architecture.md)
 for the model, protocol and storage boundaries.
 
 ## Setup and checks
 
 The tested host is Linux x86-64. Install [uv](https://docs.astral.sh/uv/), Node
-24.21.0, and the runtime libraries listed in
+24.22.2, and the runtime libraries listed in
 [the shared CI setup](.github/actions/setup-pebble/action.yml). On Ubuntu 24.04,
 that action is the authoritative package/toolchain recipe. Other hosts are not
 verified.

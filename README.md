@@ -67,7 +67,7 @@ not change favourites or cached estimates. See [translations](CONTRIBUTING.md#tr
 
 ## Development
 
-Use Linux x86-64, Node **24.21.0**, Pebble Tool **5.0.39**, `libpebble2` **0.0.31**
+Use Linux x86-64, Node **24.22.2**, Pebble Tool **5.0.39**, `libpebble2` **0.0.31**
 and SDK **4.33.1**. See [contributor setup](CONTRIBUTING.md#setup-and-checks)
 for installation and system dependencies.
 

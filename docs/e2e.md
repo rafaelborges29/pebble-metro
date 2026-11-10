@@ -141,7 +141,7 @@ completed the 98-case pipeline in 5m15s; a
 passed 196 cases. These are historical observations, not a latency guarantee.
 Detailed optimization experiments remain in
 [PR #26](https://github.com/rafaelborges29/pebble-metro/pull/26) and Git history,
-not this operating guide. Node 24.21.0 remains the supported runner.
+not this operating guide. Node 24.22.2 remains the supported runner.
 
 To measure the current revision without publishing:
 
