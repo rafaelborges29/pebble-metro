@@ -1,4 +1,5 @@
 """Version and PBW checks shared by local preflight and release automation."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -8,7 +9,11 @@ import uuid
 import zipfile
 
 APP_UUID = "5576168a-8b38-4be1-90e7-343af607c167"
+APP_NAME = "Metro Lisboa"
 APP_ID = "dce54d3eb02943f1935e1529"
+DEV_UUID = "af9f9c16-6542-4568-bdd8-01e57443e3d0"
+DEV_NAME = "Metro Lisboa Dev"
+DEV_PBW = "metro-lisboa-dev.pbw"
 TARGETS = ["emery", "gabbro"]
 SDK = "4.33.1"
 TOOL = "5.0.39"
@@ -89,6 +94,16 @@ def sha256(path):
 
 
 def verify_pbw(path, version, root=Path(".")):
+    """Production-only gate used by release automation; never accepts dev identity."""
+    return _verify_pbw(path, version, root, APP_UUID, APP_NAME)
+
+
+def verify_dev_pbw(path, version, root=Path(".")):
+    require(DEV_UUID != APP_UUID, "Development UUID must differ from production")
+    return _verify_pbw(path, version, root, DEV_UUID, DEV_NAME)
+
+
+def _verify_pbw(path, version, root, app_uuid, app_name):
     parts = version_parts(version, snapshot=True)
     path = Path(path)
     require(0 < path.stat().st_size <= MAX_PBW_BYTES, "PBW exceeds the 4.4 MB release limit or is empty")
@@ -98,7 +113,9 @@ def verify_pbw(path, version, root=Path(".")):
         require(sum(info.file_size for info in bundle.infolist()) <= 16_000_000, "Excessive unpacked PBW size")
         require(bundle.testzip() is None, "Corrupt PBW archive")
         info = json.loads(bundle.read("appinfo.json"))
-        require(info["uuid"] == APP_UUID and info["versionLabel"] == version, "PBW identity/version mismatch")
+        require(info["uuid"] == app_uuid and info["versionLabel"] == version, "PBW identity/version mismatch")
+        require(all(info.get(key) == app_name for key in ("displayName", "shortName", "longName")),
+                "PBW display name mismatch")
         require(sorted(info["targetPlatforms"]) == TARGETS, "PBW target metadata mismatch")
         require(info.get("manifestVersion") == 2, "PBW must use native permissions (manifestVersion 2)")
         require(info.get("usesPermissions") == read_json(root / "package.json")["pebble"]["usesPermissions"],
@@ -120,7 +137,8 @@ def verify_pbw(path, version, root=Path(".")):
             header = HEADER.unpack_from(bundle.read(f"{target}/pebble-app.bin"))
             require(header[0] == b"PBLAPP\0\0", "Invalid native application header")
             require(header[5:7] == parts, "Native binary version differs from PBW version")
-            require(str(uuid.UUID(bytes=header[16])) == APP_UUID, "Native binary UUID mismatch")
+            require(str(uuid.UUID(bytes=header[16])) == app_uuid, "Native binary UUID mismatch")
+            require(header[10].split(b"\0", 1)[0] == app_name.encode("utf-8"), "Native binary name mismatch")
         # Webpack indents this comment once; remove only that module indentation.
         phone = bundle.read("pebble-js-app.js").decode("utf-8").replace("\n\t", "\n")
         notices = [root / "LICENSE", root / "THIRD_PARTY_NOTICES.md", *sorted((root / "LICENSES").glob("*.txt"))]
@@ -128,3 +146,21 @@ def verify_pbw(path, version, root=Path(".")):
         for notice in notices:
             require(notice.read_text() in phone, f"Missing complete bundled notice: {notice.name}")
     return sha256(path)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dev", action="store_true", help="Require the fixed development identity instead of production")
+    parser.add_argument("pbw", type=Path)
+    args = parser.parse_args()
+    version = metadata()
+    verify = verify_dev_pbw if args.dev else verify_pbw
+    digest = verify(args.pbw, version)
+    print(f"Verified {'development' if args.dev else 'production'} PBW: {args.pbw} (SHA-256 {digest})")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, KeyError, OSError, zipfile.BadZipFile, struct.error) as error:
+        raise SystemExit(str(error)) from None

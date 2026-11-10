@@ -11,6 +11,8 @@ out = 'build'
 
 def options(ctx):
     ctx.load('pebble_sdk')
+    ctx.add_option('--app-variant', choices=['production', 'dev'], default='production',
+                   help='App identity to compile (default: production)')
 
 
 def configure(ctx):
@@ -25,7 +27,7 @@ def configure(ctx):
     # package files and the emitted PBW label intact. Never modify the installed SDK.
     from waflib import Context
     sys.path.insert(0, ctx.path.abspath())
-    from tools.release_package import version_parts
+    from tools.release_package import DEV_NAME, DEV_PBW, DEV_UUID, version_parts
     sdk = Context.load_tool('pebble_sdk')
     validate = sdk._validate_version
 
@@ -39,6 +41,15 @@ def configure(ctx):
         ctx.load('pebble_sdk')
     finally:
         sdk._validate_version = validate
+
+    if ctx.options.app_variant == 'dev':
+        # Both native headers and PBW metadata must use the same identity.
+        # Copy inherited dictionaries so production configuration stays untouched.
+        for env in ctx.all_envs.values():
+            info = dict(env.PROJECT_INFO)
+            info.update(uuid=DEV_UUID, displayName=DEV_NAME, shortName=DEV_NAME, longName=DEV_NAME)
+            env.PROJECT_INFO = info
+            env.BUNDLE_NAME = DEV_PBW
 
 
 def build(ctx):
