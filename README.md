@@ -110,7 +110,7 @@ See [development identities and hardware acceptance](CONTRIBUTING.md#development
 - [Phone configuration](docs/phone-configuration.md)
 - [Store listing and privacy copy](docs/appstore.md) · [Rebble specifics](docs/rebble.md)
 - [Releases and recovery](docs/releases.md) · [Artwork and screenshots](assets/README.md)
-- [Security reporting](SECURITY.md) · [Open-source preparation checklist](docs/open-source.md)
+- [Security reporting](SECURITY.md)
 
 ## Licensing
 

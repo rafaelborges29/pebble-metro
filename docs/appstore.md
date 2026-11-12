@@ -9,7 +9,7 @@ receipt are in [rebble.md](rebble.md).
 
 This guide maintains listing copy and manual dashboard requirements, not approval
 to upload, accept legal terms or change visibility. The repository remains private
-pending the separate [source-publication review](open-source.md).
+pending a separate source-publication review and owner approval.
 
 ## Listing changes
 

@@ -12,5 +12,3 @@ separate security-backport policy. Never run a live upload, hardware installatio
 or destructive reset as part of a report.
 
 For ordinary bugs/features, see [Contributing](CONTRIBUTING.md#reporting-issues).
-For dependencies, Actions hardening and publication checks, see the
-[open-source preparation checklist](docs/open-source.md).
