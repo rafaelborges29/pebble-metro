@@ -40,8 +40,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-pebble
-      - name: Validate version metadata
-        run: python3 tools/release.py check
+      - name: Validate version metadata and snapshot PR recovery
+        run: |
+          python3 tools/release.py check
+          python3 -m unittest discover -s tools -p test_release.py
       - name: Typecheck
         run: npm run typecheck
       - name: Build both targets from this revision

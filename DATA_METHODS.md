@@ -94,6 +94,27 @@ Keep any such offer associated with its exact version and retain required prior
 materials. Contacting UnderLX remains an optional clarification route, not a
 mandatory permission email for the release assessed above.
 
+## Proposed public-source contents
+
+A separate review of the intended source snapshot covers the complete fixture,
+not just store screenshots. The current fixture contains three UnderLX-derived
+stations and the Vermelha route; stress mode adds 47 fictional stations and
+synthetic paths for additional lines. All injected arrivals are artificial.
+The provider's developer portal, service terms and ODbL 4.4–4.6 were rechecked
+for this review; this is a maintainer assessment, not legal certification.
+
+For the proposed all-source snapshot, retain the versioned [fixture and spec
+inputs](e2e/) (including [`metro-fixture.ts`](e2e/metro-fixture.ts)), the
+transformation implementations below, this attribution and the ODbL text. These
+provide the fixture's machine-readable contents and exact generation/alteration
+methods, including synthetic additions;
+data remains ODbL while harness code remains 0BSD. Verify free recipient access
+at the published revision, including the matching materials for any older
+fixtures/screenshots/history exposed. This is not an offer of an upstream live
+database or a promise to publish unrelated source or users' caches. Current
+private links are not a public offer. The owner must still approve publication
+scope and any unresolved historical/third-party contents before changing visibility.
+
 ## Inputs and alterations
 
 The implementation links below are maintainer references inside the private
@@ -124,9 +145,10 @@ feed or a historical database. Live source responses can change or expire.
 UnderLX-derived station/line names, IDs and route facts. Additional stress-test
 stations/lines and every injected arrival estimate are artificial. Treat the
 fixture data and its additions as ODbL 1.0 data; the test harness code remains
-0BSD. The assessment above covers the prepared example screenshots, not public
-redistribution of the fixture/database itself. Reassess access obligations before
-publishing that data or substantially different outputs.
+0BSD. The store assessment covers its prepared example screenshots; the proposed
+public-source scope above separately addresses the complete current fixture.
+Reassess substantially different data/outputs and each historical version before
+including them in an approved publication.
 
 Screenshots render that example data, not live observations. Original UI/artwork
 rights do not relicense the displayed UnderLX-derived facts. Keep the following

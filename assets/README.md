@@ -62,7 +62,8 @@ abstract routes, not an actual metro map. It embeds no fonts, external images or
 third-party artwork. These files share the project's 0BSD artwork licence and
 were published with v0.3.0 on Rebble on 2026-11-08, alongside the existing 144×144
 large icon and Emery/Gabbro screenshots. All served originals were verified
-byte-for-byte; see the [Rebble receipt and checklist](../docs/rebble.md).
+byte-for-byte; see the [receipt in issue #9](https://github.com/rafaelborges29/pebble-metro/issues/9)
+and [Rebble requirements](../docs/appstore.md#rebble-differences).
 
 ```sh
 rsvg-convert -w 48 -h 48 assets/icon.svg -o assets/rebble/icon-small.png

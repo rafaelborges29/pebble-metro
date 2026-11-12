@@ -21,6 +21,7 @@ pebble sdk activate 4.33.1
 npm ci
 npx playwright install --with-deps --only-shell chromium
 python3 tools/release.py check
+python3 -m unittest discover -s tools -p test_release.py
 npm run typecheck
 npm run check
 npm run e2e
@@ -88,8 +89,9 @@ root lockfile version fields aligned. The build preserves that development label
 while Pebble's native binary uses numeric major/minor. Do not publish snapshot PBWs.
 
 An explicitly approved **Actions → Create release** run publishes to GitHub,
-Pebble and Rebble after verification, then advances main's snapshot directly.
-There is no second approval. See [release setup and recovery](docs/releases.md).
+Pebble and Rebble after verification, then opens a version-only next-snapshot
+PR. Review and merge that PR before the next release; automation does not approve,
+merge or push main. See [release setup and recovery](docs/releases.md).
 Do not dispatch it merely to test a change.
 
 ## Translations

@@ -4,8 +4,8 @@ Metro Lisboa already has listings in the
 [Pebble Appstore](https://apps.repebble.com/dce54d3eb02943f1935e1529) and
 [Rebble Appstore](https://apps.rebble.io/en_US/application/6af0e5dfb99ed90009374190).
 Use the approved [release workflow](releases.md) for binary updates; do not create
-another app or change its UUID. Rebble-specific assets and its first-release
-receipt are in [rebble.md](rebble.md).
+another app or change its UUID. Rebble differences are below; its historical
+first-release receipt is retained in [issue #9](https://github.com/rafaelborges29/pebble-metro/issues/9).
 
 This guide maintains listing copy and manual dashboard requirements, not approval
 to upload, accept legal terms or change visibility. The repository remains private
@@ -56,6 +56,47 @@ Store images accept PNG/JPEG/GIF, at most 4.4 MB each. Use the prepared PNGs in
 Round 2 is **Gabbro**, not Chalk. Images are actual emulator captures with
 artificial estimates, not live observations or proof of hardware acceptance.
 See [asset provenance and generation](../assets/README.md).
+
+## Rebble differences
+
+Use the existing listing in the [developer portal](https://dev-portal.rebble.io/),
+Watch App / Daily. Do not create another app, backfill old assets or assume a
+cross-store importer. Existing Rebble and Pebble listing IDs differ.
+
+| Item | Rebble requirement |
+| --- | --- |
+| Banner | Required, 720×320: `assets/rebble/banner.png` |
+| Small icon | 48×48: `assets/rebble/icon-small.png` (not Pebble's 80×80) |
+| Large icon | Reuse `assets/appstore/icon-large.png`, 144×144 |
+| Screenshots | At least one and at most five for each declared Emery/Gabbro target |
+| Description / release notes | Both required; use version-appropriate copy below |
+| Timeline / custom companion | Off / none |
+
+The banner is decorative geometry, not a metro map. Keep artificial-emulator-data
+disclosure and UnderLX attribution with screenshots. Include
+`https://rebble.io/privacy/` with provider privacy references, and review
+[Rebble's terms](https://rebble.io/tos/) before an approved submission.
+
+**Hide my app** produces an Unlisted installable listing, not a draft; unchecked
+defaults to Public and uploads publish immediately. Search can miss unlisted apps:
+check the signed-in account, UUID and ownership. On `app.exists`, recover the
+existing listing; never follow a generic suggestion to generate another UUID.
+For approved manual recovery use that listing's **New Release** and original
+verified PBW, not a rebuild. See [release recovery](releases.md#retry-and-rollback).
+
+Rebble can report `ios.supported=true` from absence of a custom Android companion,
+not actual testing; the inspected portal has no OS selector. Keep Android-only
+wording rather than inventing a companion or claiming iOS support. Physical
+phone/watch installation acceptance remains separate and owner-approved.
+
+Portal/server evidence inspected on 2026-11-08:
+[portal](https://github.com/pebble-dev/rebble-dev-portal/tree/48e3cbd5d04aca23580caa0d98e8a70dbf55aaf0),
+[submission API](https://github.com/pebble-dev/rebble-appstore-api/blob/cf061e3cef03ece3069a029842af0196f50571f8/appstore/developer_portal_api.py),
+[asset validation](https://github.com/pebble-dev/rebble-appstore-api/blob/cf061e3cef03ece3069a029842af0196f50571f8/appstore/utils.py)
+and [PBW handling](https://github.com/pebble-dev/rebble-appstore-api/blob/cf061e3cef03ece3069a029842af0196f50571f8/appstore/pbw.py).
+These sources do not guarantee the deployed revision. No authoritative current
+Rebble byte limit was established; retain the local 4.4 MB preflight and fail
+clearly on rejection rather than inferring a maximum from an accepted upload.
 
 ## Draft listing
 

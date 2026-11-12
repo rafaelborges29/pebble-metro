@@ -254,21 +254,46 @@ def advance(tag):
     release = get_release(tag)
     require(release and not release["draft"], "Publish the release before advancing development")
     wanted = next_snapshot(version)
+    require(not git("status", "--porcelain"), "Snapshot preparation needs a clean checkout")
     git("fetch", "origin", "main")
     git("switch", "--detach", "origin/main")
     current = metadata()
     if version_parts(current, snapshot=True) >= version_parts(wanted, snapshot=True):
         print("main already has the next development version")
+        return
+    branch = "chore/next-" + wanted.removesuffix("-snapshot")
+    if git("ls-remote", "origin", f"refs/heads/{branch}"):
+        # Recover a successful push even if PR creation/CI dispatch failed.
+        git("fetch", "origin", f"refs/heads/{branch}")
+        commit = git("rev-parse", "FETCH_HEAD")
+        parents = git("rev-list", "--parents", "-n", "1", commit).split()[1:]
+        require(len(parents) == 1 and ancestor(parents[0], "origin/main"),
+                "Unexpected next-version branch ancestry")
+        require(set(git("diff", "--name-only", parents[0], commit).splitlines())
+                == {"package.json", "package-lock.json"}
+                and version_only(source_json(parents[0], "package.json"), source_json(parents[0], "package-lock.json"),
+                                 source_json(commit, "package.json"), source_json(commit, "package-lock.json"), wanted),
+                "Existing next-version branch contains unexpected changes")
     else:
+        git("switch", "-c", branch)
         set_version(Path("."), wanted)
         git("add", "package.json", "package-lock.json")
         git(*BOT, "commit", "-m", f"Start {wanted} development")
-        # A concurrent main update rejects this ordinary push; retry on fresh main.
-        git("push", "origin", "HEAD:refs/heads/main")
-        print(f"Advanced main to {wanted}")
-    # GITHUB_TOKEN pushes need explicit CI. Also dispatch when retrying after a
-    # successful push whose original CI dispatch failed.
-    api("POST", "actions/workflows/e2e.yml/dispatches", {"ref": "main"})
+        commit = git("rev-parse", "HEAD")
+        git("push", "origin", f"HEAD:refs/heads/{branch}")
+    pulls = api("GET", f"pulls?state=open&head={REPOSITORY.split('/')[0]}:{branch}&base=main")
+    require(len(pulls) <= 1, "Multiple next-version PRs; inspect them before continuing")
+    if pulls:
+        pull = pulls[0]
+        require(pull["head"]["sha"] == commit and pull["head"]["repo"]["full_name"] == REPOSITORY,
+                "Next-version PR does not match the validated branch")
+    else:
+        pull = api("POST", "pulls", {"title": f"Start {wanted} development", "head": branch, "base": "main",
+                                    "body": f"Advance development after {tag}. Only package and lock versions change. "
+                                            "Review and merge before preparing the next release; this PR does not publish."})
+    # GITHUB_TOKEN-created PRs need explicit CI, including dispatch retries.
+    api("POST", "actions/workflows/e2e.yml/dispatches", {"ref": branch})
+    print(pull["html_url"])
 
 
 def main():

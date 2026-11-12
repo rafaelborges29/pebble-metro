@@ -3,9 +3,10 @@
 Use **Actions → Create release → Run workflow**, select **main**, then choose
 **minor** (default) or **major**. Running it authorizes publication to GitHub and
 both existing **Pebble and Rebble Appstore** listings after verification. There is
-no second approval. Do not use GitHub's manual “Draft a new release” form for this flow.
+no second publication approval. The later snapshot PR still needs review/merge.
+Do not use GitHub's manual “Draft a new release” form for this flow.
 
-| Version on main | Choice | Release branch / tag | Next version on main |
+| Version on main | Choice | Release branch / tag | Next snapshot PR |
 | --- | --- | --- | --- |
 | `0.3.0-snapshot` | minor | `release/0.3.0` / `v0.3.0` | `0.4.0-snapshot` |
 | `0.3.0-snapshot` | major | `release/1.0.0` / `v1.0.0` | `1.1.0-snapshot` |
@@ -23,10 +24,14 @@ Before an approved release:
 1. Keep the repository private. GitHub releases and automatically generated tag
    source archives inherit that visibility; this does not change the public
    store listings or approve the separate source-publication work.
-2. Repository rules must permit the workflow token to create `release/*` branches
-   and `v*` tags, and push the next development version directly to main. These are
-   ordinary fast-forward pushes; the workflow never bypasses branch protection or
-   force-pushes. Permission to create pull requests is not needed.
+2. Permit the workflow token to create `release/*` / `chore/next-*` branches and
+   `v*` tags, open PRs and dispatch checks, but not bypass main protection. In
+   **Actions → General → Workflow permissions**, allow GitHub Actions to create
+   pull requests. GitHub combines this with its approval-permission setting;
+   this workflow never approves or merges PRs. Keep the default token read-only;
+   only release jobs request the specific write scopes they need.
+   Protect main with required PRs, the `e2e` check, and blocked force-push/deletion
+   once supported by the repository's plan. Snapshot updates no longer push main.
 3. In **Settings → Secrets and variables → Actions**, configure:
 
    | Kind | Name | Value |
@@ -138,11 +143,12 @@ headers or redirects.
    Store release notes use a deterministic public-safe version/platform summary;
    generated GitHub notes stay on GitHub, not in either store's public changelog,
    because they can contain private PR/source links.
-6. Immediately after publication, a separate job fetches current main and pushes
-   one commit updating the package and lockfile to the next snapshot. It then
-   explicitly dispatches main's normal emulator CI. There is no bump branch, PR or
-   additional approval. The tagged release remains unchanged. A concurrent main
-   update rejects the push safely; rerun the failed job to use the latest main.
+6. After publication, a separate job opens `chore/next-<version>` → main with one
+   package/lockfile-version-only commit, then dispatches that branch's emulator
+   CI. Review and merge it before another release; there is no automatic merge,
+   approval or direct push to main. Retries validate/reuse the existing branch
+   and PR rather than force-pushing. An unexpected branch/PR head stops recovery.
+   Already-advanced main is left alone; the tagged release stays unchanged.
 
 Both release workflows share a concurrency group, so publication jobs cannot
 overlap. GitHub allows one running and one pending run per group; avoid queuing
@@ -150,8 +156,8 @@ multiple release requests because a newer pending run can replace an older one.
 Finish or recover a pending draft before starting another version.
 
 Explicit dispatches matter: a push created with `GITHUB_TOKEN` does not trigger
-another ordinary push workflow. Both release publication and main's checks after
-the snapshot bump are dispatched deliberately. See [GitHub's trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+another ordinary push workflow. Release publication and the snapshot PR branch's
+checks are dispatched deliberately. See [GitHub's trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 Normal PR CI has read-only repository access and no publishing secrets. Only the
 publication step receives the Pebble and Rebble credentials. Release verification needs
 `contents: write` because GitHub exposes draft releases only to callers with push
@@ -180,7 +186,7 @@ the draft/release also retains its candidate indefinitely until deliberately rem
 The existing **0.2.0** store upload is historical. This automation will not rebuild,
 backfill, retag or replace it. Keep its original source/artifact record separately.
 The already-published **v0.3.0** predates Rebble automation and was submitted there
-manually; its verified receipt is in [Rebble submission](rebble.md). Do not modify
+manually; its verified receipt is retained in [issue #9](https://github.com/rafaelborges29/pebble-metro/issues/9). Do not modify
 its GitHub assets to pretend the old pipeline published it to both stores. New
 release revisions carry the updated uploader; no historical upload is triggered
 by implementing or merging this change.
@@ -200,7 +206,7 @@ uses `--clobber`, moves tags, or retries a store POST automatically.
 | PBW and provenance reached the draft | A full retry via Publish release restores those exact bytes, reruns emulator tests, and preserves original provenance. |
 | Either store POST timed out, or one store succeeded but the next destination failed | Rerun failed jobs after inspecting both listings. Both uploaders query current versions first; an existing version must have the same downloadable bytes. Matching uploads are skipped, receipts are verified/frozen, and only the missing destination is uploaded. There is no automatic POST retry. Allow time for a listing to expose an accepted upload. |
 | Existing version has different bytes, is not publicly downloadable, or a newer store release exists | Stop and inspect the store. No overwrite, duplicate upload, or silent downgrade occurs. |
-| Release published but the next snapshot update failed | Rerun the failed snapshot job. It fetches current main and pushes the version-only commit normally. If the bump already landed, it skips that commit and retries CI dispatch. It never republishes the app or lowers main's version. |
+| Release published but snapshot PR creation/check dispatch failed | Rerun the snapshot job. It validates/reuses the version-only branch and matching PR, then dispatches CI again. Inspect unexpected/closed branches or PRs rather than force-pushing. If main already advanced, nothing is changed. It never republishes, auto-merges or lowers main's version. |
 
 If the only original candidate is lost, do not rebuild and present it as the same
 artifact. Inspect store/draft state and choose a new version. Publication is not
@@ -225,13 +231,18 @@ validation rejects snapshots before credentials are used. There is no version UI
 
 ```sh
 python3 tools/release.py check
+python3 -m unittest discover -s tools -p test_release.py
 npm run typecheck
 npm run check
 npx playwright test --update-snapshots=none
 ```
 
 Runtime preflights, package-hash verification and receipt checks stop publication
-on errors; there is no separate publisher test suite. Do not dispatch a live
-release to test workflow changes. Building, CI and source review do not authorize
+on errors. The standard-library snapshot tests use disposable local Git remotes
+and simulated GitHub responses to verify PR creation/retries, version-only
+validation and unchanged main; they never upload or touch live refs. Store
+publication still relies on runtime preflights, not a mocked publisher suite.
+Do not dispatch a live release to test workflow changes. Building, CI and source review do not authorize
 publication or physical-watch installation.
-See the [existing Rebble listing and first-release receipt](rebble.md).
+See [store requirements](appstore.md#rebble-differences) and the
+[first-release receipt](https://github.com/rafaelborges29/pebble-metro/issues/9#issuecomment-6834829400).

@@ -59,7 +59,7 @@ See [phone setup, permissions and recovery](docs/phone-configuration.md).
 visible rows, swipe up/down to navigate or right for Back; tap arrival content for
 Actions. Removal needs a separate confirmation tap. Headers, footers and round
 corners are not targets. Buttons remain available. Touch usability is unverified;
-there are no touch tests. See [UI flow](docs/design.md).
+there are no touch tests. See [UI flow](docs/architecture.md#watch-ui-and-navigation).
 
 **Language:** `pt_PT` selects Portuguese; all other locales fall back to English.
 The phone editor follows the watch language when opened. Changing language does
@@ -104,11 +104,10 @@ See [development identities and hardware acceptance](CONTRIBUTING.md#development
 ## Documentation
 
 - [Contributing, setup and translations](CONTRIBUTING.md)
-- [Architecture, protocol and persistence](docs/architecture.md)
-- [UI and cache flow](docs/design.md)
+- [Architecture, UI, protocol and persistence](docs/architecture.md)
 - [Emulator tests and diagnosis](docs/e2e.md)
 - [Phone configuration](docs/phone-configuration.md)
-- [Store listing and privacy copy](docs/appstore.md) · [Rebble specifics](docs/rebble.md)
+- [Store listing, privacy copy and Rebble requirements](docs/appstore.md)
 - [Releases and recovery](docs/releases.md) · [Artwork and screenshots](assets/README.md)
 - [Security reporting](SECURITY.md)
 
