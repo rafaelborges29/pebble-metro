@@ -7,11 +7,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
       with:
-        node-version: '24.21.0'
+        node-version: '24.22.2'
         cache: npm
-    - uses: astral-sh/setup-uv@v10.3.0
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
     - shell: bash
       run: npm ci
     - if: inputs.browser == 'true'
@@ -37,11 +37,11 @@ runs:
         echo "python-version=$python_version" >> "$GITHUB_OUTPUT"
     - name: Cache the pinned SDK and toolchain only
       id: sdk
-      uses: actions/cache@v6
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.local/share/pebble-sdk/SDKs/4.33.1
         # The SDK contains a venv: its exact interpreter patch/path must match.
-        key: sdk-v1-${{ runner.os }}-${{ runner.arch }}-ubuntu24.04-4.33.1-tool5.0.39-libpebble0.0.31-py${{ steps.tool.outputs.python-version }}-node24.21.0
+        key: sdk-v1-${{ runner.os }}-${{ runner.arch }}-ubuntu24.04-4.33.1-tool5.0.39-libpebble0.0.31-py${{ steps.tool.outputs.python-version }}-node24.22.2
     - name: Install or activate SDK 4.33.1
       shell: bash
       env:

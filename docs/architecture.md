@@ -23,6 +23,42 @@ or watch-side JS runtime. No GPS or private Metro credentials. A self-contained
 configuration WebView plus its live local message bridge (Plugins / permissions
 preview required). There is no hosted page, additional plugin or new network provider.
 
+## Watch UI and navigation
+
+```text
+Launch with favourites → last viewed arrivals
+  Up/Down → previous/next favourite
+  Select → Retry live data / Remove favourite (confirmed)
+  Back → favourites list
+First use / Add favourite → line → station on that line → direction → save
+Favourites list → open route / Add favourite / Retry data
+Back at favourites root or empty screen → exit
+```
+
+Holding Up/Down repeats. Stations stay alphabetical within the selected line;
+interchanges retain that line and termini exclude the origin. Back restores the
+previous picker row; cancelling saves no draft. Catalogue replacement clears an
+open draft/history and asks the user to choose again. Removal preserves surviving
+routes' slots, arrival state and original expiry.
+
+Touch reuses these actions: tap a visible row, swipe up/down for next/previous or
+right for Back. Arrival-content taps open Actions; first-use content adds/retries,
+and notice content returns. Removal requires a fresh confirmation contact. Headers,
+footers, blank rows and round corners are not targets; buttons remain available.
+See [touch ownership and guards](#touch-input).
+
+Arrivals show the selected line colour and watch-local clock, station/destination,
+one prominent estimate and two following estimates. The picker also uses textual
+line names so selection does not depend on colour. Seconds, approximate minutes,
+ranges and bounds preserve source precision; Due / Estimated now is not observed
+train presence. Restored valid estimates are SAVED until fresh data arrives;
+expired/invalidated numbers disappear. See [persistence](#persistence-and-reopen).
+
+A four-frame train runs on the existing one-second tick while updating, pauses
+without focus and stops after at most 15 seconds per attempt/target or on failure.
+Navigation stays available. Static menus redraw on changes/minute ticks, not every
+second. There are no alerts, vibration or service-status dashboard.
+
 ## Phone compilation and types
 
 The root `tsconfig.json` is discoverable by editors and checks production
@@ -67,25 +103,34 @@ There is no interpreter or separately loaded JS archive. The per-app budget is
 128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
 rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
 
-The phone-editor build uses approximately **60 KiB code/static RAM** plus the
-fixed startup token allocation. The initial 64-test emulator run sampled
-**53,700–53,924 bytes free heap**, preserving the existing 50 KiB minimum and
-4 KiB steady-state variation checks. Both targets also retain the expected-start
-assertion. These are sampled emulator measurements, not continuous traces. The PBW contains both
-watch binaries but only one phone bundle/source map. Complete licence/notices
-copies are embedded as a comment in that phone bundle, not as watch resources.
-Rebuilds can change size/hash; these are emulator measurements, not physical-watch
-heap or battery acceptance.
+[Emulator checks](e2e.md#memory-and-crash-diagnosis) enforce at least 50 KiB free
+heap, at most 4 KiB steady-state variation and expected app-start counts on both
+targets. These are sampled emulator checks, not hardware/battery acceptance.
+The PBW contains both watch binaries and one phone bundle/source map. Complete
+licence copies are embedded in that bundle, not watch resources.
 
 The drawing layer uses the actual window bounds. Time 2 retains its rectangular
 layout. Round 2 centers text and measured ETA/unit groups, places the header and
 footer inside the circular safe area, and increases the last menu row's insets.
 Both keep four visible menu rows and the same buttons/model/storage/protocol.
-The loader remains on the existing one-second tick; no round-specific object tree,
-framebuffer or animation timer is allocated by the app. The favourites menu ends
-with Add favourite and Retry data; there is no About screen or on-watch version.
-Attribution and privacy information are supplied in the store description, and
-complete licence copies are embedded in the phone bundle.
+There is no round-specific object tree, framebuffer or animation timer. Numeric
+ETAs use LECO 60 Bold, with Gothic approximation/bound prefixes. The complete
+value/unit group is measured before falling back to Roboto 49, Bitham 42 or Gothic
+24 for wide values; ranges, Due and missing data use Gothic. No custom fonts or
+invented precision are introduced. See the SDK's [system fonts](https://developer.repebble.com/guides/app-resources/system-fonts/)
+and [font subset limits](https://developer.repebble.com/guides/app-resources/fonts/).
+
+Reviewed numeric-layout captures (deterministic examples, not live observations):
+
+| Target | Before | Current |
+| --- | --- | --- |
+| Time 2 | ![Before](assets/issue-5/emery-before.png) | ![Current](../assets/appstore/emery_seconds.png) |
+| Round 2 | ![Before](assets/issue-5/gabbro-before.png) | ![Current](../assets/appstore/gabbro_seconds.png) |
+
+Contains information from [UnderLX](https://underlx.com/), made available under
+[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/); see [data methods](../DATA_METHODS.md).
+There is no About screen/on-watch version. Store copy supplies attribution/privacy;
+complete licence copies travel in the phone bundle.
 
 ### Touch input
 
@@ -140,13 +185,8 @@ the handshake offset. Zero is `Due` / `Estimated now`, not observed presence.
 
 Watch commands remain bounded JSON `{v:1,session,type,...}` with `hello`, `watch`,
 `catalog`, `ack` and four-part `settings-state` exports. IDs/sessions are validated
-ASCII before serialization. Settings snapshot/result receipts and saves use the
-existing phone-to-watch chunk transport; see [configuration protocol](phone-configuration.md).
-The open page calls `Pebble.sendMessage("pkjs", ...)`; PKJS handles `configmessage`
-and replies only after a complete watch result. Add and confirmed Remove autosave;
-no favourite choices pass through a close URL. Watch views remain quiet on both
-success and failure; existing storage/cache error indicators are not suppressed.
-One native outbox send is active; pending flags are consumed on successful queueing,
+ASCII before serialization. Settings uses the same chunk transport described
+below. One native outbox send is active; pending flags are consumed on successful queueing,
 not at the later callback, so rapid favourite changes cannot be lost. A fresh phone
 runtime sends the startup wake `{}`. Native starts a new session (invalidating old
 ETAs if already running), even if the physical app connection never dropped.
@@ -205,6 +245,51 @@ never renew an ETA.
 checks strict UTF-8, escaped surrogate pairs, JSON number grammar and token/input
 capacities, and rejects embedded NUL. Object lookup rejects duplicate matching keys.
 
+### Phone settings protocol
+
+The self-contained page uses `showConfiguration` and percent-encoded
+`data:text/html;charset=utf-8,` HTML, not `configPage` metadata. SDK 4.33.1 remains
+supported; SDK 4.44+ is the documented path for a future `configPage` migration.
+Opening waits at most five seconds for a fresh snapshot, below the inspected
+mobile app's ten-second URL timeout. The page has a restrictive CSP, no external
+assets/forms/network requests or arbitrary return targets, text-only labels,
+escaped script terminators/Unicode separators, and a 150,000-character data-URI
+cap. Done's close URL contains no favourites.
+
+After bridge `ready` for target `pkjs`, the page calls
+`Pebble.sendMessage("pkjs", {v:1,type,edit,...})`. `settings.ts` handles PKJS
+`configmessage` and replies through `respond`:
+
+- `settings-read` requests a complete fresh watch snapshot within five seconds.
+- `settings-save` replaces the full list atomically. Its edit token binds session
+  and baseline; newer watch/catalogue edits reject it and return the current list,
+  never silently merge or overwrite. Replies wait for complete post-commit watch
+  results, not Bluetooth send callbacks.
+- PKJS bounds a missing result at 15 seconds, and the page bounds a missing bridge
+  reply at 20. An uncertain save disables editing until Refresh reads the watch;
+  there is no blind replay. One read/save may be pending; extras receive busy.
+
+Page/PKJS messages are limited to 5,000 JSON characters. Both phone and native
+validate at most 16 unique triples of ASCII IDs up to 48 bytes, valid new routes
+and unchanged unavailable existing routes. Protected queue entries carry
+`settings-get`, `settings-receipt` and `settings-save` through the existing bounded
+sender. A maximum-size list is 2,481 UTF-8 bytes; its save message with maximum
+uint32 fields is 2,582 bytes, below the transport's 5,000-byte limit.
+
+Watch `settings-state` exports use four stop-and-wait parts of four fixed slots.
+Each carries snapshot/revision/catalogue IDs, last request/result, writable flag
+and bounded locale. Maximum frame size is 885 bytes within the 1,000-byte command
+bound. Partial/inconsistent snapshots never become editable baselines. Repeated
+identical request IDs/bytes return the original result without another commit;
+mismatched reuse is rejected. A changed PKJS/watch session expires an old page.
+
+Phone Add/confirmed Remove autosave without closing or opening watch notices.
+The watch view remains unless removal invalidates its selected actions/removal
+screen, when it returns quietly to arrivals/empty. Existing storage/cache error
+indicators remain. Retained routes preserve slots and original ETA timestamps;
+new routes start empty, and removed snapshots follow checked invalidation/retry
+handling. Cache cleanup failure cannot undo a favourite commit or renew expiry.
+
 ## Persistence and reopen
 
 `favorites.c` stages the complete favourite list in the inactive one of two
@@ -243,7 +328,15 @@ The cache stores no service state or alert continuity. Two favourite banks use
 Initial migration additionally retains the legacy list until its seed/seal are
 verified. The actual firmware persistence limit is queried/logged by
 `persist_get_max_size()`; all writes are checked instead of assuming free storage.
-No cache/favourite data is evicted to make a failed bank write fit.
+No cache/favourite data is evicted to make a failed bank write fit. Both phone
+and watch mutations use this same checked store; there is no durable phone
+favourites mirror or offline mutation replay.
+
+The earlier 0.1/Alloy store is separate: the native 0.2 upgrade requires re-adding
+favourites but leaves old data untouched. Native bank migration above does not.
+Uninstalling, changing UUID or clearing app/phone data is not a migration step.
+Emulator success does not replace owner-approved physical-watch, reconnect,
+reopen and battery acceptance on both models; see [test limits](e2e.md).
 
 ## UI language
 
