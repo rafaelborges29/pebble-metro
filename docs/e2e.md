@@ -1,174 +1,121 @@
-# Native real-emulator verification
+# Emulator verification
 
-The TypeScript/Playwright/Effect harness runs the actual PBW on SDK 4.33.1
-Emery and Gabbro QEMU and that PBW's extracted phone bundle in Chromium. Only
-external REST/MQTT sources are replaced with deterministic fixtures. Native C,
-Paho, AppMessage receipts, drawing, buttons and persistence are real.
-
-Tests never connect to a physical watch, wipe managed emulator storage, publish,
-or exercise touch input. Button regressions do not verify touch usability.
+Playwright/Effect runs the actual Emery/Gabbro PBW in SDK QEMU and its extracted
+phone bundle in Chromium. Only external REST/MQTT sources are fixtures: native C,
+Paho, AppMessage receipts, drawing, buttons and persistence are real. Unexpected
+network destinations/methods fail. Tests never connect to a physical watch,
+wipe managed emulator storage, publish or exercise touch input.
 
 ## Run
 
-Follow [contributor setup](../CONTRIBUTING.md#setup-and-checks), then:
+Follow [contributor setup](../CONTRIBUTING.md#setup-and-checks):
 
 ```sh
 npm run e2e
 npm run e2e -- --project=gabbro
-npm run e2e -- --project=emery
 npm run e2e -- --repeat-each=2
 npm run e2e -- --grep 'favourite lifecycle'
+npx playwright test --list
 npx playwright show-report
 ```
 
-`e2e` typechecks, builds both targets and tests
-`build/<checkout-directory-name>.pbw`. After an unchanged successful build, use
-`npx playwright test --update-snapshots=none` to avoid rebuilding. Tests execute
-compiled PBW JavaScript, not an alternate TypeScript application build.
-
-The bridge discovers Python from the `pebble` executable's shebang. For a wrapper,
-set `PEBBLE_PYTHON` to the interpreter in the Pebble tool's venv. The settings
-persistence fault probe also needs a system C compiler (`cc`).
-
-Each test owns new private flash, browser storage, output files and loopback
-listeners. Python passes already-bound serial/debugger sockets into QEMU with
-`pass_fds`, avoiding port-rebind races. Effect owns scope, timeouts and cleanup;
-there is no competing `pypkjs` process. Unexpected network destinations/methods
-fail instead of reaching the internet.
+`e2e` typechecks, builds both targets and tests `build/<checkout-directory-name>.pbw`.
+After an unchanged successful build, use `npx playwright test --update-snapshots=none`
+to avoid rebuilding. Application tests execute PBW JavaScript, not a separate TS build.
+The bridge discovers Python from `pebble`'s shebang; wrapper installations can set
+`PEBBLE_PYTHON` to its venv interpreter. Host persistence probes also require `cc`.
+Each test owns disposable flash/browser storage, loopback listeners and output;
+Effect handles bounded cleanup. Managed SDK emulators and hardware are untouched.
 
 ## Coverage
 
-The normal matrix has 49 cases per target (98 total); `--repeat-each=2` runs 196.
-Use `npx playwright test --list` for the current inventory. The maintained specs,
-not historical run counts, are authoritative:
+Use `--list` for the current inventory; the specs are authoritative:
 
-| Spec | Boundaries covered |
+| Spec | Focus |
 | --- | --- |
-| `e2e/favourite.spec.ts` | Creation/removal races, duplicates/opposite directions, source replacement, line-first pickers/colours, reopen/SAVED, RAM-only revisit, phone restart, expiry, ranges/bounds/zero/empty data, queued/coalesced invalidations, 16 favourites and 160 switches |
-| `e2e/settings.spec.ts` | Live Add/Remove, conflicts, stale pages, uncertain results/Refresh without replay, idempotence, hostile labels, keyed copy, light/dark contrast, cache expiry and native persistence faults |
-| `e2e/permissions.spec.ts` | Actual PBW permission declarations, rejected legacy/broadened manifests and denied-network recovery |
-| `e2e/locale.spec.ts` | Portuguese and unsupported-locale English fallback through real native menus, arrivals, notices and removal |
+| [`favourite.spec.ts`](../e2e/favourite.spec.ts) | Real-button creation/removal/races, source replacement, expiry, reopen, bounded cache and 16-route/160-switch stress |
+| [`settings.spec.ts`](../e2e/settings.spec.ts) | Live saves, conflicts, uncertain outcomes without replay, hostile labels, copy/theme/contrast and persistence faults |
+| [`permissions.spec.ts`](../e2e/permissions.spec.ts) | Actual PBW declarations/preflight and denied-network recovery |
+| [`locale.spec.ts`](../e2e/locale.spec.ts) | Portuguese and unsupported-locale English fallback |
 
-Only two recent routes are durable; tests separately exercise RAM-only arrivals.
-The stress case performs 430 real button presses, including 160 switches, then
-checks persisted IDs, wraparound and the favourite limit. Do not shorten button
-hold/release waits or relax assertions to make CI faster.
-
-`e2e/persistence/faults.c` compiles production `favorites.c` with a minimal host
-persistence API. It injects no-op, partial and complete-but-error writes at legacy
-migration/save boundaries, commit readback and cleanup. Recovery must produce a
-complete old/new list, never resurrect sealed legacy choices. This complements
-the PBW tests; it is not physical-flash power-loss verification.
-
-The settings page uses Chromium's implementation of the documented local bridge
-contract (`ready`, `Pebble.sendMessage()` promises, PKJS `configmessage`). Page
-network requests fail. Permission denial simulates HTTP 403/closed WebSockets.
-Neither proves Android WebView internals, native prompts/shield rendering or
-permission propagation. See [phone configuration](phone-configuration.md).
+[`persistence/faults.c`](../e2e/persistence/faults.c) compiles production `favorites.c`
+against a host persistence edge and injects failed/torn writes. Recovery must be a
+complete old/new list, never resurrect sealed legacy choices. It complements native
+PBW flows, not physical-flash power-loss acceptance. The phone bridge/permission
+simulations test the observable contract, not Android WebView internals or prompts.
+Do not shorten button delays, relax snapshots/expiry or skip cases to improve timing.
 
 ## Memory and crash diagnosis
 
-Inspect per-test `messages.json`, `emulator.log`, `phone.log`, commands,
-subscriptions, screenshots and traces. Native logs include
-`Metro memory <reason>: used=<bytes> free=<bytes>` at startup, catalogue
-replacement and every 16 selections (also the first).
+Inspect per-test `messages.json`, `emulator.log`, `phone.log`, commands/subscriptions,
+screenshots and traces. Native `Metro memory <reason>: used=… free=…` samples require:
 
-The stress requires:
-
-- At least **50 KiB free native heap** in sampled operation.
+- At least **50 KiB free heap**.
 - At most **4 KiB steady-state variation** after font/SDK warmup.
-- Exactly the expected app starts; no hidden crash/restart.
+- Exactly the expected starts; hidden crashes/restarts are failures.
 
-For navigation/protocol/cache changes, run the repeated suite and inspect these
-samples and restart counts. They are sampled emulator measurements, not continuous
-allocation traces or hardware/battery acceptance. Keep fixed model/token bounds
-and expiry/invalidation guarantees; see [architecture](architecture.md).
+For navigation/protocol/cache changes, repeat the suite and inspect these samples.
+They are sampled emulator checks, not continuous traces or hardware/battery guarantees.
+Preserve [fixed bounds and expiry](architecture.md), including the two-route durable
+cache versus other RAM-only snapshots.
 
 ## Screenshots and synchronization
 
-Emery baselines live in `e2e/screenshots/`; Gabbro uses
-`e2e/screenshots/gabbro/`. Portuguese adds `pt-PT/` in each. Pixel comparison
-masks only the header clock (using its actual line colour) and the 30×18 loader
-area on loading/saved screens. A separate unmasked cropped assertion checks train
-animation. Store images are unmasked and recaptured only through
-[`npm run assets:screenshots`](../assets/README.md#recapture-screenshots).
+Emery baselines are in `e2e/screenshots/`, Gabbro in its `gabbro/` subdirectory;
+Portuguese adds `pt-PT/` in each. Masks cover only the header clock and 30×18 loader
+area on loading/saved screens; a separate unmasked crop asserts train animation.
+[Store captures](../assets/README.md#recapture-screenshots) are unmasked and explicit.
 
-Readiness waits for `Metro native UI ready`, then native frames and application
-receipts, rejecting system launch frames. Delayed-source cases pause fixture
-publishing rather than sleeping. In-flight races hold the real phone bundle's
-final unmodified chunk, navigate with buttons, then release it and await its
-native receipt. Serialization checkpoints observe actual bytes without changing
-them; sending a WebSocket packet alone is not proof of native delivery.
-
-Run without snapshot updates first. For intentional UI changes only:
+Readiness requires the first real draw, native frames and application receipts,
+not launch animations. Race tests hold/release actual unmodified phone chunks and
+await native receipts; a WebSocket send alone does not prove delivery. Do not replace
+these waits with sleeps. Run without snapshot updates first; for intentional UI work:
 
 ```sh
 npm run e2e -- --project=gabbro --update-snapshots
 ```
 
-Inspect every changed image, then rerun normally. Never accept a launch/menu frame
-as an arrivals baseline. CI never updates baselines.
+Inspect every changed image, then rerun normally. Never accept connecting/menu frames
+as arrivals baselines. CI never updates baselines; retries are disabled.
 
 ## CI and artifacts
 
-PR/main CI uses one `ubuntu-24.04` runner per watch target, with three workers and
-`--fully-parallel`. Local runs default to one worker and file-level scheduling;
-pass explicit options to reproduce CI. Retries are disabled. Both target jobs
-finish even if one fails; the final `e2e` gate requires both successes and both
-blob reports. Report merging alone can exit zero for failed tests.
+PR/main CI uses one Ubuntu runner per target, three workers and `--fully-parallel`.
+Local default is one worker/file-level scheduling. Both target jobs finish even on
+failure; the final `e2e` gate requires both successes and both reports. Report merging
+alone can exit zero for failed tests. Release CI tests the **same frozen PBW** on both
+targets without rebuilding and checks provenance/hash before/after; see [releases](releases.md).
 
-Release CI tests the **same immutable candidate** on both targets without
-rebuilding, validating provenance/hash before and after. Publication still uses
-the original candidate. See [release verification and recovery](releases.md).
-
-Per-target and merged artifacts retain reports, traces, native frames, logs,
-heap samples and resource timings for seven days. Diagnostic artifacts also
-include source, fixtures, locales, tools and licence/data notices for
-reproducibility. They are private only while repository access is private: audit
-them before source publication. They are not a public ODbL methods offer.
-
-Only the pinned SDK directory is cached, keyed by OS/architecture and exact
-SDK/tool/libpebble2/Node/Python patch versions, without fallback keys. App builds,
-flash, managed emulators and credentials are never cached. npm/uv keep their
-normal dependency caches; there is no browser cache.
+Seven-day diagnostics include logs, frames, traces, heap/timing samples and matching
+source/fixtures/licences. They are public: use fixture data only, never credentials,
+phone storage or personal/device logs. Expiring artifacts do not replace versioned
+ODbL data/methods access. SDK cache keys include exact OS/toolchain/interpreter versions;
+app builds/flash are not cache paths. npm/uv have dependency caches, not a browser cache.
+Fork PRs can read base-branch caches: never cache credentials/confidential data.
 
 ### Hosted performance
 
-The three-worker-per-target default balances contention and feedback time. The
-[warm-cache measurement](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535418474)
-completed the 98-case pipeline in 5m15s; a
-[repeated run](https://github.com/rafaelborges29/pebble-metro/actions/runs/42535422402)
-passed 196 cases. These are historical observations, not a latency guarantee.
-Detailed optimization experiments remain in
-[PR #26](https://github.com/rafaelborges29/pebble-metro/pull/26) and Git history,
-not this operating guide. Node 24.22.2 remains the supported runner.
-
-To measure the current revision without publishing:
+The three-worker default is based on [PR #26's measurements](https://github.com/rafaelborges29/pebble-metro/pull/26),
+not a latency guarantee. To benchmark the current revision without publishing:
 
 ```sh
-gh workflow run e2e.yml --ref <branch> -f workers=3 -f repeat=1 -f fully_parallel=true
 gh workflow run e2e.yml --ref <branch> -f workers=3 -f repeat=2 -f fully_parallel=true
 ```
 
-`e2e-metrics/` records CPU/RAM, one-second `vmstat`, GNU time and the tested PBW
-hash. Each test attaches `emulator-timings.json` for startup/lifetime and RPC
-counts/durations. Startup is not firmware/app readiness; RPC totals can overlap.
-GNU time maximum RSS is the largest child, not aggregate process-tree memory.
-Compare full pipeline and summed runner-minutes, account for cache hits and
-variable hosted CPUs, and verify case identities, heap/restarts and unchanged PBW
-bytes before claiming an improvement.
+`e2e-metrics/` records runner resources, `vmstat`, GNU time and the PBW hash;
+per-test `emulator-timings.json` records startup/lifetime and RPC counts/durations.
+Compare full pipeline/runner-minutes, case identities, heap/restarts and unchanged
+PBW bytes. Cache/CPU variation matters; RPC times overlap and maximum child RSS is
+not aggregate process memory. Startup timing is not app readiness.
 
 ## Locale and hardware limits
 
-SDK 4.33.1's emulator shell disables language settings. Locale fixtures alone use
-the bundled GDB/debug ELF to set `s_system_domain.iso_locale` in private emulator
-RAM, then assert the release app's real `i18n_get_system_locale()` log. GDB detaches
-immediately. No app binary, renderer, translation helper, SDK files or managed
-emulator is replaced. See the upstream
-[shell stub](https://github.com/coredevices/pebbleos/blob/v4.33.2/src/fw/shell/sdk/stubs.c).
-This tests the API and built-in fonts, not hardware language selection/font packs.
+SDK 4.33.1's emulator shell disables language settings. Locale fixtures use bundled
+GDB to set the SDK locale in private emulator RAM, verify the release app's actual
+`i18n_get_system_locale()` log and detach. No app binary, SDK file or renderer is
+replaced; this does not verify hardware language selection/font packs.
 
-Still requiring owner-approved hardware acceptance on both watches: Android
-WebView/Bluetooth, real permissions, source variations, repeated switching,
-quick reopen, phone/internet recovery, language/font packs and battery use.
-Do not add/run touch tests or treat emulator success as physical acceptance.
+Owner-approved hardware acceptance still covers Android WebView/Bluetooth, real
+permissions, source variations, repeated switching, reopen, phone/internet recovery,
+language/fonts and battery use. Do not treat emulator passes as physical acceptance
+or add/run touch tests.

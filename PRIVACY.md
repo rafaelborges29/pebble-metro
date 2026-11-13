@@ -7,7 +7,8 @@ For store distribution, prominently include the user-facing privacy policy in th
 store description, as drafted in [the listing](docs/appstore.md). The
 [Developer Distribution Agreement, section 5.3](https://developer.repebble.com/legal/distribution/)
 requires a privacy policy; optional website/source URL fields do not remove that
-requirement. A private link to this file is not the customer-facing policy.
+requirement. Linking to this maintainer document alone does not replace the
+prominent customer-facing policy in the store listing.
 
 ## Network connections
 

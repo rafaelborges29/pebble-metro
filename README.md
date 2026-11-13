@@ -7,6 +7,8 @@ TypeScript/PebbleKit JS phone companion connecting directly to
 **Get the app:** [Pebble Appstore](https://apps.repebble.com/dce54d3eb02943f1935e1529)
 · [Rebble Appstore](https://apps.rebble.io/en_US/application/6af0e5dfb99ed90009374190).
 
+**Source:** [GitHub](https://github.com/rafaelborges29/pebble-metro).
+
 **Supported:** Pebble Time 2 (`emery`, 200×228), Pebble Round 2 (`gabbro`,
 260×260), firmware 4.33+, and Android. Original Time Round (`chalk`), other watches
 and iOS are not supported. Round 2 has emulator coverage; physical-watch acceptance
@@ -18,7 +20,7 @@ remains pending.
 Screenshots use artificial emulator estimates, not live observations. Contains
 information from [UnderLX](https://underlx.com/), made available under
 [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
-See [data attribution and transformations](DATA_METHODS.md).
+See [UnderLX data notices](THIRD_PARTY_NOTICES.md#underlx-data).
 
 ## Features
 
@@ -115,12 +117,10 @@ See [development identities and hardware acceptance](CONTRIBUTING.md#development
 
 Original code and artwork use [0BSD](LICENSE), without an attribution requirement
 and without warranty. Third-party software and UnderLX-derived data retain their
-own terms: [third-party notices](THIRD_PARTY_NOTICES.md), [licence texts](LICENSES/)
-and [data methods](DATA_METHODS.md).
+own terms: [third-party notices](THIRD_PARTY_NOTICES.md) and [licence texts](LICENSES/).
 
-The repository/history and source remain private pending the owner's publication
-approval. A distributed PBW contains extractable phone JavaScript and a source
-map; private Git hosting does not make that bundled code confidential.
+A distributed PBW contains extractable phone JavaScript and a source map.
+Do not put credentials or confidential data in the client bundle.
 
 Independent application, not affiliated with or endorsed by UnderLX or Metro de
 Lisboa. Data adaptations remain ODbL 1.0 unless the provider indicates otherwise.

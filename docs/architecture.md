@@ -1,126 +1,53 @@
-# Native implementation and data boundaries
+# Architecture
 
-Targets: Pebble Time 2 (`emery`, 200×228) and Pebble Round 2 (`gabbro`, 260×260),
-Android Pebble app, SDK 4.33.1. The original Time Round (`chalk`) is not targeted.
-The watch is native C. The phone companion, editor and shared validation are strict
-TypeScript, compiled to JavaScript for PebbleKit JS.
+Native C on Time 2 (`emery`) / Round 2 (`gabbro`); strict TypeScript compiled to
+PebbleKit JS on Android. Supported versions/setup are in [Contributing](../CONTRIBUTING.md).
 
 ```text
-Time 2 / Round 2: one native window + drawing layer, fixed-size model and persistence
-    ↕ DATA JSON chunks + application receipts
-Android: bundled PebbleKit JS inside the Pebble mobile app
-    ↕ HTTPS station/line catalogue + MQTT over secure WebSocket
-UnderLX hosted sources
+UnderLX HTTPS catalogue / MQTT arrivals
+    ↕
+Phone companion: validation, metadata cache, bounded transport, local settings page
+    ↕ AppMessage chunks + application receipts
+Watch: fixed-size model, one window/drawing layer, checked persistence
 ```
 
-UnderLX-derived data and its adaptations retain ODbL 1.0; original software is
-0BSD. [DATA_METHODS.md](../DATA_METHODS.md) documents the exact inputs, alterations,
-fixture additions and the case-specific private-client release assessment.
+No custom backend, GPS, alerts, vibration, background worker or watch-side JS.
+Original software is 0BSD; [UnderLX-derived data remains ODbL](../THIRD_PARTY_NOTICES.md#underlx-data).
 
-There are no alerts, vibration, disturbances, custom backend, background worker
-or watch-side JS runtime. No GPS or private Metro credentials. A self-contained
-[phone favourites editor](phone-configuration.md) uses the Pebble app's standard
-configuration WebView plus its live local message bridge (Plugins / permissions
-preview required). There is no hosted page, additional plugin or new network provider.
+| Implementation | Responsibility |
+| --- | --- |
+| [`src/common/metro.ts`](../src/common/metro.ts), [`types.ts`](../src/common/types.ts) | Source validation and shared contracts |
+| [`src/pkjs/companion.ts`](../src/pkjs/companion.ts), [`transport.ts`](../src/pkjs/transport.ts) | Source/cache coordination and chunk delivery |
+| [`src/pkjs/settings.ts`](../src/pkjs/settings.ts), [`settings-page.ts`](../src/pkjs/settings-page.ts) | Live phone editor and self-contained page |
+| [`src/c/main.c`](../src/c/main.c), [`json.c`](../src/c/json.c) | Native model, UI, protocol, cache and bounded JSON parsing |
+| [`src/c/favorites.c`](../src/c/favorites.c) | Transactional favourite storage and migration |
 
 ## Watch UI and navigation
 
 ```text
-Launch with favourites → last viewed arrivals
-  Up/Down → previous/next favourite
-  Select → Retry live data / Remove favourite (confirmed)
-  Back → favourites list
-First use / Add favourite → line → station on that line → direction → save
-Favourites list → open route / Add favourite / Retry data
+Launch → last viewed arrivals
+  Up/Down → previous/next favourite; Select → Retry / confirmed Remove
+  Back → favourites list → open route / Add favourite / Retry
+First use / Add favourite → line → station → direction → save
 Back at favourites root or empty screen → exit
 ```
 
-Holding Up/Down repeats. Stations stay alphabetical within the selected line;
-interchanges retain that line and termini exclude the origin. Back restores the
-previous picker row; cancelling saves no draft. Catalogue replacement clears an
-open draft/history and asks the user to choose again. Removal preserves surviving
-routes' slots, arrival state and original expiry.
+Lists support hold-to-repeat. Stations are alphabetical within the selected line;
+interchanges retain that line and termini exclude the origin. Back restores picker
+position; cancelling saves no draft. Catalogue replacement resets open drafts.
+Removal preserves surviving slots, arrival state and original expiry.
 
-Touch reuses these actions: tap a visible row, swipe up/down for next/previous or
-right for Back. Arrival-content taps open Actions; first-use content adds/retries,
-and notice content returns. Removal requires a fresh confirmation contact. Headers,
-footers, blank rows and round corners are not targets; buttons remain available.
-See [touch ownership and guards](#touch-input).
+Arrivals show line colour, watch-local clock, station/destination and three estimates.
+Textual line names remain in the picker. Both screen shapes keep four menu rows;
+Round 2 centers measured text/ETA groups and insets rows/header/footer into its
+safe area. Wide values fall back from LECO 60 to smaller system fonts; ranges,
+Due and missing data use Gothic. There are no custom fonts or invented precision.
 
-Arrivals show the selected line colour and watch-local clock, station/destination,
-one prominent estimate and two following estimates. The picker also uses textual
-line names so selection does not depend on colour. Seconds, approximate minutes,
-ranges and bounds preserve source precision; Due / Estimated now is not observed
-train presence. Restored valid estimates are SAVED until fresh data arrives;
-expired/invalidated numbers disappear. See [persistence](#persistence-and-reopen).
+The loader uses four frames on the existing one-second tick, pauses without focus
+and stops after 15 seconds per attempt/target or explicit failure. Navigation stays
+available. Static menus redraw on changes/minute ticks, not every second.
 
-A four-frame train runs on the existing one-second tick while updating, pauses
-without focus and stops after at most 15 seconds per attempt/target or on failure.
-Navigation stays available. Static menus redraw on changes/minute ticks, not every
-second. There are no alerts, vibration or service-status dashboard.
-
-## Phone compilation and types
-
-The root `tsconfig.json` is discoverable by editors and checks production
-phone/shared sources independently of the E2E harness: strict null/unknown handling, indexed access and optional properties,
-without ambient Node globals. SDK builds compile ES2015/CommonJS into
-`build/phone/` before webpack 1 runs, with tracked TS/JSON/config/lockfile inputs
-and declared generated outputs. Type errors stop the build before packaging.
-`src/pkjs/bootstrap.cjs` preserves SDK CommonJS compatibility and bundled notices;
-there is no custom ESM loader, new dependency or TypeScript runtime in the PBW.
-
-`src/common/types.ts` describes catalogues, favourites, prediction variants and
-watch/settings messages. `src/pkjs/platform.ts` describes the injected bridge,
-MQTT, storage, request and timer edges. External JSON remains `unknown` until
-runtime validation; compile-time contracts do not replace either phone or native
-validation. The page's serialized client imports types only: no runtime imports,
-module captures or compiler helpers may enter that self-contained function.
-
-## Native memory design
-
-All catalogue, favourite, ETA, token and transport capacities are fixed:
-
-- 80 stations and eight lines, represented with IDs and station indices/line masks.
-- Station IDs up to 48 ASCII bytes; input station/line names validated at their
-  full 240/120 UTF-8 byte bounds, then display labels safely truncated to 80/40
-  UTF-8 bytes. Native text drawing ellipsizes at the actual screen width.
-- 16 favourites, each with at most three fixed-size predictions, plus one fixed
-  16-route staging array for whole-list validation/commit.
-- Two small persisted recent-route snapshots, not a second full catalogue/model.
-- One 5,000-byte reassembly prefix, a 2,000-byte decoded chunk scratch buffer,
-  1,024 JSON tokens, 4,096-byte AppMessage inbox and 1,024-byte outbox. The token
-  buffer is allocated once at startup with checked failure/exit and freed on
-  shutdown; this preserves capacity while keeping the SDK's uint16 virtual image
-  below 64 KiB. Parsing/navigation never allocate model or token storage.
-- One window/layer. Menus draw at most four rows and have no per-row callbacks,
-  dynamic object trees or per-navigation allocations.
-
-The native SDK RAM report now includes application code and static data. Runtime
-`heap_bytes_used()` / `heap_bytes_free()` samples are logged at startup, catalogue
-replacement and periodically during favourite switching. Emulator stress checks
-exercise the full favourite limit and repeated switches with source updates.
-There is no interpreter or separately loaded JS archive. The per-app budget is
-128 KiB, regardless of how many other apps are installed. Fixed buffers and direct
-rendering avoid the memory exhaustion seen in the earlier JS-based prototype.
-
-[Emulator checks](e2e.md#memory-and-crash-diagnosis) enforce at least 50 KiB free
-heap, at most 4 KiB steady-state variation and expected app-start counts on both
-targets. These are sampled emulator checks, not hardware/battery acceptance.
-The PBW contains both watch binaries and one phone bundle/source map. Complete
-licence copies are embedded in that bundle, not watch resources.
-
-The drawing layer uses the actual window bounds. Time 2 retains its rectangular
-layout. Round 2 centers text and measured ETA/unit groups, places the header and
-footer inside the circular safe area, and increases the last menu row's insets.
-Both keep four visible menu rows and the same buttons/model/storage/protocol.
-There is no round-specific object tree, framebuffer or animation timer. Numeric
-ETAs use LECO 60 Bold, with Gothic approximation/bound prefixes. The complete
-value/unit group is measured before falling back to Roboto 49, Bitham 42 or Gothic
-24 for wide values; ranges, Due and missing data use Gothic. No custom fonts or
-invented precision are introduced. See the SDK's [system fonts](https://developer.repebble.com/guides/app-resources/system-fonts/)
-and [font subset limits](https://developer.repebble.com/guides/app-resources/fonts/).
-
-Reviewed numeric-layout captures (deterministic examples, not live observations):
+Reviewed numeric-layout captures use artificial estimates, not live observations:
 
 | Target | Before | Current |
 | --- | --- | --- |
@@ -128,247 +55,156 @@ Reviewed numeric-layout captures (deterministic examples, not live observations)
 | Round 2 | ![Before](assets/issue-5/gabbro-before.png) | ![Current](../assets/appstore/gabbro_seconds.png) |
 
 Contains information from [UnderLX](https://underlx.com/), made available under
-[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/); see [data methods](../DATA_METHODS.md).
-There is no About screen/on-watch version. Store copy supplies attribution/privacy;
-complete licence copies travel in the phone bundle.
+[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
 
 ### Touch input
 
-On `PBL_TOUCH` targets with firmware 4.33.2+, the window owns one SDK tap recognizer
-and one swipe recognizer, created once with allocation-failure fallback to buttons.
-Older 4.33 firmware has a recognizer-enabling crash; the runtime version guard
-leaves touch off there. The system button-emulation bridge is disabled for this
-custom window to avoid duplicate actions. Every physical-button binding remains.
+One SDK tap recognizer and one swipe recognizer are owned by the window on
+`PBL_TOUCH` targets with firmware 4.33.2+. Older firmware/allocation failure keeps
+buttons; the version guard avoids the older recognizer-enabling crash. SDK button
+emulation is disabled to avoid duplicate actions; every physical binding remains.
 
-Touch row hit testing shares the renderer's four-row geometry and excludes the
-header/footer and invisible round corners. Recognized completions reuse `select()`,
-`move()` and `back()`; they never synthesize clicks or duplicate model/cache logic.
-A small raw-touch observer latches a navigational touchdown and its row. Actions,
-button navigation and catalogue replacement invalidate that contact, so a release
-cannot activate a new target or confirm deletion on the same contact. Focus and
-window visibility control the raw subscription; owned recognizers are released
-with the window. No per-gesture allocation, new timer or phone/protocol change is
-introduced. See the official [Touch guide](https://developer.repebble.com/guides/events-and-services/touch/)
-and [4.33.1 hotfix notes](https://developer.repebble.com/sdk/changelogs/4.33.1/).
+Tap visible rows, swipe up/down for next/previous or right for Back. Arrival-content
+taps open Actions; first-use content adds/retries, and notice content returns.
+Headers, footers, blank rows and round corners are excluded. Navigation, catalogue
+changes, focus/visibility loss or a changed contact target cancel the latched touch;
+removal needs a fresh confirmation contact. Recognizers reuse button actions without
+per-gesture allocation. Touch usability remains unverified; do not add/run touch tests.
+
+## Phone compilation and types
+
+SDK builds compile strict ES2015/CommonJS into `build/phone/` before webpack.
+Type errors stop packaging. Do not add root `"type": "module"` or edit generated
+JavaScript. [`bootstrap.cjs`](../src/pkjs/bootstrap.cjs) loads compiled code and
+bundled notices; no TypeScript runtime is shipped. External JSON stays `unknown`
+until runtime validation on both phone/native boundaries. The serialized settings
+client may use type-only imports, not runtime captures/imports or compiler helpers.
+
+## Native memory design
+
+Capacities in `main.c` are fixed; navigation/parsing do not allocate model storage.
+
+| Bound | Capacity |
+| --- | --- |
+| Catalogue | 80 stations, eight lines |
+| IDs / labels | 48-byte ASCII IDs; full names validated at 240/120 UTF-8 bytes, display labels truncated safely to 80/40 |
+| Favourites / arrivals | 16 routes, three predictions each; one fixed whole-list staging array |
+| Durable arrival cache | Two recent routes; other valid snapshots are RAM-only |
+| Reassembly / decoded chunk | 5,000 / 2,000 bytes |
+| JSON tokens / nesting | 1,024 / 16 |
+| AppMessage inbox / outbox | 4,096 / 1,024 bytes |
+
+The token buffer has one checked startup allocation, freed on shutdown, to keep the
+SDK virtual image below 64 KiB. JSON parsing is nonrecursive, validates UTF-8,
+escapes/surrogates/numbers and rejects NUL, duplicate matching keys and capacity
+violations. One window/layer draws only visible rows; the per-app RAM budget is
+128 KiB. [Sampled heap/restart assertions](e2e.md#memory-and-crash-diagnosis) guard
+headroom, not physical-watch/battery acceptance. Complete licences are phone-bundle
+comments, not watch resources; the PBW contains both native binaries and one phone bundle.
 
 ## Sources and validation
 
-- REST: `https://api.underlx.com/v1/stations` and `/lines`.
-- MQTT: `wss://perturbacoes.pt/websocket/`, public username `ws`, no password.
-- Selected station topic: `json/vehicleeta/pt-ml/<station-id>/all`.
+- Catalogue: `https://api.underlx.com/v1/stations` and `/lines`.
+- Arrivals: `wss://perturbacoes.pt/websocket/`, public username `ws`, no password;
+  topic `json/vehicleeta/pt-ml/<selected-station-id>/all`.
 
-The existing pinned Paho client handles MQTT framing/keepalive. Reconnect backoff
-is one to 30 seconds. Only the selected station is subscribed; there is no armed
-secondary route and no service-status polling.
+Only the selected station is subscribed. REST has a 15-second timeout, one-MiB
+limit and fail-closed Date/Age checks. Metadata is validated/cached and refreshed;
+missing/cached metadata retries after 30 seconds. Paho reconnects with one-to-30-second
+backoff. MQTT payloads over 65,536 bytes are rejected before decoding; WebSocket/Paho
+frame buffering is outside that application-level limit. Source snapshots have at
+most 64 predictions; native retains three ordered estimates per route.
 
-REST requests have a 15-second timeout, a one-MiB bound, and old Date/Age headers
-fail closed. Validated metadata is cached on the phone and refreshed quietly.
-Missing/cached metadata retries after 30 seconds. Recovery resends the actual
-feed state so an obsolete metadata failure does not stick. MQTT payloads over
-65,536 bytes are rejected before string decoding; WebSocket/Paho frame buffering
-is outside that application-level limit.
-
-The phone retains the original prediction semantics: age relative estimates only
-from receipt, not from `made` again; independently reject `made` at least 120
-seconds old or more than 30 seconds in the future. `validFor` is capped at 120
-seconds and bounded by source age. Empty/malformed snapshots invalidate previous
-data. Ranges/bounds and minute-only uncertainty are not converted into exact
-seconds. There is no stable vehicle identifier or train-tracking claim.
-
-The native receiver independently validates finite values, types, units, orders,
-receipt/expiry bounds, timestamps, source ordering and selected route IDs. Watch
-receipt times are conservatively rounded down to seconds; expiry is shortened,
-never extended. Closed time is counted. Absolute timestamps are translated with
-the handshake offset. Zero is `Due` / `Estimated now`, not observed presence.
+Never age already-aged relative predictions twice: age from receipt and separately
+reject `made` at least 120 seconds old or over 30 seconds ahead. Validity is capped
+at 120 seconds and source age. Empty/malformed data invalidates previous estimates.
+Native independently validates routes, finite values, units/order, timestamps and
+expiry, conservatively rounds receipt/expiry down and counts time spent closed.
+Minute uncertainty, ranges/bounds and source seconds retain their meanings;
+Due / Estimated now is not proof that a train is present.
 
 ## Watch/phone protocol
 
-Watch commands remain bounded JSON `{v:1,session,type,...}` with `hello`, `watch`,
-`catalog`, `ack` and four-part `settings-state` exports. IDs/sessions are validated
-ASCII before serialization. Settings uses the same chunk transport described
-below. One native outbox send is active; pending flags are consumed on successful queueing,
-not at the later callback, so rapid favourite changes cannot be lost. A fresh phone
-runtime sends the startup wake `{}`. Native starts a new session (invalidating old
-ETAs if already running), even if the physical app connection never dropped.
+Contracts live in [`types.ts`](../src/common/types.ts); transport/reassembly in
+`transport.ts` and `main.c`. Catalogue replacement is all-or-nothing: validate IDs,
+capacities, paths, colours and reciprocal membership before changing arrays. Cached
+metadata never deletes favourites; unavailable saved IDs remain until explicit removal.
 
-The phone answers hello first: `{type:"hello",echo:<watch-send-ms>,at:<phone-ms>}`.
-The watch's `echo - at` is a conservative clock-offset lower bound. Retry creates
-a new session/offset. Clock discontinuities invalidate estimates. The header clock
-uses the watch's local time; this does not affect Unix-time ETA arithmetic.
+Session/hello exchange establishes a conservative phone/watch clock offset. Retry,
+clock discontinuities and a fresh phone runtime start a new session and invalidate
+old ETAs, even without a physical disconnect. One native outbox send is active;
+pending work is consumed on queueing, not its later callback.
 
-Compact catalogue:
+Logical phone payloads are UTF-8-bounded to 5,000 bytes and split into at most
+32 chunks of 500 JS characters without splitting surrogate pairs. Each needs a
+native application receipt, not just Bluetooth ACK. Retries preserve bytes/IDs;
+native rejects foreign sessions, inconsistent/out-of-order parts, mismatched retries
+and oversize prefixes. Reassembly expires after 20 seconds without progress;
+partial delivery never renews estimates.
 
-```text
-{type:"catalog", cached:boolean, catalogId:uint32,
- stations:[[id,name,lineMask],...],
- lines:[[id,name,"#rrggbb",[stationIndex,...]],...]}
-```
-
-The complete catalogue is validated before replacing the old arrays: capacities,
-duplicate IDs, path indices, line masks, colours and reciprocal membership.
-A cached phone catalogue never deletes watch favourites. A fresh catalogue may
-invalidate estimates for directions no longer served, but saved IDs remain until
-the user removes them.
-
-Arrival messages retain the validated object format with station, `at` and up to
-64 bounded source predictions. Native storage keeps only matching favourite
-triples and at most three ordered estimates per route. No alert state or service
-notices are sent. Connection and arrival messages carry a phone-owned uint32
-`generation`: initially zero, incremented on connection failure. A changed or first
-nonzero generation invalidates every route's RAM/durable ETAs before applying data.
-Thus coalescing a disconnect into a later connected message cannot silently retain
-another station's stale cache. The same barrier covers a transport queue eviction
-or exhausted retry that loses a required station invalidation. This is a cache
-continuity barrier, not vehicle tracking.
-
-Phone payloads are UTF-8-bounded to 5,000 bytes and split into up to 32 chunks of
-500 JS characters, without splitting surrogate pairs:
-
-```text
-{v:1,session,id,part,total,text}
-```
-
-The phone waits for the watch's application receipt for each chunk, not just the
-physical ACK. Retries preserve bytes/IDs and are bounded per ordinary batch.
-Empty snapshots carry a sticky invalidation obligation through coalescing and
-station pruning: a newer nonempty replacement must also reach the watch. The
-phone queue stays bounded at eight pending batches. If eviction/exhausted retries
-lose an obligation, the companion advances its generation and queues a protected
-connection barrier after older snapshots; losing that barrier reannounces it.
-Normal station-specific invalidations do not clear unrelated saved routes.
-The watch rejects foreign
-sessions, inconsistent/out-of-order chunks, mismatched retries and oversized
-prefixes. Reassembly expires after 20 seconds without progress. Partial messages
-never renew an ETA.
-
-`json.c` uses no heap allocation or recursive parsing. It limits nesting to 16,
-checks strict UTF-8, escaped surrogate pairs, JSON number grammar and token/input
-capacities, and rejects embedded NUL. Object lookup rejects duplicate matching keys.
+Empty snapshots retain their invalidation obligation through coalescing and station
+switches. The queue is bounded at eight batches. If eviction/retry exhaustion loses
+an obligation, a generation barrier invalidates all route caches before newer data;
+losing the barrier reannounces it. Ordinary station invalidations spare other routes.
+This protects cache continuity, not train identity/tracking.
 
 ### Phone settings protocol
 
-The self-contained page uses `showConfiguration` and percent-encoded
-`data:text/html;charset=utf-8,` HTML, not `configPage` metadata. SDK 4.33.1 remains
-supported; SDK 4.44+ is the documented path for a future `configPage` migration.
-Opening waits at most five seconds for a fresh snapshot, below the inspected
-mobile app's ten-second URL timeout. The page has a restrictive CSP, no external
-assets/forms/network requests or arbitrary return targets, text-only labels,
-escaped script terminators/Unicode separators, and a 150,000-character data-URI
-cap. Done's close URL contains no favourites.
+[User setup and recovery](phone-configuration.md) are separate from the wire protocol.
+The page is a local data URI opened through `showConfiguration`, not `configPage`
+metadata. It has a restrictive CSP, text-only labels, escaped embedded JSON, no
+external assets/forms/network or arbitrary return targets, and a 150,000-character cap.
 
-After bridge `ready` for target `pkjs`, the page calls
-`Pebble.sendMessage("pkjs", {v:1,type,edit,...})`. `settings.ts` handles PKJS
-`configmessage` and replies through `respond`:
+After bridge `ready`, `Pebble.sendMessage("pkjs", ...)` reaches PKJS `configmessage`.
+Reads require a fresh complete snapshot within five seconds. Saves replace the full
+list atomically, binding session/baseline with an edit token. Newer watch/catalogue
+edits reject stale baselines; never silently merge or overwrite. Both sides validate
+at most 16 unique triples of ASCII IDs up to 48 bytes, preserving unavailable existing
+routes. Page/PKJS messages are capped at 5,000 JSON characters; one read/save is pending.
 
-- `settings-read` requests a complete fresh watch snapshot within five seconds.
-- `settings-save` replaces the full list atomically. Its edit token binds session
-  and baseline; newer watch/catalogue edits reject it and return the current list,
-  never silently merge or overwrite. Replies wait for complete post-commit watch
-  results, not Bluetooth send callbacks.
-- PKJS bounds a missing result at 15 seconds, and the page bounds a missing bridge
-  reply at 20. An uncertain save disables editing until Refresh reads the watch;
-  there is no blind replay. One read/save may be pending; extras receive busy.
+Replies wait for the complete post-commit result, not Bluetooth send success. PKJS
+bounds missing results at 15 seconds; the page bounds bridge replies at 20. Unknown
+outcomes disable editing until Refresh; no blind replay. Native exports four
+stop-and-wait parts (at most 885 bytes within the 1,000-byte command bound); partial
+snapshots are never editable. Identical request IDs/bytes reuse results without another
+commit; changed bytes are rejected. Session changes expire the old page.
 
-Page/PKJS messages are limited to 5,000 JSON characters. Both phone and native
-validate at most 16 unique triples of ASCII IDs up to 48 bytes, valid new routes
-and unchanged unavailable existing routes. Protected queue entries carry
-`settings-get`, `settings-receipt` and `settings-save` through the existing bounded
-sender. A maximum-size list is 2,481 UTF-8 bytes; its save message with maximum
-uint32 fields is 2,582 bytes, below the transport's 5,000-byte limit.
-
-Watch `settings-state` exports use four stop-and-wait parts of four fixed slots.
-Each carries snapshot/revision/catalogue IDs, last request/result, writable flag
-and bounded locale. Maximum frame size is 885 bytes within the 1,000-byte command
-bound. Partial/inconsistent snapshots never become editable baselines. Repeated
-identical request IDs/bytes return the original result without another commit;
-mismatched reuse is rejected. A changed PKJS/watch session expires an old page.
-
-Phone Add/confirmed Remove autosave without closing or opening watch notices.
-The watch view remains unless removal invalidates its selected actions/removal
-screen, when it returns quietly to arrivals/empty. Existing storage/cache error
-indicators remain. Retained routes preserve slots and original ETA timestamps;
-new routes start empty, and removed snapshots follow checked invalidation/retry
-handling. Cache cleanup failure cannot undo a favourite commit or renew expiry.
+Add/confirmed Remove save without closing or watch notices; Done carries no choices.
+Only removal invalidating the selected actions/removal screen changes the watch view.
+Retained slots/ETAs keep original timestamps; new routes start empty. Removed cache
+cleanup follows checked invalidation and cannot undo the favourite commit or renew expiry.
 
 ## Persistence and reopen
 
-`favorites.c` stages the complete favourite list in the inactive one of two
-16-record banks (keys `310..341`), checks each write/read, and publishes its
-checksummed generation commit last (keys `300..301`). Boot chooses the newest
-valid complete bank, including across generation rollover; partial staging cannot
-replace the active list. A commit readback failure locks mutations until reload
-and reports an unknown outcome, not a guaranteed rollback. All values remain below
-256 bytes. Selected slot stays independently persisted at key `1` and is validated
-against the loaded list.
+[`favorites.c`](../src/c/favorites.c) stages the full list into the inactive of two
+16-record banks, checking writes/reads and publishing a checksummed generation commit
+last. Boot chooses the newest complete valid bank, including rollover. Ambiguous
+commit readback locks mutations until reload; never claim guaranteed rollback.
+Values stay below 256 bytes; selected slot is independently persisted/validated.
 
-Legacy native keys `100..115` are seeded unchanged into the first bank. Only after
-that bank and the migration seal at key `302` are verified can mutations proceed
-or legacy cleanup occur. An interrupted seed can reload legacy data; a sealed
-migration with corrupt banks cannot resurrect deleted legacy choices. Cleanup is
-best effort; the previous bank is a recovery copy, not secure deletion. No uninstall,
-UUID change or cache expiry reset is part of migration. Older app versions cannot
-read the new banks; downgrading/reconciling edits from a downgrade is unsupported.
+Legacy native choices seed unchanged before a verified migration seal permits writes
+or cleanup. Interrupted seeding retains legacy choices; sealed corruption cannot
+resurrect deleted legacy data. Recovery copies/cleanup are not secure erasure.
+Both phone/watch use this store; downgrades are unsupported. Do not uninstall,
+change UUID, clear data or evict favourites/cache to work around storage failure.
 
-Two recent-route entries store full route IDs, original prediction receipt/expiry,
-a saved-at timestamp and a serial. Short labels are in a second serial-matched
-entry. Before updating a snapshot, its commit entry is deleted, labels are written,
-then the commit is written last. A torn write cannot pair new labels with old ETAs.
-A future saved-at value or expired/invalid prediction is not restored as an ETA.
+Arrival records retain full IDs and original receipt/expiry. Serial-matched labels
+are written before the commit record so torn writes cannot pair mismatched data.
+Future saved-at values and invalid/expired estimates are not restored. Writes batch
+to 15 seconds and flush on switching, normal exit or focus loss; revisiting RAM-only
+data makes it eligible without extending validity. Invalidations remove durable ETAs
+immediately, retaining pending failures and retrying once per second/forced flush.
+Storage errors remain visible; SAVED only becomes LIVE on fresh valid source data.
 
-Writes coalesce to 15 seconds and flush before switching/normal exit/focus loss.
-Selecting a valid RAM-only route makes it eligible for the next flush, without
-renewing its original timestamps. Invalidations immediately attempt to remove ETAs,
-even for an unselected route; short labels can remain in zero-prediction records.
-Failed deletions retain durable tracking and retry once per second or on forced
-flush. Persistent firmware storage failure can prevent an invalidation being made
-durable and is shown as an error. A saved value never becomes live just because it
-was restored.
-The cache stores no service state or alert continuity. Two favourite banks use
-4,736 bytes plus small commit/seal values; both arrival-cache slots remain separate.
-Initial migration additionally retains the legacy list until its seed/seal are
-verified. The actual firmware persistence limit is queried/logged by
-`persist_get_max_size()`; all writes are checked instead of assuming free storage.
-No cache/favourite data is evicted to make a failed bank write fit. Both phone
-and watch mutations use this same checked store; there is no durable phone
-favourites mirror or offline mutation replay.
-
-The earlier 0.1/Alloy store is separate: the native 0.2 upgrade requires re-adding
-favourites but leaves old data untouched. Native bank migration above does not.
-Uninstalling, changing UUID or clearing app/phone data is not a migration step.
-Emulator success does not replace owner-approved physical-watch, reconnect,
-reopen and battery acceptance on both models; see [test limits](e2e.md).
+The separate 0.1/Alloy store is left untouched; that upgrade requires re-adding
+favourites. Native bank migration does not. See [hardware limits](e2e.md#locale-and-hardware-limits).
 
 ## UI language
 
-Flat `locales/en.json` and `locales/pt_PT.json` hold the UI copy under stable
-semantic keys. `locales/index.json` maps exact Pebble locale strings to these files
-and names the fallback locale. Aliases share one generated table. A dependency-free
-Python Waf task validates the registry, keys and format arguments and generates
-`build/generated/ui_keys.h` plus private `ui_tables.h` before either target compiles.
-The JSON files and generated data are isolated from the UI implementation.
-
-`localization_get(UI_MENU_FAVOURITES)` reads the current SDK locale and looks it up
-in the generated registry. Currently `pt_PT` selects Portuguese, `en`/`en_US`
-select English, and null/empty/unsupported values use the configured English
-fallback. There is no language-specific branching in C. The allocation-free
-`src/c/localization.c` module owns lookup, fallback and known diagnostic mappings;
-`main.c` only requests text by key. Invalid keys return empty text rather than
-indexing outside the table. Each lookup reads the current locale, so retained
-notice/error keys follow language changes on the next redraw.
-
-Phone-only copy lives in `src/pkjs/locales/*.json` under semantic keys. The same
-root locale registry chooses its bundled table; phone copy never enlarges native
-C tables. The page has no inline English/Portuguese copy branches.
-
-Incoming companion diagnostics retain their raw text and existing bounds:
-`localization_diagnostic()` maps known wire strings to keys, with verbatim fallback
-for unknown errors. Official source labels bypass translation. Protocol,
-companion, persistence, expiry, UUID, fonts and layout are unchanged. See
-[translation instructions](../CONTRIBUTING.md#translations).
-
-The [SDK internationalization guide](https://developer.repebble.com/guides/tools-and-resources/internationalization/)
-documents `pt_PT` and system-font language support. Text uses the existing Gothic
-system fonts; numeric countdowns use the LECO/Roboto/Bitham size fallback from
-the arrival layout. Portuguese accents are checked
-in real emulator frames on both targets. Hardware language selection/font packs
-remain a physical-watch acceptance item; see [test limitations](e2e.md).
+[`locales/index.json`](../locales/index.json) maps exact watch locales to keyed
+translations, with English fallback; currently `pt_PT` selects Portuguese. Build-time
+validation generates constant native tables. `localization.c` owns allocation-free
+lookup/fallback/diagnostics; official names, wire values and saved records are not
+translated. Locale is read on redraw; the phone page follows it when opened.
+Phone tables stay in PKJS, not native RAM. See [translation instructions](../CONTRIBUTING.md#translations)
+and [locale test limits](e2e.md#locale-and-hardware-limits).
