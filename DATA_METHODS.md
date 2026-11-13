@@ -75,12 +75,11 @@ description, preserve ODbL for data adaptations, supply complete applicable lice
 copies in the PBW, and disclose that screenshot estimates are artificial. Do not
 apply additional restrictions to UnderLX-derived data. Normal publisher/agreement,
 privacy, version, package and explicit submission-approval checks still apply.
-No public application-source ZIP, GitHub history or methods offer is promised.
 
 ### When this assessment must be revisited
 
 Reassess before bundling/exporting a catalogue or live snapshots, serving processed
-data from a backend, publishing the fixture/data itself, or replacing these small
+data from a backend, adding new fixture datasets, or replacing these small
 example images with substantial real-data outputs. Changes to sources, additional
 contents or upstream terms also require review. Do not assume software exclusion,
 local caching, public-domain facts or absence of a backend is a universal exemption.
@@ -105,18 +104,16 @@ synthetic paths for additional lines. All injected arrivals are artificial.
 The provider's developer portal, service terms and ODbL 4.4–4.6 were rechecked
 for this review; this is a maintainer assessment, not legal certification.
 
-When distributing the source snapshot, retain the versioned [fixture and spec
-inputs](e2e/) (including [`metro-fixture.ts`](e2e/metro-fixture.ts)), the
-transformation implementations below, this attribution and the ODbL text. These
+The versioned [fixture and spec inputs](e2e/) (including
+[`metro-fixture.ts`](e2e/metro-fixture.ts)) and transformation implementations below
 provide the fixture's machine-readable contents and exact generation/alteration
-methods, including synthetic additions; data remains ODbL while harness code
-remains 0BSD. Verify free recipient access at the published revision, including
-matching materials for any older
-fixtures/screenshots/history exposed. This is not an offer of an upstream live
-database or a requirement to publish unrelated source or users' caches. Private
-or expiring links cannot replace applicable recipient access. Publishing an
-existing repository also exposes older history/artifacts: the owner must approve
-that scope and resolve or accept remaining review limitations separately.
+methods, including synthetic additions. Data remains ODbL while harness code
+remains 0BSD. Retain these files, attribution and the ODbL text when redistributing;
+provide matching, freely accessible materials for each distributed version,
+including older fixtures/screenshots. Private or expiring links cannot replace
+applicable recipient access. This is not an archive of an upstream live database
+or a requirement to publish unrelated source or users' caches. The current
+assessment does not retroactively certify every historical artifact.
 
 ## Inputs and alterations
 
@@ -150,8 +147,8 @@ stations/lines and every injected arrival estimate are artificial. Treat the
 fixture data and its additions as ODbL 1.0 data; the test harness code remains
 0BSD. The store assessment covers its prepared example screenshots; the source
 distribution assessment above separately addresses the complete current fixture.
-Reassess substantially different data/outputs and each historical version before
-including them in an approved publication.
+Reassess substantially different data/outputs separately; each historical version
+retains its own applicable data/methods and notice requirements.
 
 Screenshots render that example data, not live observations. Original UI/artwork
 rights do not relicense the displayed UnderLX-derived facts. Keep the following

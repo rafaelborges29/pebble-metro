@@ -7,18 +7,18 @@ Use the approved [release workflow](releases.md) for binary updates; do not crea
 another app or change its UUID. Rebble differences are below; its historical
 first-release receipt is retained in [issue #9](https://github.com/rafaelborges29/pebble-metro/issues/9).
 
-This guide maintains listing copy and manual dashboard requirements, not approval
-to upload, accept legal terms or change visibility. Source publication and
-repository visibility require separate owner approval.
+This guide maintains listing copy and dashboard requirements. Review uploads,
+legal terms and store-visibility changes with the owner.
 
 ## Listing changes
 
 Use the [Pebble Developer Dashboard](https://developer.repebble.com/dashboard)
 for text, images, URLs and visibility. Release automation preserves these fields.
-Review the exact copy/assets and public publisher/contact details with the owner
-before changing them. Website and source fields are optional: leave them blank
-until public destinations are approved; never link private GitHub pages or derive
-a support address from commit metadata.
+Review the exact copy/assets and publisher/contact details with the owner before
+changing them. Use the [public repository](https://github.com/rafaelborges29/pebble-metro)
+for website/source links and [GitHub Issues](https://github.com/rafaelborges29/pebble-metro/issues)
+for ordinary support. Vulnerabilities follow [SECURITY.md](../SECURITY.md), not
+public issues. Do not derive a support address from commit metadata.
 
 Uploads/visibility changes can take effect immediately, without a review queue.
 **Unlisted** is shareable and installable, not private staging. **Hidden** is not
@@ -103,7 +103,8 @@ clearly on rejection rather than inferring a maximum from an accepted upload.
 - **Name/type/category:** Metro Lisboa / Watchapp / Daily (confirm dashboard label).
 - **Compatibility:** Time 2 and Round 2 with Android only; Round 2 hardware
   acceptance is pending. Do not claim original Time Round, other watches or iOS.
-- **Website/source/support:** only approved public destinations, otherwise blank.
+- **Website/source:** `https://github.com/rafaelborges29/pebble-metro`.
+- **Support:** `https://github.com/rafaelborges29/pebble-metro/issues` for ordinary bugs/features.
 - **Custom Android companion:** none; PKJS runs inside the normal Pebble app.
 - **Notices/privacy:** complete licences in the PBW; prominent policy below.
 
@@ -178,8 +179,8 @@ https://underlx.com/terms for the providers' published information.
 
 For Rebble, also include `https://rebble.io/privacy/` as its provider-policy
 reference. Review applicable [Pebble policies](https://developer.repebble.com/legal/program-policies/)
-and [Rebble terms](https://rebble.io/tos/) before approved submissions. Do not
-promise public source or expose user data to satisfy an optional field.
+and [Rebble terms](https://rebble.io/tos/) before approved submissions. Never
+expose user data or credentials to satisfy an optional field.
 
 ## References
 

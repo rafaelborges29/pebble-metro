@@ -124,8 +124,9 @@ the original candidate. See [release verification and recovery](releases.md).
 Per-target and merged artifacts retain reports, traces, native frames, logs,
 heap samples and resource timings for seven days. Diagnostic artifacts also
 include source, fixtures, locales, tools and licence/data notices for
-reproducibility. They are private only while repository access is private: audit
-them before source publication. They are not a public ODbL methods offer.
+reproducibility. These diagnostics are public: use fixture data only, never
+credentials, phone storage or personal/device logs. Expiring CI artifacts do not
+replace versioned ODbL data/methods access.
 
 The SDK cache is scoped to its installation directory, keyed by OS/architecture
 and exact SDK/tool/libpebble2/Node/Python patch versions, without fallback keys.

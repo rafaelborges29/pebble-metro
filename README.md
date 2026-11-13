@@ -7,6 +7,8 @@ TypeScript/PebbleKit JS phone companion connecting directly to
 **Get the app:** [Pebble Appstore](https://apps.repebble.com/dce54d3eb02943f1935e1529)
 · [Rebble Appstore](https://apps.rebble.io/en_US/application/6af0e5dfb99ed90009374190).
 
+**Source:** [GitHub](https://github.com/rafaelborges29/pebble-metro).
+
 **Supported:** Pebble Time 2 (`emery`, 200×228), Pebble Round 2 (`gabbro`,
 260×260), firmware 4.33+, and Android. Original Time Round (`chalk`), other watches
 and iOS are not supported. Round 2 has emulator coverage; physical-watch acceptance

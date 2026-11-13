@@ -21,9 +21,8 @@ before preparing a release.
 
 Before an approved release:
 
-1. GitHub releases and automatically generated tag source archives inherit
-   repository visibility. Store publication does not authorize changing source
-   visibility; that decision needs separate owner approval.
+1. GitHub releases and automatically generated tag source archives are public;
+   preserve their exact source/version provenance.
 2. Permit the workflow token to create `release/*` / `chore/next-*` branches and
    `v*` tags, open PRs and dispatch checks, but not bypass main protection. In
    **Actions → General → Workflow permissions**, allow GitHub Actions to create
@@ -179,12 +178,11 @@ Each published GitHub release contains generated notes and:
 No credentials, device logs, screenshots, test reports or internal evidence are
 release assets. Each target's `release-test-diagnostics-emery` /
 `release-test-diagnostics-gabbro` artifact and the merged `release-test-diagnostics`
-report are retained for seven days, on success as well as failure. Access follows
-repository visibility; do not assume these diagnostics stay confidential after a
-public transition. Test-job setup failures may have no blob to merge; they still
-block publication. The tested
-candidate artifact is retained for 30 days; once staged,
-the draft/release also retains its candidate indefinitely until deliberately removed.
+report are retained for seven days, on success as well as failure. These
+diagnostics are public: never include credentials, personal/device data or
+internal-only material. Test-job setup failures may have no blob to merge; they
+still block publication. The tested candidate artifact is retained for 30 days;
+once staged, the draft/release retains it indefinitely until deliberately removed.
 
 The existing **0.2.0** store upload is historical. This automation will not rebuild,
 backfill, retag or replace it. Keep its original source/artifact record separately.
