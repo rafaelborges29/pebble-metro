@@ -33,11 +33,10 @@ store description; an optional website field or a link to `PRIVACY.md` does
 not replace it. Recheck privacy statements, permissions and compatibility against
 the exact published version, not an unreleased main snapshot.
 
-Preserve [UnderLX attribution and the assessed data scope](../DATA_METHODS.md),
+Preserve [UnderLX attribution and data terms](../THIRD_PARTY_NOTICES.md#underlx-data),
 complete licence copies in the phone bundle, and artificial-screenshot disclosure.
-The software-only store assessment does **not** cover publishing repository
-fixtures/history. Reassess changed data distribution; no blanket permission-email
-or public application-source requirement is assumed.
+Review changed data distribution against those terms; do not assume attribution
+alone covers every dataset or output.
 
 ## Assets and limits
 

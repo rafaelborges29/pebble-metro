@@ -18,24 +18,30 @@ snapshots and the UnderLX-derived facts in fixtures/screenshots. Test arrival
 values and extra stress-test stations are artificial, not live observations.
 No full live database is bundled in the repository or PBW.
 
-**[Store-client/data assessment](DATA_METHODS.md):** the PBW distributes software,
-not an UnderLX database. Users fetch directly from UnderLX and cache
-locally; the store images use a small example catalogue and artificial estimates.
-The maintainer's documented assessment identifies no additional public data/methods
-download or individual permission prerequisite for this release. This is not legal
-certification or a blanket exemption: publishing a Derivative Database or a
-Produced Work from one can trigger ODbL sections 4.4(c)/4.6 and must be reassessed.
-A required offer cannot be replaced by attribution or a private repository link.
-Repository source distributions include fixture data and generation methods, assessed
-separately in [source distribution and fixture access](DATA_METHODS.md#source-distribution-and-fixture-access).
-Preserve matching versioned data/methods, attribution and licence notices with
-redistributed data and shared screenshots.
+The app fetches catalogue/arrivals directly from UnderLX and caches locally.
+Normalization, filtering and prediction timing are implemented in
+[`src/common/metro.ts`](src/common/metro.ts); compact catalogue encoding and phone
+caching in [`src/pkjs/companion.ts`](src/pkjs/companion.ts); native validation,
+rendering and persistence in [`src/c/main.c`](src/c/main.c). See
+[architecture](docs/architecture.md) for the data flow and bounds.
 
-The README and store description carry UnderLX/ODbL attribution and the
-provider/licence URLs. The store description supplies privacy information; the
-phone bundle contains these notices and complete licence copies. The watch has
-no About screen. Recheck provider-specific exceptions when adding data. See
-[DATA_METHODS.md](DATA_METHODS.md) for the assessed scope and reassessment triggers.
+The complete [fixture and spec inputs](e2e/), including
+[`metro-fixture.ts`](e2e/metro-fixture.ts), provide machine-readable example data
+and generation methods. The base catalogue uses three UnderLX-derived stations;
+additional stress stations and arrival estimates are artificial. Fixture data
+and additions remain ODbL; harness code remains 0BSD. Fixtures are not in the PBW.
+
+Preserve attribution/licence notices with redistributed data and screenshots.
+Public use of a Derivative Database or Produced Work from one can trigger ODbL
+4.4(c)/4.6: provide the complete machine-readable database or all alterations/
+generation methods, including additions, freely over the internet at the matching
+version. Attribution or expiring/private links alone cannot replace applicable
+access. Do not impose additional restrictions on these data or expose users'
+personal caches. Recheck obligations when changing sources or distributed data.
+
+The README/store description carry UnderLX/ODbL attribution and provider/licence
+URLs. Store copy supplies privacy information; the phone bundle contains these
+notices and complete licences. The watch has no About screen.
 
 This is an independent application, not affiliated with or endorsed by UnderLX or
 Metro de Lisboa. The project/data licences do not grant third-party branding
@@ -93,7 +99,6 @@ store installation; they are not watch resources and add no native watch RAM.
 The build tracks these files so changes refresh the bundled copies. A repository
 link or an optional download ZIP is not the licence-copy delivery path.
 
-The current client/data assessment is recorded above; packaging alone would not
-settle access obligations for a changed data-distribution model. See the
-[publishing guide](docs/appstore.md) for submission requirements.
+Packaging alone does not settle data-access obligations. See the UnderLX terms
+above and the [publishing guide](docs/appstore.md) for distribution requirements.
 Re-audit the emitted bundle and SDK/toolchain terms when changing dependencies or SDKs.

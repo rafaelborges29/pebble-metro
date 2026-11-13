@@ -14,8 +14,8 @@ UnderLX hosted sources
 ```
 
 UnderLX-derived data and its adaptations retain ODbL 1.0; original software is
-0BSD. [DATA_METHODS.md](../DATA_METHODS.md) documents the exact inputs, alterations,
-fixture additions and the case-specific store-client/source-distribution assessments.
+0BSD. See [UnderLX data notices](../THIRD_PARTY_NOTICES.md#underlx-data) for
+attribution, fixture sources and redistribution terms.
 
 There are no alerts, vibration, disturbances, custom backend, background worker
 or watch-side JS runtime. No GPS or private Metro credentials. A self-contained
@@ -128,7 +128,7 @@ Reviewed numeric-layout captures (deterministic examples, not live observations)
 | Round 2 | ![Before](assets/issue-5/gabbro-before.png) | ![Current](../assets/appstore/gabbro_seconds.png) |
 
 Contains information from [UnderLX](https://underlx.com/), made available under
-[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/); see [data methods](../DATA_METHODS.md).
+[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/); see [data notices](../THIRD_PARTY_NOTICES.md#underlx-data).
 There is no About screen/on-watch version. Store copy supplies attribution/privacy;
 complete licence copies travel in the phone bundle.
 

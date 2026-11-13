@@ -20,7 +20,7 @@ remains pending.
 Screenshots use artificial emulator estimates, not live observations. Contains
 information from [UnderLX](https://underlx.com/), made available under
 [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
-See [data attribution and transformations](DATA_METHODS.md).
+See [UnderLX data notices](THIRD_PARTY_NOTICES.md#underlx-data).
 
 ## Features
 
@@ -117,8 +117,7 @@ See [development identities and hardware acceptance](CONTRIBUTING.md#development
 
 Original code and artwork use [0BSD](LICENSE), without an attribution requirement
 and without warranty. Third-party software and UnderLX-derived data retain their
-own terms: [third-party notices](THIRD_PARTY_NOTICES.md), [licence texts](LICENSES/)
-and [data methods](DATA_METHODS.md).
+own terms: [third-party notices](THIRD_PARTY_NOTICES.md) and [licence texts](LICENSES/).
 
 A distributed PBW contains extractable phone JavaScript and a source map.
 Do not put credentials or confidential data in the client bundle.
