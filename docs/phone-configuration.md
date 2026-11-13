@@ -80,5 +80,5 @@ The live bridge was inspected in Android tag 1.17.0.1:
 - [Preview gating](https://github.com/coredevices/mobileapp/blob/89f31dca3fd344ae9923fe9ca2f27b0f1f8a0230/pebble/src/commonMain/kotlin/coredevices/pebble/config/ConfigPageSession.kt)
 - [PKJS event/respond bridge](https://github.com/coredevices/mobileapp/blob/89f31dca3fd344ae9923fe9ca2f27b0f1f8a0230/libpebble3/src/androidMain/assets/startup.js)
 
-PBWs expose client HTML/JS/source maps, not private Git history. Source catalogue
-facts retain UnderLX/ODbL attribution; original page code remains 0BSD.
+PBWs contain extractable client HTML/JS/source maps; bundling is not a secrecy
+boundary. Catalogue facts retain UnderLX/ODbL attribution; original page code is 0BSD.

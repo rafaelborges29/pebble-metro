@@ -21,9 +21,9 @@ before preparing a release.
 
 Before an approved release:
 
-1. Keep the repository private. GitHub releases and automatically generated tag
-   source archives inherit that visibility; this does not change the public
-   store listings or approve the separate source-publication work.
+1. GitHub releases and automatically generated tag source archives inherit
+   repository visibility. Store publication does not authorize changing source
+   visibility; that decision needs separate owner approval.
 2. Permit the workflow token to create `release/*` / `chore/next-*` branches and
    `v*` tags, open PRs and dispatch checks, but not bypass main protection. In
    **Actions → General → Workflow permissions**, allow GitHub Actions to create
@@ -120,12 +120,14 @@ headers or redirects.
    rejected. Both validation steps require the downloaded provenance file to be
    present and nonempty, rather than letting packaging regenerate it. Both targets
    finish even if one fails. Their blob reports merge into
-   one private HTML/JUnit report; the report gate explicitly requires both target
+   one merged HTML/JUnit report; the report gate explicitly requires both target
    jobs to pass. Publication waits for all these jobs, then downloads the original
    candidate artifact. See the [hosted measurements](e2e.md#hosted-performance)
-   before changing concurrency. The pinned SDK cache contains no app build or
-   credentials; its exact key includes OS/toolchain/interpreter versions. No
-   physical watch or touch tests are run.
+   before changing concurrency. The SDK cache is scoped to its installation path,
+   not app builds; never write credentials there. Its exact key includes
+   OS/toolchain/interpreter versions. Fork PRs can access base-branch caches;
+   cache keys alone do not establish safe contents. No physical watch or touch
+   tests are run.
 4. Preflight verifies ZIP integrity and allowed entries, UUID, numeric release
    version, native header versions/UUIDs, both target manifests/binaries/resources,
    phone bundle, complete bundled licence notices, and the 4.4 MB size ceiling.
@@ -140,9 +142,8 @@ headers or redirects.
    matching upload before the first store POST. The publisher sends those exact
    bytes to Pebble, verifies its public PBW hash and freezes its receipt, then
    repeats for Rebble. Only after both match does it publish the GitHub release.
-   Store release notes use a deterministic public-safe version/platform summary;
-   generated GitHub notes stay on GitHub, not in either store's public changelog,
-   because they can contain private PR/source links.
+   Store release notes use a deterministic public-safe version/platform summary,
+   not GitHub-specific PR/source links. Generated release notes remain on GitHub.
 6. After publication, a separate job opens `chore/next-<version>` → main with one
    package/lockfile-version-only commit, then dispatches that branch's emulator
    CI. Review and merge it before another release; there is no automatic merge,
@@ -176,10 +177,12 @@ Each published GitHub release contains generated notes and:
   redirect URLs are not recorded.
 
 No credentials, device logs, screenshots, test reports or internal evidence are
-release assets. Each target's private `release-test-diagnostics-emery` /
+release assets. Each target's `release-test-diagnostics-emery` /
 `release-test-diagnostics-gabbro` artifact and the merged `release-test-diagnostics`
-report are retained for seven days, on success as well as failure. Test-job setup
-failures may have no blob to merge; they still block publication. The tested
+report are retained for seven days, on success as well as failure. Access follows
+repository visibility; do not assume these diagnostics stay confidential after a
+public transition. Test-job setup failures may have no blob to merge; they still
+block publication. The tested
 candidate artifact is retained for 30 days; once staged,
 the draft/release also retains its candidate indefinitely until deliberately removed.
 

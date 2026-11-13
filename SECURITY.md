@@ -1,10 +1,11 @@
 # Security
 
 Do not post credentials, real-device storage or exploit details in public issues.
-Use GitHub's **Security → Report a vulnerability** when available. If unavailable,
-use an existing private channel to the maintainer; no public reporting address or
-response-time commitment is established. A working private reporting route must
-be confirmed before this repository becomes public.
+Use [GitHub private vulnerability reporting](https://github.com/rafaelborges29/pebble-metro/security/advisories/new)
+(**Security → Report a vulnerability**) for confidential reports. This route must
+be enabled and verified during the public launch. If GitHub says reporting is
+unavailable, do not post sensitive details publicly; there is no separately
+published email fallback or response-time commitment.
 
 Include the affected version/commit, impact and minimal reproduction with
 artificial data. Review fixes against current main; older releases do not have a

@@ -18,16 +18,18 @@ snapshots and the UnderLX-derived facts in fixtures/screenshots. Test arrival
 values and extra stress-test stations are artificial, not live observations.
 No full live database is bundled in the repository or PBW.
 
-**[Current client/data assessment](DATA_METHODS.md):** this release distributes
-software, not an UnderLX database. Users fetch directly from UnderLX and cache
+**[Store-client/data assessment](DATA_METHODS.md):** the PBW distributes software,
+not an UnderLX database. Users fetch directly from UnderLX and cache
 locally; the store images use a small example catalogue and artificial estimates.
 The maintainer's documented assessment identifies no additional public data/methods
 download or individual permission prerequisite for this release. This is not legal
 certification or a blanket exemption: publishing a Derivative Database or a
 Produced Work from one can trigger ODbL sections 4.4(c)/4.6 and must be reassessed.
 A required offer cannot be replaced by attribution or a private repository link.
-No public application-source archive or available methods offer is promised here.
-Preserve attribution/licence notices with redistributed data and shared screenshots.
+Repository source distributions include fixture data and generation methods, assessed
+separately in [source distribution and fixture access](DATA_METHODS.md#source-distribution-and-fixture-access).
+Preserve matching versioned data/methods, attribution and licence notices with
+redistributed data and shared screenshots.
 
 The README and store description carry UnderLX/ODbL attribution and the
 provider/licence URLs. The store description supplies privacy information; the
@@ -88,8 +90,8 @@ Every normal build embeds `LICENSE`, this notice and the complete texts in
 `LICENSES/` as a comment in the phone JavaScript bundle, alongside the retained
 upstream copyright headers. The copies travel inside the PBW, including through
 store installation; they are not watch resources and add no native watch RAM.
-The build tracks these files so changes refresh the bundled copies. A private
-repository link or an optional download ZIP is not the licence-copy delivery path.
+The build tracks these files so changes refresh the bundled copies. A repository
+link or an optional download ZIP is not the licence-copy delivery path.
 
 The current client/data assessment is recorded above; packaging alone would not
 settle access obligations for a changed data-distribution model. See the

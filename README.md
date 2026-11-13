@@ -118,9 +118,8 @@ and without warranty. Third-party software and UnderLX-derived data retain their
 own terms: [third-party notices](THIRD_PARTY_NOTICES.md), [licence texts](LICENSES/)
 and [data methods](DATA_METHODS.md).
 
-The repository/history and source remain private pending the owner's publication
-approval. A distributed PBW contains extractable phone JavaScript and a source
-map; private Git hosting does not make that bundled code confidential.
+A distributed PBW contains extractable phone JavaScript and a source map.
+Do not put credentials or confidential data in the client bundle.
 
 Independent application, not affiliated with or endorsed by UnderLX or Metro de
 Lisboa. Data adaptations remain ODbL 1.0 unless the provider indicates otherwise.

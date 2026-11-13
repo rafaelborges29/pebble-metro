@@ -127,10 +127,12 @@ include source, fixtures, locales, tools and licence/data notices for
 reproducibility. They are private only while repository access is private: audit
 them before source publication. They are not a public ODbL methods offer.
 
-Only the pinned SDK directory is cached, keyed by OS/architecture and exact
-SDK/tool/libpebble2/Node/Python patch versions, without fallback keys. App builds,
-flash, managed emulators and credentials are never cached. npm/uv keep their
-normal dependency caches; there is no browser cache.
+The SDK cache is scoped to its installation directory, keyed by OS/architecture
+and exact SDK/tool/libpebble2/Node/Python patch versions, without fallback keys.
+App builds, flash and managed emulators are not configured cache paths. npm/uv
+keep their dependency caches; there is no browser cache. Fork PRs can read
+base-branch caches: never store credentials or confidential data in any cached
+path. See [GitHub's cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
 
 ### Hosted performance
 

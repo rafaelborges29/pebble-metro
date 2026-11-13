@@ -8,8 +8,8 @@ another app or change its UUID. Rebble differences are below; its historical
 first-release receipt is retained in [issue #9](https://github.com/rafaelborges29/pebble-metro/issues/9).
 
 This guide maintains listing copy and manual dashboard requirements, not approval
-to upload, accept legal terms or change visibility. The repository remains private
-pending a separate source-publication review and owner approval.
+to upload, accept legal terms or change visibility. Source publication and
+repository visibility require separate owner approval.
 
 ## Listing changes
 
@@ -29,7 +29,7 @@ published version silently. See [release recovery](releases.md#retry-and-rollbac
 
 The [distribution agreement §5.3](https://developer.repebble.com/legal/distribution/)
 requires a prominent privacy policy. Include the policy below directly in the
-store description; an optional website field or private `PRIVACY.md` link does
+store description; an optional website field or a link to `PRIVACY.md` does
 not replace it. Recheck privacy statements, permissions and compatibility against
 the exact published version, not an unreleased main snapshot.
 
