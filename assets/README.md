@@ -40,10 +40,10 @@ README or an accompanying caption):
 > ODbL 1.0 (https://opendatacommons.org/licenses/odbl/1-0/). Arrival values are
 > artificial examples, not live observations.
 
-The fixture data, added fictional stations, capture methods and case-specific
-release assessment are documented in the
-[data scope and client assessment](../DATA_METHODS.md). Reassess before publishing
-the fixture database itself or substantially different real-data imagery.
+Example data and generation methods live in the [fixture and spec sources](../e2e/),
+including [`metro-fixture.ts`](../e2e/metro-fixture.ts). Preserve the
+[UnderLX data notices and access terms](../THIRD_PARTY_NOTICES.md#underlx-data)
+when sharing data or substantially different imagery.
 
 ## Rebble-specific assets
 

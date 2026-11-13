@@ -64,7 +64,7 @@ declare global {
 
 // Base catalogue facts: UnderLX (https://underlx.com/), ODbL 1.0:
 // https://opendatacommons.org/licenses/odbl/1-0/
-// Fixture data/additions retain ODbL; harness code is 0BSD. See DATA_METHODS.md.
+// Fixture data/additions retain ODbL; harness code is 0BSD. See THIRD_PARTY_NOTICES.md.
 // These polls only read local event-fed state, never issue browser/watch RPCs.
 // Check promptly without changing assertion deadlines or production timers.
 const transportPollIntervals = [20, 50, 100];

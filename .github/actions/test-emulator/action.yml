@@ -56,7 +56,6 @@ runs:
           e2e-metrics/
           LICENSE
           THIRD_PARTY_NOTICES.md
-          DATA_METHODS.md
           LICENSES/
           src/
           locales/
